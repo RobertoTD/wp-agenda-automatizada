@@ -12,7 +12,7 @@
 - **Estado implementado** — lo que existe hoy en el repositorio.
 - **Mecanismo técnico pendiente** — diseño o código aún no aprobado o no construido.
 
-Hoy (tras A1a): schema `DB_VERSION=23`, catálogo con `amount` (`is_ready=false`), configuración C1a, **escritura atómica de valores** (`WriteBag`/handlers/effects), normalizador canónico paralelo y materialización de defaults al crear listas. **No** están lectura/UI ni `is_ready=true` (A1b).
+Hoy (tras A1b): schema `DB_VERSION=23`, catálogo con `amount` (`is_ready=true`, `scope=record`), configuración C1a, escritura atómica A1a, **lectura por lote + contribución SSR/UI** (contributors/presenters/módulo JS), lifecycle defaults `DEFAULTS_VERSION=2` (insert-if-missing de `finance`/`amount`). Listas existentes no reciben activación masiva.
 
 ---
 
@@ -179,25 +179,25 @@ No presentar bajar `DB_VERSION` como procedimiento ordinario de rollback. La ide
 
 ## 10. Estado implementado (inventario breve)
 
-Hechos del repositorio tras A1a (no sustituyen el paradigma):
+Hechos del repositorio tras A1b (no sustituyen el paradigma):
 
 - Persistencia universal `aa_canonical_*` con CRUD de `title` / `details` en el shell.
-- **C1a:** tablas de defaults/configuración/`record_amount`; catálogo con `amount` no ready; config Use Cases + Ops.
-- **A1a:** `CanonicalCapabilityWriteBag` + handlers/effects neutrales; `CanonicalRecordAmountRepository`; TX registro+efectos+touch; materialización atómica al crear listas; `AA_Canonical_Amount_Normalizer` en paralelo a Finance (sin delegación legacy). `amount` sigue `is_ready=false` en producto.
+- **C1a:** tablas de defaults/configuración/`record_amount`; config Use Cases + Ops.
+- **A1a:** `CanonicalCapabilityWriteBag` + handlers/effects; `CanonicalRecordAmountRepository`; TX registro+efectos+touch; materialización al crear listas; normalizador canónico paralelo a Finance.
+- **A1b:** `amount` **`is_ready=true`**; contributors de página + enrich en `build_records_view_data`; estados `known_value` / `known_absent` / `read_failed`; presenters + formulario genérico por clave + módulo JS amount; lifecycle `DEFAULTS_VERSION=2` insert-if-missing sin sobrescribir guardados; sin activación masiva de listas existentes.
 - Familia `finance` / `archive` en registry; enablement de familia.
-- Finance legacy operativo en paralelo (`module=canonical`, `aa_finance_*`); duplicación temporal del normalizador hasta retirada del legacy tras amount operativo en A1b (antes de imágenes).
-- Pendiente **A1b:** lectura/UI de `amount` y marcar `is_ready=true` (detalles de presentación siguen abiertos).
+- Finance legacy operativo en paralelo (`module=canonical`, `aa_finance_*`); duplicación temporal del normalizador hasta retirada del legacy (antes de imágenes).
 
 ---
 
 ## 11. Mecanismos técnicos pendientes (no cerrados en esta norma)
 
-Cerrados en C1a/A1a (inventario §10 / decisiones 27–28 del plan): schema/config, escritura atómica de `amount`, materialización al crear listas, normalizador canónico.
+Cerrados en C1a/A1a/A1b (inventario §10 / decisiones 27–29 del plan): schema/config, escritura atómica, lectura/UI amount, ready + seed insert-if-missing.
 
-Quedan abiertos para A1b u órdenes posteriores. **No** son arquitectura normativa cerrada aquí:
+Quedan abiertos para órdenes posteriores. **No** son arquitectura normativa cerrada aquí:
 
-- puntos mínimos de extensión de lectura y UI (A1b; sin fijar aquí semántica SSR ni compositor);
-- operación explícita de aplicación de capacidades a listas existentes;
-- retirada efectiva de Finance legacy (tras A1b; sin migración de datos vaciados).
+- operación explícita de aplicación de capacidades a listas existentes (Ops ya permite activación puntual);
+- retirada efectiva de Finance legacy (sin migración de datos vaciados);
+- totalización, API pública, Settings de capabilities, imágenes.
 
 Las alternativas exploradas en sesiones de diseño no obligan al diseño final.

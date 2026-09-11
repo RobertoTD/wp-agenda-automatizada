@@ -61,7 +61,9 @@ function createEl(id) {
 let documentRef;
 let lastFormData;
 
-function boot(fetchImpl, payloads) {
+function boot(fetchImpl, payloads, options) {
+    options = options || {};
+    const amountOffered = options.amountOffered === true;
     const openBtn = createEl('aa-shell-open-create-record-btn');
     const modal = createEl('aa-shell-record-modal');
     const form = createEl('aa-shell-record-form');
@@ -104,6 +106,15 @@ function boot(fetchImpl, payloads) {
         deleteBtns.push(delBtn);
     });
 
+    const amountWrap = createEl('aa-shell-record-amount-field');
+    amountWrap.classList.add('hidden');
+    const amountInput = createEl('aa-shell-record-amount');
+    amountInput.disabled = true;
+    const amountError = createEl('aa-shell-record-amount-error');
+    amountError.classList.add('hidden');
+    const amountUnavailable = createEl('aa-shell-record-amount-unavailable');
+    amountUnavailable.classList.add('hidden');
+
     const byId = {
         'aa-shell-open-create-record-btn': openBtn,
         'aa-shell-record-modal': modal,
@@ -117,6 +128,10 @@ function boot(fetchImpl, payloads) {
         'aa-shell-record-title-error': titleError,
         'aa-shell-record-status': statusEl,
         'aa-shell-record-submit-btn': submitBtn,
+        'aa-shell-record-amount-field': amountWrap,
+        'aa-shell-record-amount': amountInput,
+        'aa-shell-record-amount-error': amountError,
+        'aa-shell-record-amount-unavailable': amountUnavailable,
         'aa-shell-delete-record-modal': deleteModal,
         'aa-shell-delete-record-modal-backdrop': deleteBackdrop,
         'aa-shell-delete-record-modal-close-btn': deleteCloseBtn,
@@ -163,9 +178,13 @@ function boot(fetchImpl, payloads) {
                 deleteAction: 'aa_delete_canonical_record',
                 deleteNonce: 'delete-nonce',
                 familyKey: 'finance',
-                                containerId: 42,
-                maxTitleLength: 200
+                containerId: 42,
+                maxTitleLength: 200,
+                capabilityContributions: amountOffered
+                    ? { amount: { offered: true } }
+                    : {}
             },
+            AA_CANONICAL_SHELL_CAPABILITY_MODULES: {},
             location: {
                 assign(url) {
                     assignedUrl = url;
@@ -193,6 +212,13 @@ function boot(fetchImpl, payloads) {
         console
     };
 
+    const amountJsPath = path.join(
+        __dirname,
+        '../../includes/admin/ui/modules/canonical_shell/capabilities/canonical-shell-amount-field.js'
+    );
+    vm.runInNewContext(fs.readFileSync(amountJsPath, 'utf8'), env, {
+        filename: 'canonical-shell-amount-field.js'
+    });
     vm.runInNewContext(fs.readFileSync(jsPath, 'utf8'), env, {
         filename: 'canonical-shell-record-form.js'
     });
@@ -210,6 +236,10 @@ function boot(fetchImpl, payloads) {
         titleError,
         statusEl,
         submitBtn,
+        amountWrap,
+        amountInput,
+        amountError,
+        amountUnavailable,
         deleteTitleEl,
         deleteStatusEl,
         deleteConfirmBtn,
@@ -486,5 +516,96 @@ describe('canonical-shell-record-form', () => {
 
         ui.deleteReloadBtn._listeners.click[0]();
         assert.equal(ui.getAssignedUrl(), 'https://example.test/records?container_id=42');
+    });
+
+    it('amount offered: create muestra vacío y envía amount', async () => {
+        const ui = boot(
+            async () => ({
+                status: 200,
+                text: async () => JSON.stringify({
+                    success: true,
+                    data: { status: 'confirmed', redirect_url: 'https://example.test/ok' }
+                })
+            }),
+            [],
+            { amountOffered: true }
+        );
+        ui.openBtn._listeners.click[0]();
+        assert.equal(ui.amountWrap.classList.contains('hidden'), false);
+        assert.equal(ui.amountInput.disabled, false);
+        assert.equal(ui.amountInput.value, '');
+        ui.titleInput.value = 'Con cero';
+        ui.amountInput.value = '0';
+        ui.form._listeners.submit[0]({ preventDefault() {} });
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        assert.equal(ui.getLastFormData().amount, '0');
+    });
+
+    it('amount: limpia entre registros y omite read_failed', async () => {
+        const ui = boot(
+            async () => ({
+                status: 200,
+                text: async () => JSON.stringify({
+                    success: true,
+                    data: { status: 'confirmed', redirect_url: 'https://example.test/ok' }
+                })
+            }),
+            [
+                {
+                    id: 1,
+                    title: 'A',
+                    details: '',
+                    capabilities: { amount: { status: 'known_value', value: '7.25' } }
+                },
+                {
+                    id: 2,
+                    title: 'B',
+                    details: '',
+                    capabilities: { amount: { status: 'read_failed' } }
+                }
+            ],
+            { amountOffered: true }
+        );
+
+        ui.editBtns[0]._listeners.click[0]();
+        assert.equal(ui.amountInput.value, '7.25');
+        assert.equal(ui.amountInput.disabled, false);
+
+        ui.editBtns[1]._listeners.click[0]();
+        assert.equal(ui.amountInput.value, '');
+        assert.equal(ui.amountInput.disabled, true);
+        assert.equal(ui.amountUnavailable.classList.contains('hidden'), false);
+        ui.titleInput.value = 'B edit';
+        ui.form._listeners.submit[0]({ preventDefault() {} });
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        assert.equal(Object.prototype.hasOwnProperty.call(ui.getLastFormData(), 'amount'), false);
+    });
+
+    it('lista sin amount no monta contribución', () => {
+        const ui = boot(async () => ({ status: 200, text: async () => '{}' }));
+        ui.openBtn._listeners.click[0]();
+        assert.equal(ui.amountWrap.classList.contains('hidden'), true);
+    });
+
+    it('error invalid_amount en módulo amount', async () => {
+        const ui = boot(
+            async () => ({
+                status: 400,
+                text: async () => JSON.stringify({
+                    success: false,
+                    data: { code: 'invalid_amount', message: 'Importe inválido' }
+                })
+            }),
+            [],
+            { amountOffered: true }
+        );
+        ui.openBtn._listeners.click[0]();
+        ui.titleInput.value = 'X';
+        ui.amountInput.value = 'abc';
+        ui.form._listeners.submit[0]({ preventDefault() {} });
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        assert.equal(ui.amountError.textContent, 'Importe inválido');
+        assert.equal(ui.amountError.classList.contains('hidden'), false);
+        assert.ok(ui.statusEl.classList.contains('hidden') || ui.statusEl.textContent === '');
     });
 });

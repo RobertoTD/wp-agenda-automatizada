@@ -146,13 +146,20 @@ try {
         wp_set_current_user($admin_id);
         ac_assert('Usuario admin autenticado', is_user_logged_in() && current_user_can('manage_options'));
 
+        $enabled = $ops->set_family_default('finance', 'amount', true);
+        ac_assert('Admin + enable amount ready', is_array($enabled) && !empty($enabled['is_enabled']));
+
+        $not_ready_registry = (new AA_Canonical_Capability_Registry())
+            ->register(new AA_Canonical_Capability_Definition('amount', AA_Canonical_Capability_Definition::SCOPE_RECORD, false))
+            ->freeze();
+        $ops_nr = new AA_Canonical_Capability_Ops($repo, $family_registry, $not_ready_registry);
         $not_ready = false;
         try {
-            $ops->set_family_default('finance', 'amount', true);
+            $ops_nr->set_family_default('finance', 'amount', true);
         } catch (CanonicalCapabilityNotReady $e) {
             $not_ready = ($e->error_code() === 'capability_not_ready');
         }
-        ac_assert('Admin + enable amount → capability_not_ready', $not_ready);
+        ac_assert('Fixture !ready → capability_not_ready', $not_ready);
 
         $finance_id = $repo->resolve_family_id('finance');
         $now = gmdate('Y-m-d H:i:s');
@@ -176,13 +183,16 @@ try {
             && $snap->is_assigned('amount') === false
         );
 
+        $activated = $ops->set_container_activation('finance', $container_id, 'amount', true);
+        ac_assert('Activación lista amount ready', is_array($activated) && !empty($activated['is_active']));
+
         $activate_fail = false;
         try {
-            $ops->set_container_activation('finance', $container_id, 'amount', true);
+            $ops_nr->set_container_activation('finance', $container_id, 'amount', true);
         } catch (CanonicalCapabilityNotReady $e) {
             $activate_fail = true;
         }
-        ac_assert('Activación lista amount → capability_not_ready', $activate_fail);
+        ac_assert('Fixture !ready → activación lista rechazada', $activate_fail);
 
         $wrong_container = false;
         try {

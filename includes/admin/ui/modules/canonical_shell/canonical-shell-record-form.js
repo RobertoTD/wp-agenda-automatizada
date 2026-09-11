@@ -24,11 +24,104 @@
         ? cfg.containersPage
         : null;
     var maxTitleLength = typeof cfg.maxTitleLength === 'number' ? cfg.maxTitleLength : 200;
+    var capabilityContributions = (cfg.capabilityContributions && typeof cfg.capabilityContributions === 'object')
+        ? cfg.capabilityContributions
+        : {};
+    var capabilityModules = (window.AA_CANONICAL_SHELL_CAPABILITY_MODULES
+        && typeof window.AA_CANONICAL_SHELL_CAPABILITY_MODULES === 'object')
+        ? window.AA_CANONICAL_SHELL_CAPABILITY_MODULES
+        : {};
 
     if (!ajaxUrl || !createAction || !createNonce || !updateAction || !updateNonce
         || !deleteAction || !deleteNonce
         || !familyKey || !(containerId >= 1)) {
         return;
+    }
+
+    function offeredCapabilityKeys() {
+        var keys = [];
+        for (var key in capabilityContributions) {
+            if (
+                Object.prototype.hasOwnProperty.call(capabilityContributions, key)
+                && capabilityContributions[key]
+                && capabilityContributions[key].offered === true
+                && capabilityModules[key]
+            ) {
+                keys.push(key);
+            }
+        }
+        return keys;
+    }
+
+    function clearCapabilityModules() {
+        var keys = offeredCapabilityKeys();
+        for (var i = 0; i < keys.length; i++) {
+            var mod = capabilityModules[keys[i]];
+            if (mod && typeof mod.clear === 'function') {
+                mod.clear();
+            }
+        }
+    }
+
+    /**
+     * @param {object|null} recordCapabilities mapa por clave desde data-aa-record
+     * @param {boolean} isCreate
+     */
+    function applyCapabilityModules(recordCapabilities, isCreate) {
+        clearCapabilityModules();
+        var keys = offeredCapabilityKeys();
+        for (var i = 0; i < keys.length; i++) {
+            var key = keys[i];
+            var mod = capabilityModules[key];
+            if (!mod || typeof mod.apply !== 'function') {
+                continue;
+            }
+            if (isCreate) {
+                mod.apply({ status: 'known_absent' });
+                continue;
+            }
+            var state = null;
+            if (
+                recordCapabilities
+                && typeof recordCapabilities === 'object'
+                && recordCapabilities[key]
+                && typeof recordCapabilities[key] === 'object'
+            ) {
+                state = recordCapabilities[key];
+            }
+            mod.apply(state);
+        }
+    }
+
+    function clearCapabilityErrors() {
+        var keys = offeredCapabilityKeys();
+        for (var i = 0; i < keys.length; i++) {
+            var mod = capabilityModules[keys[i]];
+            if (mod && typeof mod.clearError === 'function') {
+                mod.clearError();
+            }
+        }
+    }
+
+    function collectCapabilityModules(body) {
+        var keys = offeredCapabilityKeys();
+        for (var i = 0; i < keys.length; i++) {
+            var mod = capabilityModules[keys[i]];
+            if (mod && typeof mod.collect === 'function') {
+                mod.collect(body);
+            }
+        }
+    }
+
+    function handleCapabilityError(code, message) {
+        var keys = offeredCapabilityKeys();
+        for (var i = 0; i < keys.length; i++) {
+            var mod = capabilityModules[keys[i]];
+            if (mod && typeof mod.handleError === 'function' && mod.handleError(code, message)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     var openCreateBtn = document.getElementById('aa-shell-open-create-record-btn');
@@ -152,7 +245,7 @@
         }
     }
 
-    function openModal(nextMode, recordId, titleValue, detailsValue, triggerEl) {
+    function openModal(nextMode, recordId, titleValue, detailsValue, triggerEl, recordCapabilities) {
         if (inFlight || deleteInFlight || deleteBlocked) {
             return;
         }
@@ -165,10 +258,15 @@
         setStatus('', false);
         setTitleError('');
         applyModeChrome();
+        clearCapabilityModules();
         titleInput.value = typeof titleValue === 'string' ? titleValue : '';
         if (detailsInput) {
             detailsInput.value = typeof detailsValue === 'string' ? detailsValue : '';
         }
+        applyCapabilityModules(
+            recordCapabilities && typeof recordCapabilities === 'object' ? recordCapabilities : null,
+            mode === MODE_CREATE
+        );
         modal.classList.remove('hidden');
         modal.setAttribute('aria-hidden', 'false');
         titleInput.focus();
@@ -182,6 +280,7 @@
         modal.setAttribute('aria-hidden', 'true');
         setStatus('', false);
         setTitleError('');
+        clearCapabilityModules();
         mode = MODE_CREATE;
         currentRecordId = null;
         applyModeChrome();
@@ -258,7 +357,10 @@
         return {
             id: id,
             title: typeof data.title === 'string' ? data.title : '',
-            details: typeof data.details === 'string' ? data.details : ''
+            details: typeof data.details === 'string' ? data.details : '',
+            capabilities: (data.capabilities && typeof data.capabilities === 'object')
+                ? data.capabilities
+                : null
         };
     }
 
@@ -299,6 +401,7 @@
         }
         setStatus('', false);
         setTitleError('');
+        clearCapabilityErrors();
         if (!clientValidate()) {
             return;
         }
@@ -322,6 +425,7 @@
         }
         body.append('title', titleInput.value);
         body.append('details', detailsInput ? detailsInput.value : '');
+        collectCapabilityModules(body);
         appendReturnContext(body);
 
         fetch(ajaxUrl, {
@@ -368,6 +472,9 @@
             if (code === 'invalid_title' || code === 'title_too_long') {
                 setTitleError(message || 'Revisa el título del registro.');
                 titleInput.focus();
+                return;
+            }
+            if (handleCapabilityError(code, message)) {
                 return;
             }
             setStatus(message || defaultErrorMessage(), true);
@@ -576,7 +683,7 @@
 
     if (openCreateBtn) {
         openCreateBtn.addEventListener('click', function () {
-            openModal(MODE_CREATE, null, '', '', openCreateBtn);
+            openModal(MODE_CREATE, null, '', '', openCreateBtn, null);
         });
     }
 
@@ -588,7 +695,7 @@
                 if (!record) {
                     return;
                 }
-                openModal(MODE_UPDATE, record.id, record.title, record.details, btn);
+                openModal(MODE_UPDATE, record.id, record.title, record.details, btn, record.capabilities);
             });
         })(editButtons[i]);
     }

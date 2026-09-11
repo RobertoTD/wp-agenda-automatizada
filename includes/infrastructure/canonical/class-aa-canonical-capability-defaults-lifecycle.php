@@ -1,9 +1,9 @@
 <?php
 /**
- * Canonical Capability Defaults Lifecycle — seeds de defaults sin sobrescritura (C1a).
+ * Canonical Capability Defaults Lifecycle — seeds de defaults sin sobrescritura.
  *
  * Solo inserta filas ausentes para capacidades is_ready. Nunca UPDATE de is_enabled.
- * En C1a, `amount` no está ready → cero inserts de amount.
+ * A1b: amount ready → insert-if-missing de finance/amount (DEFAULTS_VERSION=2).
  *
  * @package WP_Agenda_Automatizada
  * @subpackage Infrastructure\Canonical
@@ -13,7 +13,7 @@ defined('ABSPATH') or die('No direct access');
 
 final class AA_Canonical_Capability_Defaults_Lifecycle {
 
-    public const DEFAULTS_VERSION = 1;
+    public const DEFAULTS_VERSION = 2;
 
     public const OPTION_VERSION = 'aa_canonical_capability_defaults_version';
 
@@ -122,8 +122,7 @@ final class AA_Canonical_Capability_Defaults_Lifecycle {
     }
 
     /**
-     * Seeds declarados. `amount` permanece no-ready en C1a; se filtrará hasta A1b.
-     * Cuando amount pase a ready, bumpear DEFAULTS_VERSION para re-ejecutar.
+     * Seeds declarados. Con amount ready (A1b), el ensure inserta finance/amount solo si falta.
      *
      * @return list<array{family_key:string,capability_key:string,is_enabled:bool}>
      */

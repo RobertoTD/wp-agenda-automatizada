@@ -131,7 +131,17 @@ try {
             $has_amount = true;
         }
     }
-    ac_assert('Producto !ready no materializa amount', !$has_amount);
+    ac_assert('Producto ready materializa amount si default enabled', $has_amount);
+
+    $not_ready_registry = (new AA_Canonical_Capability_Registry())
+        ->register(new AA_Canonical_Capability_Definition('amount', AA_Canonical_Capability_Definition::SCOPE_RECORD, false))
+        ->freeze();
+    $nr_materializer = new AA_Canonical_Capability_Defaults_Materializer($not_ready_registry, $config);
+    $nr_uc = new WriteCanonicalShellContainerUseCase($gateway, $nr_materializer);
+    $created_nr = $nr_uc->create($manifest, new CanonicalCreateContainerCommand('Lista !ready', null));
+    $nr_id = (int) $created_nr->receipt()->resource_id();
+    $nr_caps = $config->list_container_capabilities($nr_id);
+    ac_assert('Fixture !ready no materializa amount', $nr_caps === []);
 
     $failing = new class implements CanonicalContainerCapabilityEffect {
         public function apply(CanonicalContainerMutationContext $context): void {

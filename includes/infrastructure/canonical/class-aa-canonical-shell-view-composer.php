@@ -484,6 +484,17 @@ final class AA_Canonical_Shell_View_Composer {
             }
         }
 
+        $capability_contributions = [];
+        if (!$is_preview && $container_id >= 1) {
+            $enriched = self::enrich_records_with_capabilities(
+                $manifest->identity()->family_key(),
+                $container_id,
+                $items_view
+            );
+            $items_view = $enriched['items_view'];
+            $capability_contributions = $enriched['capability_contributions'];
+        }
+
         return [
             'shell_view' => self::SHELL_VIEW_RECORDS,
             'lists_scope' => $lists_scope === AA_Canonical_Shell_Base_Url_Policy::LISTS_SCOPE_ALL
@@ -503,6 +514,7 @@ final class AA_Canonical_Shell_View_Composer {
             'container' => $parent_view,
             'back_url' => $back_url,
             'items_view' => $items_view,
+            'capability_contributions' => $capability_contributions,
             'page' => $page_num,
             'per_page' => $per_page,
             'total' => $total,
@@ -512,6 +524,24 @@ final class AA_Canonical_Shell_View_Composer {
             'prev_url' => $prev_url,
             'next_url' => $next_url,
         ];
+    }
+
+    /**
+     * @param list<array<string,mixed>> $items_view
+     * @return array{
+     *   items_view: list<array<string,mixed>>,
+     *   capability_contributions: array<string, array{offered:bool}>
+     * }
+     */
+    private static function enrich_records_with_capabilities(
+        string $family_key,
+        int $container_id,
+        array $items_view
+    ): array {
+        $registry = AA_Canonical_Capability_Page_Contributor_Bootstrap::bootstrap();
+        $enricher = new CanonicalCapabilityShellRecordsEnricher($registry);
+
+        return $enricher->enrich($family_key, $container_id, $items_view);
     }
 
     private static function build_containers_nav_url(

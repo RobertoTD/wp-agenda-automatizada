@@ -28,7 +28,7 @@ echo "=== Contención / producto ===\n";
 $boot = (string) file_get_contents(
     $plugin_root . '/includes/infrastructure/canonical/class-aa-canonical-capability-registry-bootstrap.php'
 );
-ac_assert('Bootstrap producto amount is_ready false', preg_match("/'amount'[\s\S]*?false/", $boot) === 1);
+ac_assert('Bootstrap producto amount is_ready true', preg_match("/'amount'[\s\S]*?true/", $boot) === 1);
 
 $create_ajax = (string) file_get_contents($plugin_root . '/includes/http/ajax/CanonicalCreateRecordAjax.php');
 ac_assert('Create record AJAX usa composition', strpos($create_ajax, 'build_write_composition') !== false);
@@ -128,7 +128,7 @@ try {
     ac_assert('Update sin bag → confirmed', $upd->state() === CanonicalShellMutationResult::STATE_CONFIRMED);
 
     $def = AA_Canonical_Capability_Registry_Bootstrap::instance()->get('amount');
-    ac_assert('Catálogo producto amount !ready', $def->is_ready() === false);
+    ac_assert('Catálogo producto amount ready', $def->is_ready() === true);
 
     ac_assert(
         'Option aa_db_version de uso restaurable (harness no deja 23 en uso)',

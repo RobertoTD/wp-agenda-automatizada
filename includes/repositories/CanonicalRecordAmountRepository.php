@@ -62,6 +62,72 @@ final class CanonicalRecordAmountRepository {
     }
 
     /**
+     * Lectura por lote. Solo consulta IDs de la página canónica autorizada.
+     * Los decimales se conservan como string (sin cast float).
+     *
+     * @param list<int> $record_ids
+     * @return array<int, string|null> mapa record_id → amount string o null (fila ausente)
+     *
+     * @throws CanonicalCapabilityPersistenceFailed
+     * @throws CanonicalCapabilitySchemaNotReady
+     */
+    public function find_amounts_by_record_ids(array $record_ids): array {
+        $table = AA_Canonical_Schema::record_amount_table_name();
+        $this->assert_table_exists($table);
+
+        $ids = [];
+        foreach ($record_ids as $id) {
+            $id = (int) $id;
+            if ($id >= 1) {
+                $ids[$id] = $id;
+            }
+        }
+        $ids = array_values($ids);
+
+        $out = [];
+        foreach ($ids as $id) {
+            $out[$id] = null;
+        }
+
+        if ($ids === []) {
+            return $out;
+        }
+
+        $placeholders = implode(',', array_fill(0, count($ids), '%d'));
+        $this->clear_error_state();
+        $sql = $this->wpdb->prepare(
+            "SELECT record_id, amount FROM `{$table}` WHERE record_id IN ({$placeholders})",
+            $ids
+        );
+        $rows = $this->wpdb->get_results($sql, ARRAY_A);
+
+        if ($rows === false || $this->wpdb->last_error !== '') {
+            throw new CanonicalCapabilityPersistenceFailed('Failed to SELECT record amounts batch.');
+        }
+
+        if (!is_array($rows)) {
+            throw new CanonicalCapabilityPersistenceFailed('Failed to SELECT record amounts batch.');
+        }
+
+        foreach ($rows as $row) {
+            if (!is_array($row) || !isset($row['record_id'])) {
+                continue;
+            }
+            $rid = (int) $row['record_id'];
+            if (!array_key_exists($rid, $out)) {
+                continue;
+            }
+            if (!array_key_exists('amount', $row) || $row['amount'] === null || $row['amount'] === '') {
+                $out[$rid] = null;
+                continue;
+            }
+            $out[$rid] = (string) $row['amount'];
+        }
+
+        return $out;
+    }
+
+    /**
      * @throws CanonicalCapabilityPersistenceFailed
      * @throws CanonicalCapabilitySchemaNotReady
      */

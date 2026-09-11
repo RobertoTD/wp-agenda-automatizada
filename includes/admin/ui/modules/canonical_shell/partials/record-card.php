@@ -5,6 +5,7 @@
  * Expects: $card_title, $card_details (?string), $card_iso, $card_display.
  * Optional actions: $show_edit_record (bool), $card_record_id (int).
  * Optional presentation: $shell_record_presentation ('card'|'compact').
+ * Optional capabilities: $card_capabilities (array|null) — mapa por clave del item.
  *
  * @package WP_Agenda_Automatizada
  */
@@ -17,19 +18,29 @@ $shell_record_presentation = isset($shell_record_presentation) && is_string($she
     ? $shell_record_presentation
     : 'card';
 $is_compact = ($shell_record_presentation === 'compact');
+$card_capabilities = isset($card_capabilities) && is_array($card_capabilities)
+    ? $card_capabilities
+    : null;
+
+$amount_card = AA_Canonical_Amount_Shell_Presenter::card_view($card_capabilities);
+$amount_edit = AA_Canonical_Amount_Shell_Presenter::edit_payload_fragment($card_capabilities);
 
 $edit_payload_attr = '';
 if ($show_edit_record && $card_record_id >= 1) {
-    $edit_payload = wp_json_encode(
-        [
-            'id' => $card_record_id,
-            'title' => (string) $card_title,
-            'details' => is_string($card_details) ? $card_details : '',
-        ],
+    $edit_payload = [
+        'id' => $card_record_id,
+        'title' => (string) $card_title,
+        'details' => is_string($card_details) ? $card_details : '',
+    ];
+    if ($amount_edit !== null) {
+        $edit_payload['capabilities'] = ['amount' => $amount_edit];
+    }
+    $edit_json = wp_json_encode(
+        $edit_payload,
         JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT
     );
-    if (is_string($edit_payload) && $edit_payload !== '') {
-        $edit_payload_attr = esc_attr($edit_payload);
+    if (is_string($edit_json) && $edit_json !== '') {
+        $edit_payload_attr = esc_attr($edit_json);
     }
 }
 
@@ -103,8 +114,17 @@ $panel_id = $card_record_id >= 1
             <?php if ($has_details_text) : ?>
                 <p class="aa-shell-record-details text-sm text-gray-700 whitespace-pre-wrap m-0"><?php echo esc_html($card_details); ?></p>
             <?php endif; ?>
+            <?php if (is_array($amount_card) && ($amount_card['kind'] ?? '') === 'value') : ?>
+                <p class="aa-shell-record-amount text-sm text-gray-800 <?php echo $has_details_text ? 'mt-2' : ''; ?> m-0">
+                    <span class="sr-only">Importe: </span><?php echo esc_html((string) $amount_card['value']); ?>
+                </p>
+            <?php elseif (is_array($amount_card) && ($amount_card['kind'] ?? '') === 'error') : ?>
+                <p class="aa-shell-record-amount-error text-sm text-amber-800 <?php echo $has_details_text ? 'mt-2' : ''; ?> m-0" role="status">
+                    No se pudo cargar el importe.
+                </p>
+            <?php endif; ?>
             <?php if ($has_updated) : ?>
-                <p class="aa-shell-record-updated text-xs text-gray-500 <?php echo $has_details_text ? 'mt-2' : ''; ?> m-0">
+                <p class="aa-shell-record-updated text-xs text-gray-500 <?php echo ($has_details_text || is_array($amount_card)) ? 'mt-2' : ''; ?> m-0">
                     <time datetime="<?php echo esc_attr($card_iso); ?>"><?php echo esc_html($card_display); ?></time>
                 </p>
             <?php endif; ?>
@@ -119,6 +139,15 @@ $panel_id = $card_record_id >= 1
         </h4>
         <?php if ($has_details_text) : ?>
             <p class="mt-2 text-sm text-gray-600 whitespace-pre-wrap"><?php echo esc_html($card_details); ?></p>
+        <?php endif; ?>
+        <?php if (is_array($amount_card) && ($amount_card['kind'] ?? '') === 'value') : ?>
+            <p class="aa-shell-record-amount mt-2 text-sm text-gray-800 m-0">
+                <span class="sr-only">Importe: </span><?php echo esc_html((string) $amount_card['value']); ?>
+            </p>
+        <?php elseif (is_array($amount_card) && ($amount_card['kind'] ?? '') === 'error') : ?>
+            <p class="aa-shell-record-amount-error mt-2 text-sm text-amber-800 m-0" role="status">
+                No se pudo cargar el importe.
+            </p>
         <?php endif; ?>
         <?php if ($has_updated) : ?>
             <p class="mt-3 text-xs text-gray-500">

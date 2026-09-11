@@ -33,7 +33,7 @@ ac_assert('Normalizador canónico no importa Finance', strpos($norm_src, 'Financ
 $product_boot = (string) file_get_contents(
     $plugin_root . '/includes/infrastructure/canonical/class-aa-canonical-capability-registry-bootstrap.php'
 );
-ac_assert('Producto amount is_ready=false', strpos($product_boot, 'false') !== false && strpos($product_boot, "'amount'") !== false);
+ac_assert('Producto amount is_ready=true', preg_match("/new AA_Canonical_Capability_Definition\(\s*'amount'\s*,\s*AA_Canonical_Capability_Definition::SCOPE_RECORD\s*,\s*true\s*\)/", $product_boot) === 1);
 
 $wp_root = getenv('AA_WP_ROOT') ?: '';
 $wp_load = $wp_root !== '' ? rtrim($wp_root, '/') . '/wp-load.php' : '';
@@ -223,16 +223,18 @@ try {
     }
     ac_assert('Capacidad inactiva → capability_inactive', $inactive);
 
-    $product_registry = AA_Canonical_Capability_Registry_Bootstrap::instance();
-    $product_handlers = new CanonicalCapabilityWriteHandlerRegistry();
-    $product_handlers->register(new AA_Canonical_Amount_Write_Handler($product_registry, $config, $amount_repo));
-    $product_handlers->freeze();
-    $product_preparer = new CanonicalCapabilityRecordWritePreparer($product_handlers);
-    $product_uc = new WriteCanonicalShellRecordUseCase($gateway, $product_preparer);
+    $not_ready_registry = (new AA_Canonical_Capability_Registry())
+        ->register(new AA_Canonical_Capability_Definition('amount', AA_Canonical_Capability_Definition::SCOPE_RECORD, false))
+        ->freeze();
+    $not_ready_handlers = new CanonicalCapabilityWriteHandlerRegistry();
+    $not_ready_handlers->register(new AA_Canonical_Amount_Write_Handler($not_ready_registry, $config, $amount_repo));
+    $not_ready_handlers->freeze();
+    $not_ready_preparer = new CanonicalCapabilityRecordWritePreparer($not_ready_handlers);
+    $not_ready_uc = new WriteCanonicalShellRecordUseCase($gateway, $not_ready_preparer);
     $config->upsert_container_capability($container_id, 'amount', true);
     $not_ready = false;
     try {
-        $product_uc->create(
+        $not_ready_uc->create(
             $manifest,
             new CanonicalCreateRecordCommand(
                 $container_id,
@@ -244,7 +246,7 @@ try {
     } catch (CanonicalCapabilityNotReady $e) {
         $not_ready = ($e->error_code() === 'capability_not_ready' && $e->http_status() === 409);
     }
-    ac_assert('Producto !ready → capability_not_ready', $not_ready);
+    ac_assert('Fixture !ready → capability_not_ready', $not_ready);
 
     $failing_effect = new class implements CanonicalRecordCapabilityEffect {
         public function apply(CanonicalRecordMutationContext $context): void {
