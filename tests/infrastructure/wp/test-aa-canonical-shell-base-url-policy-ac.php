@@ -37,7 +37,6 @@ if (!function_exists('wp_parse_url')) {
 
 $plugin_root = dirname(__DIR__, 3);
 require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-key.php';
-require_once $plugin_root . '/includes/infrastructure/wp/class-aa-canonical-shell-url-policy.php';
 require_once $plugin_root . '/includes/infrastructure/wp/class-aa-canonical-shell-base-url-policy.php';
 
 $total = 0;
@@ -58,6 +57,9 @@ function ac_assert(string $label, bool $ok, string $detail = ''): void {
     echo '[FAIL] ' . $label . ($detail !== '' ? ' - ' . $detail : '') . "\n";
 }
 
+$legacy_policy_path = $plugin_root . '/includes/infrastructure/wp/class-aa-canonical-shell-url-policy.php';
+ac_assert('Shell_Url_Policy ausente (LEGACY-X)', !is_file($legacy_policy_path));
+
 $url = AA_Canonical_Shell_Base_Url_Policy::build_url('finance');
 ac_assert('Build shell URL with finance family only', strpos($url, 'action=aa_iframe_content') !== false
     && strpos($url, 'module=canonical_shell') !== false
@@ -71,10 +73,8 @@ ac_assert('Build module-only URL without family', strpos($module_only, 'module=c
 ac_assert('Shell URL is allowlisted', AA_Canonical_Shell_Base_Url_Policy::is_allowlisted_shell_url($url) === true);
 ac_assert('Module-only URL is allowlisted', AA_Canonical_Shell_Base_Url_Policy::is_allowlisted_shell_url($module_only) === true);
 
-$legacy = AA_Canonical_Shell_Url_Policy::build_url('finance', 'general');
-ac_assert('Legacy finance URL still module=canonical', strpos($legacy, 'module=canonical') !== false
-    && strpos($legacy, 'canonical_shell') === false);
-ac_assert('Legacy finance URL rejected by shell allowlist', AA_Canonical_Shell_Base_Url_Policy::is_allowlisted_shell_url($legacy) === false);
+$retired_canonical = admin_url('admin-post.php') . '?action=aa_iframe_content&module=canonical&family=finance&variant=general';
+ac_assert('Retired module=canonical URL rejected by shell allowlist', AA_Canonical_Shell_Base_Url_Policy::is_allowlisted_shell_url($retired_canonical) === false);
 
 $bad = $url . '&view=detail';
 ac_assert('Unknown view=detail rejected', AA_Canonical_Shell_Base_Url_Policy::is_allowlisted_shell_url($bad) === false);

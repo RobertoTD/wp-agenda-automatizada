@@ -1,6 +1,6 @@
 <?php
 /**
- * AC Test — Canonical Empty Shell & Lightweight Layout.
+ * AC Test — Canonical Empty Shell & Lightweight Layout (post LEGACY-X).
  *
  * Ejecutar: php tests/admin/ui/test-canonical-empty-shell-ac.php
  */
@@ -17,6 +17,36 @@ if (!function_exists('esc_attr')) {
 if (!function_exists('esc_html')) {
     function esc_html(string $text): string {
         return htmlspecialchars($text, ENT_QUOTES, 'UTF-8');
+    }
+}
+if (!function_exists('esc_url')) {
+    function esc_url(string $url): string {
+        return $url;
+    }
+}
+if (!function_exists('aa_asset_url')) {
+    function aa_asset_url(string $relative_path): string {
+        return 'https://example.com/plugin/' . ltrim($relative_path, '/');
+    }
+}
+if (!function_exists('wp_json_encode')) {
+    function wp_json_encode($data) {
+        return json_encode($data);
+    }
+}
+if (!function_exists('wp_create_nonce')) {
+    function wp_create_nonce(string $action): string {
+        return 'nonce-' . $action;
+    }
+}
+if (!function_exists('admin_url')) {
+    function admin_url(string $path = ''): string {
+        return 'https://example.com/wp-admin/' . ltrim($path, '/');
+    }
+}
+if (!function_exists('current_user_can')) {
+    function current_user_can(string $cap): bool {
+        return $cap === 'manage_options';
     }
 }
 
@@ -44,29 +74,65 @@ function ac_assert(string $label, bool $ok, string $detail = ''): void {
     echo '[FAIL] ' . $label . ($detail !== '' ? ' - ' . $detail : '') . "\n";
 }
 
+ac_assert(
+    'Módulo legacy modules/canonical ausente',
+    !is_dir($plugin_root . '/includes/admin/ui/modules/canonical')
+);
+ac_assert(
+    'Fallback legacy _fallback.php ausente',
+    !is_file($plugin_root . '/includes/admin/ui/modules/canonical/_fallback.php')
+);
+
+$shell_src = (string) file_get_contents($plugin_root . '/includes/admin/ui/modules/canonical_shell/index.php');
+ac_assert('Shell empty state: Sin contenedores', strpos($shell_src, 'Sin contenedores') !== false);
+ac_assert(
+    'Shell empty copy universal',
+    strpos($shell_src, 'Aún no hay contenedores en este tipo de registro.') !== false
+);
+ac_assert('Shell empty state: Sin listas (alcance general)', strpos($shell_src, 'Sin listas') !== false);
+ac_assert('Shell empty state: Sin tipos de registros', strpos($shell_src, 'Sin tipos de registros') !== false);
+
 $registry = AA_Canonical_Core_Bootstrap::build_registry();
 $aa_canonical_family = $registry->family('finance');
-$aa_finance_variant_key = 'general';
-$aa_finance_variant_label = 'General';
-$aa_canonical_variant = null;
+$aa_shell_route_state = 'resolved';
+$aa_shell_route_message = 'Ruta canónica resuelta.';
+$aa_shell_view = [
+    'shell_view' => 'containers',
+    'family_label' => $aa_canonical_family->label(),
+    'qualified_key' => $aa_canonical_family->key(),
+    'read_state' => 'empty',
+    'lists_scope' => '',
+    'available_families' => [],
+    'is_preview' => false,
+    'preview_banner' => '',
+    'preview_enabled' => false,
+    'preview_url' => '',
+    'items_view' => [],
+    'page' => 1,
+    'total_pages' => 1,
+    'has_previous' => false,
+    'has_next' => false,
+    'prev_url' => '',
+    'next_url' => '',
+    'create_family_key' => $aa_canonical_family->key(),
+    'capability_contributions' => [],
+];
 
-// 1. Render canonical fallback template (_fallback.php)
 ob_start();
-require $plugin_root . '/includes/admin/ui/modules/canonical/_fallback.php';
+require $plugin_root . '/includes/admin/ui/modules/canonical_shell/index.php';
 $html = ob_get_clean();
 
-ac_assert('Fallback renders Finanzas label', strpos($html, 'Finanzas') !== false);
-ac_assert('Fallback sets data-aa-page-title="Finanzas"', strpos($html, 'data-aa-page-title="Finanzas"') !== false);
-ac_assert('Fallback sets data-aa-canonical-family="finance"', strpos($html, 'data-aa-canonical-family="finance"') !== false);
-ac_assert('Fallback has no variant attribute', strpos($html, 'data-aa-canonical-variant') === false);
-ac_assert('Fallback has no qualified attribute', strpos($html, 'data-aa-canonical-qualified') === false);
-ac_assert('Fallback shows family key only', strpos($html, '>finance<') !== false || strpos($html, 'finance') !== false);
-ac_assert('Fallback contains no form tag', strpos($html, '<form') === false);
-ac_assert('Fallback contains no input fields', strpos($html, '<input') === false);
-ac_assert('Fallback contains no buttons', strpos($html, '<button') === false);
-ac_assert('Fallback contains no script tags', strpos($html, '<script') === false);
+ac_assert('Empty shell root id present', strpos($html, 'id="aa-canonical-shell-root"') !== false);
+ac_assert('Empty shell shows family label', strpos($html, 'Finanzas') !== false);
+ac_assert('Empty shell shows Sin contenedores', strpos($html, 'Sin contenedores') !== false);
+ac_assert(
+    'Empty shell universal copy',
+    strpos($html, 'Aún no hay contenedores en este tipo de registro.') !== false
+);
+ac_assert('Empty shell not pending', strpos($html, 'Lectura pendiente') === false);
+ac_assert('Empty shell has no preview CTA without constant', strpos($html, 'Ver demostración del shell') === false);
 
-// 2. Inspect canonical-layout.php file content
+// Inspect canonical-layout.php file content
 $layout_source = file_get_contents($plugin_root . '/includes/admin/ui/shared/canonical-layout.php');
 
 ac_assert('Canonical layout does not use $wpdb', strpos($layout_source, '$wpdb') === false);

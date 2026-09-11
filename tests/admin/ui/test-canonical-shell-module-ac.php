@@ -130,9 +130,7 @@ require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-famil
 require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-registry.php';
 require_once $plugin_root . '/includes/infrastructure/canonical/class-aa-canonical-core-bootstrap.php';
 require_once $plugin_root . '/includes/application/canonical/ResolveCanonicalRouteUseCase.php';
-require_once $plugin_root . '/includes/infrastructure/wp/class-aa-canonical-shell-url-policy.php';
 require_once $plugin_root . '/includes/infrastructure/wp/class-aa-canonical-shell-base-url-policy.php';
-require_once $plugin_root . '/includes/infrastructure/wp/class-aa-canonical-access-policy.php';
 
 AA_Canonical_Core_Bootstrap::bootstrap();
 
@@ -155,7 +153,7 @@ function ac_assert(string $label, bool $ok, string $detail = ''): void {
 }
 
 /**
- * Simula la rama de allowlist + resolución de index.php para canonical_shell / canonical.
+ * Simula la rama de allowlist + resolución de index.php para canonical_shell (LEGACY-X).
  *
  * @return array<string,mixed>
  */
@@ -178,12 +176,11 @@ function simulate_shell_router(array $get_params, array $caps = []): array {
         'assignments',
         'learning',
         'training',
-        'canonical',
         'canonical_shell',
     ];
 
     $requested_module = isset($_GET['module']) ? sanitize_key($_GET['module']) : 'calendar';
-    $active_module    = in_array($requested_module, $allowed_modules, true) ? $requested_module : 'calendar';
+    $active_module = 'calendar';
 
     $aa_canonical_family = null;
     $aa_canonical_variant = null;
@@ -192,40 +189,16 @@ function simulate_shell_router(array $get_params, array $caps = []): array {
     $aa_canonical_url = '';
 
     try {
-        if ($active_module === 'canonical') {
-            $family_input = array_key_exists('family', $_GET) ? wp_unslash($_GET['family']) : null;
-            $variant_input = array_key_exists('variant', $_GET) ? wp_unslash($_GET['variant']) : null;
-            $canonical_registry = AA_Canonical_Core_Bootstrap::instance();
-            $route_result = (new ResolveCanonicalRouteUseCase($canonical_registry))->execute([
-                'family_key' => $family_input,
-            ]);
-            if (!$route_result['success']) {
-                $error_code = (string) ($route_result['error']['code'] ?? '');
-                if ($error_code === 'unknown_family') {
-                    wp_die('Familia canónica no encontrada.', 'Error', ['response' => 404]);
-                }
-                wp_die('Parámetros de ruta canónica no válidos.', 'Error', ['response' => 400]);
-            }
-            $aa_canonical_family = $route_result['data']['family'];
-            if (!class_exists('FinanceUseCaseSupport')) {
-                require_once dirname(__DIR__, 3) . '/includes/application/finance/FinanceUseCaseSupport.php';
-            }
-            $finance_variant = FinanceUseCaseSupport::resolve_variant($canonical_registry, [
-                'variant_key' => $variant_input,
-            ]);
-            if (!$finance_variant['ok']) {
-                wp_die('Parámetros de ruta canónica no válidos.', 'Error', ['response' => 400]);
-            }
-            $aa_finance_variant_key = $finance_variant['variant_key'];
-            $aa_canonical_url = AA_Canonical_Shell_Url_Policy::build_url(
-                $aa_canonical_family->key(),
-                $aa_finance_variant_key
-            );
-        } elseif ($active_module === 'canonical_shell') {
+        // LEGACY-X: module=canonical retirado — mismo tratamiento que módulo no encontrado.
+        if ($requested_module === 'canonical') {
+            wp_die('UI module not found', 'Error', ['response' => 404]);
+        }
+
+        $active_module = in_array($requested_module, $allowed_modules, true) ? $requested_module : 'calendar';
+
+        if ($active_module === 'canonical_shell') {
             $family_present = array_key_exists('family', $_GET);
-            $variant_present = array_key_exists('variant', $_GET);
             $family_input = $family_present ? wp_unslash($_GET['family']) : null;
-            $variant_input = $variant_present ? wp_unslash($_GET['variant']) : null;
             $aa_canonical_url = AA_Canonical_Shell_Base_Url_Policy::build_module_url();
 
             if (!$family_present) {
@@ -259,18 +232,8 @@ function simulate_shell_router(array $get_params, array $caps = []): array {
             }
         }
 
-        if ($active_module === 'canonical') {
-            $family_key = ($aa_canonical_family instanceof AA_Canonical_Family_Definition)
-                ? $aa_canonical_family->key()
-                : 'finance';
-            $access = AA_Canonical_Access_Policy::check_family_access($family_key);
-            if (!$access['authorized']) {
-                wp_die('Acceso denegado', 'Error', ['response' => $access['status']]);
-            }
-        } else {
-            if (!current_user_can('manage_options')) {
-                wp_die('Acceso denegado', 'Error', ['response' => 403]);
-            }
+        if (!current_user_can('manage_options')) {
+            wp_die('Acceso denegado', 'Error', ['response' => 403]);
         }
 
         return [
@@ -282,7 +245,7 @@ function simulate_shell_router(array $get_params, array $caps = []): array {
             'aa_canonical_family'    => $aa_canonical_family,
             'aa_canonical_variant'   => $aa_canonical_variant,
             'aa_canonical_url'       => $aa_canonical_url,
-            'layout'                 => ($active_module === 'canonical' || $active_module === 'canonical_shell')
+            'layout'                 => $active_module === 'canonical_shell'
                 ? 'canonical-layout'
                 : 'shared-layout',
         ];
@@ -299,7 +262,20 @@ function simulate_shell_router(array $get_params, array $caps = []): array {
 // --- Router / acceso ---
 $router_src = file_get_contents($plugin_root . '/includes/admin/ui/index.php');
 ac_assert('Router allowlists canonical_shell', strpos($router_src, "'canonical_shell'") !== false);
-ac_assert('Router uses canonical-layout for canonical_shell', strpos($router_src, "\$active_module === 'canonical' || \$active_module === 'canonical_shell'") !== false);
+ac_assert(
+    'Router no allowlistea module=canonical legacy',
+    preg_match("/\\\$allowed_modules\\s*=\\s*\\[[^\\]]*\\n\\s*'canonical'\\s*,/s", $router_src) !== 1
+);
+ac_assert(
+    'Router retira module=canonical con 404',
+    strpos($router_src, "\$requested_module === 'canonical'") !== false
+    && strpos($router_src, "'response' => 404") !== false
+);
+ac_assert(
+    'Router uses canonical-layout for canonical_shell',
+    strpos($router_src, "\$active_module === 'canonical_shell'") !== false
+    && strpos($router_src, 'canonical-layout.php') !== false
+);
 ac_assert('Router opens all-lists without family', strpos($router_src, 'compose_all_containers') !== false);
 ac_assert('Router usa available_families para alcance general', strpos($router_src, 'AA_Canonical_Family_Enablement_Nav::available_families') !== false);
 ac_assert(
@@ -367,27 +343,28 @@ $res_unknown = simulate_shell_router(
 ac_assert('Unknown family yields not_found', ($res_unknown['aa_shell_route_state'] ?? '') === 'not_found');
 ac_assert('Unknown family sets status 404', ($res_unknown['http_status'] ?? 0) === 404);
 
-// Finance path intact
+// LEGACY-X: module=canonical retirado
 $res_fin = simulate_shell_router(
     ['module' => 'canonical', 'family' => 'finance', 'variant' => 'general'],
-    []
+    ['manage_options' => true]
 );
-ac_assert('Finance path still 200 for non-admin', ($res_fin['status'] ?? 0) === 200);
-ac_assert('Finance still active_module=canonical', ($res_fin['active_module'] ?? '') === 'canonical');
-ac_assert('Finance URL still module=canonical', strpos((string) ($res_fin['aa_canonical_url'] ?? ''), 'module=canonical&') !== false
-    || (strpos((string) ($res_fin['aa_canonical_url'] ?? ''), 'module=canonical') !== false
-        && strpos((string) ($res_fin['aa_canonical_url'] ?? ''), 'canonical_shell') === false));
+ac_assert('module=canonical retires with 404', ($res_fin['status'] ?? 0) === 404);
 
-// --- URL policy hermana ---
+// --- URL policy shell ---
 $shell_url = AA_Canonical_Shell_Base_Url_Policy::build_url('finance');
 ac_assert('Shell base URL uses module=canonical_shell', strpos($shell_url, 'module=canonical_shell') !== false);
 ac_assert('Shell base URL includes family=finance without variant', strpos($shell_url, 'family=finance') !== false
     && strpos($shell_url, 'variant=') === false);
-$finance_url = AA_Canonical_Shell_Url_Policy::build_url('finance', 'general');
-ac_assert('Existing finance URL policy unchanged (module=canonical)', strpos($finance_url, 'module=canonical') !== false
-    && strpos($finance_url, 'canonical_shell') === false);
 ac_assert('Shell URL is allowlisted by shell policy', AA_Canonical_Shell_Base_Url_Policy::is_allowlisted_shell_url($shell_url) === true);
-ac_assert('Finance URL is not allowlisted as shell URL', AA_Canonical_Shell_Base_Url_Policy::is_allowlisted_shell_url($finance_url) === false);
+$retired_canonical_url = admin_url('admin-post.php') . '?action=aa_iframe_content&module=canonical&family=finance&variant=general';
+ac_assert(
+    'Retired module=canonical URL is not allowlisted as shell URL',
+    AA_Canonical_Shell_Base_Url_Policy::is_allowlisted_shell_url($retired_canonical_url) === false
+);
+ac_assert(
+    'Shell_Url_Policy ausente (LEGACY-X)',
+    !is_file($plugin_root . '/includes/infrastructure/wp/class-aa-canonical-shell-url-policy.php')
+);
 
 // --- Sidebar (Ciclo 2A: entrada Listas; sin grupo Tipos de registros) ---
 $sidebar_src = file_get_contents($plugin_root . '/includes/admin/ui/shared/sidebar.php');
@@ -405,17 +382,20 @@ ac_assert(
 );
 ac_assert('Sidebar Enablement_Nav fallback conservado para hoist header', strpos($sidebar_src, 'ReadCanonicalFamilyEnablementUseCase') !== false
     && strpos($sidebar_src, 'AA_Canonical_Family_Enablement_Nav') !== false);
-ac_assert('Sidebar Finanzas still uses AA_Canonical_Shell_Url_Policy', strpos($sidebar_src, "AA_Canonical_Shell_Url_Policy::build_url('finance', 'general')") !== false);
-ac_assert('Sidebar Finanzas highlight still canonical only', preg_match(
-    '/data-aa-nav-module="canonical"[\s\S]*?\$active_module === \'canonical\'/',
-    $sidebar_src
-) === 1);
+ac_assert(
+    'Sidebar sin data-aa-nav-module=canonical legacy',
+    strpos($sidebar_src, 'data-aa-nav-module="canonical"') === false
+);
+ac_assert(
+    'Sidebar sin enlace Finanzas legacy',
+    strpos($sidebar_src, '>Finanzas</span>') === false
+    && strpos($sidebar_src, 'AA_Canonical_Shell_Url_Policy') === false
+);
 
 $active_module = 'canonical_shell';
 $current_caps = ['manage_options' => true];
 $can_manage_options = true;
 $aa_installation_slug = null;
-$aa_finance_url = AA_Canonical_Shell_Url_Policy::build_url('finance', 'general');
 $aa_canonical_family = AA_Canonical_Core_Bootstrap::instance()->family('finance');
 ob_start();
 require $plugin_root . '/includes/admin/ui/shared/sidebar.php';
@@ -429,8 +409,10 @@ ac_assert('Sin grupo Tipos ni links data-aa-nav-family',
     strpos($sidebar_html, 'Tipos de registros') === false
     && strpos($sidebar_html, 'data-aa-nav-family=') === false
 );
-ac_assert('Shell current page does not aria-current Finanzas legacy',
-    preg_match('/data-aa-nav-module="canonical"[^>]*aria-current="page"/', $sidebar_html) !== 1
+ac_assert(
+    'Rendered sidebar sin nav Finanzas legacy',
+    strpos($sidebar_html, 'data-aa-nav-module="canonical"') === false
+    && strpos($sidebar_html, '>Finanzas</span>') === false
 );
 
 $aa_canonical_record_types_nav = [
@@ -481,7 +463,11 @@ ob_start();
 require $plugin_root . '/includes/admin/ui/shared/sidebar.php';
 $sidebar_no_admin = ob_get_clean();
 ac_assert('Non-manage_options sidebar hides Listas', strpos($sidebar_no_admin, '>Listas</span>') === false);
-ac_assert('Non-manage_options sidebar still shows Finanzas', strpos($sidebar_no_admin, 'Finanzas') !== false);
+ac_assert(
+    'Non-manage_options sidebar sin Finanzas legacy',
+    strpos($sidebar_no_admin, 'Finanzas') === false
+    && strpos($sidebar_no_admin, 'data-aa-nav-module="canonical"') === false
+);
 
 // --- Root render + aislamiento ---
 if (!defined('ARRAY_A')) {
@@ -637,13 +623,21 @@ foreach ($forbidden_tokens as $token) {
     ac_assert('Shell module source excludes ' . $token, strpos($module_src, $token) === false);
 }
 
-$dispatcher_src = file_get_contents($plugin_root . '/includes/admin/ui/modules/canonical/index.php');
-ac_assert('Finance dispatcher still maps finance template', strpos($dispatcher_src, "'finance' =>") !== false
-    && strpos($dispatcher_src, 'finance/index.php') !== false);
-ac_assert('Shell module is not required by finance dispatcher', strpos($dispatcher_src, 'canonical_shell') === false);
+ac_assert(
+    'Módulo legacy modules/canonical ausente',
+    !is_dir($plugin_root . '/includes/admin/ui/modules/canonical')
+);
+ac_assert(
+    'FinanceUseCaseSupport ausente',
+    !is_file($plugin_root . '/includes/application/finance/FinanceUseCaseSupport.php')
+);
 
 $plugin_bootstrap = file_get_contents($plugin_root . '/wp-agenda-automatizada.php');
 ac_assert('Plugin loads shell base URL policy', strpos($plugin_bootstrap, 'class-aa-canonical-shell-base-url-policy.php') !== false);
+ac_assert(
+    'Plugin no carga Shell_Url_Policy legacy',
+    strpos($plugin_bootstrap, 'class-aa-canonical-shell-url-policy.php') === false
+);
 
 echo "\n--- Resumen: {$passed}/{$total} ---\n";
 

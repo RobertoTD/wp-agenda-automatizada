@@ -1,6 +1,6 @@
 <?php
 /**
- * AC Test — Persistencia Canónica Universal (PCU-2 / C1a DB_VERSION 23).
+ * AC Test — Persistencia Canónica Universal (PCU-2 / LEGACY-X DB_VERSION 24).
  *
  * Ejecutar:
  *   php tests/infrastructure/wp/test-canonical-schema-ac.php
@@ -55,19 +55,57 @@ $canonical_src = file_get_contents($canonical_schema_file);
 
 ac_assert('Schema.php es legible', is_string($schema_src) && $schema_src !== '');
 ac_assert('CanonicalSchema.php es legible', is_string($canonical_src) && $canonical_src !== '');
-ac_assert("AA_Schema::DB_VERSION es '23'", strpos($schema_src, "DB_VERSION = '23'") !== false);
+ac_assert("AA_Schema::DB_VERSION es '24'", strpos($schema_src, "DB_VERSION = '24'") !== false);
 ac_assert('Schema.php delega en AA_Canonical_Schema::install()', strpos($schema_src, 'AA_Canonical_Schema::install()') !== false);
+ac_assert(
+    'Sin AA_Finance_Schema::install()',
+    strpos($schema_src, 'AA_Finance_Schema::install()') === false
+    && !is_file($plugin_root . '/includes/infrastructure/wp/FinanceSchema.php')
+);
+ac_assert(
+    'Schema retira tablas Finance legacy',
+    strpos($schema_src, 'retire_legacy_finance_tables') !== false
+);
 
 $bump_pos = strpos($schema_src, "update_option('aa_db_version', self::DB_VERSION)");
-$fin_pos = strpos($schema_src, 'AA_Finance_Schema::install()');
+$retire_pos = strpos($schema_src, 'self::retire_legacy_finance_tables()');
 $can_pos = strpos($schema_src, 'AA_Canonical_Schema::install()');
 ac_assert(
-    'Finance install antes de Canonical install',
-    $fin_pos !== false && $can_pos !== false && $fin_pos < $can_pos
+    'Retire finance antes de Canonical install',
+    $retire_pos !== false && $can_pos !== false && $retire_pos < $can_pos
 );
 ac_assert(
     'Canonical install antes de consolidar aa_db_version',
     $can_pos !== false && $bump_pos !== false && $can_pos < $bump_pos
+);
+
+$retire_fn_pos = strpos($schema_src, 'private static function retire_legacy_finance_tables');
+$records_drop_pos = $retire_fn_pos !== false
+    ? strpos($schema_src, 'LEGACY_FINANCE_TABLE_RECORDS', $retire_fn_pos)
+    : false;
+$containers_drop_pos = $retire_fn_pos !== false
+    ? strpos($schema_src, 'LEGACY_FINANCE_TABLE_CONTAINERS', $retire_fn_pos + 1)
+    : false;
+// Dentro de retire: constante records aparece antes que containers; DROP records antes DROP containers.
+$drop_records_call = $retire_fn_pos !== false
+    ? strpos($schema_src, 'drop_legacy_finance_table($records_table)', $retire_fn_pos)
+    : false;
+$drop_containers_call = $retire_fn_pos !== false
+    ? strpos($schema_src, 'drop_legacy_finance_table($containers_table)', $retire_fn_pos)
+    : false;
+ac_assert(
+    'Retire DROP aa_finance_records antes de aa_finance_containers',
+    $drop_records_call !== false
+    && $drop_containers_call !== false
+    && $drop_records_call < $drop_containers_call
+    && $records_drop_pos !== false
+    && $containers_drop_pos !== false
+    && $records_drop_pos < $containers_drop_pos
+);
+ac_assert(
+    'Retire menciona aa_finance_records y aa_finance_containers',
+    strpos($schema_src, "LEGACY_FINANCE_TABLE_RECORDS = 'aa_finance_records'") !== false
+    && strpos($schema_src, "LEGACY_FINANCE_TABLE_CONTAINERS = 'aa_finance_containers'") !== false
 );
 
 ac_assert('TABLE_FAMILIES constante', strpos($canonical_src, "TABLE_FAMILIES = 'aa_canonical_families'") !== false);
@@ -268,32 +306,14 @@ if ($has_real_wp) {
         );
         ac_assert('MySQL: UNIQUE public_id sin duplicar tras reinstall', $idx_count === 1);
 
-        // Upgrade path: simular DB 20 con Finance presente, luego Canonical
-        if (!class_exists('AA_Finance_Schema')) {
-            require_once $plugin_root . '/includes/infrastructure/wp/FinanceSchema.php';
-        }
-        AA_Finance_Schema::install();
-        $fin_c = AA_Finance_Schema::containers_table_name();
-        $fin_r = AA_Finance_Schema::records_table_name();
-        $now = '2026-01-15 12:00:00';
-        $wpdb->insert(
-            $fin_c,
-            ['variant_key' => 'general', 'title' => 'Legacy Finance', 'created_at' => $now, 'updated_at' => $now],
-            ['%s', '%s', '%s', '%s']
-        );
-        $fin_count_before = (int) $wpdb->get_var("SELECT COUNT(*) FROM `{$fin_c}`");
-
-        // Re-install canonical (upgrade additive)
-        AA_Canonical_Schema::install();
-        $fin_count_after = (int) $wpdb->get_var("SELECT COUNT(*) FROM `{$fin_c}`");
-        ac_assert('MySQL: Finance intacto tras Canonical install', $fin_count_before === 1 && $fin_count_after === 1);
+        // LEGACY-X: no recrear Finance; coexistencia retirada.
         ac_assert(
-            'MySQL: canonical sigue vacío tras coexistir con Finance',
-            (int) $wpdb->get_var("SELECT COUNT(*) FROM `{$f1}`") === 0
-            && (int) $wpdb->get_var("SELECT COUNT(*) FROM `{$c1}`") === 0
+            'FinanceSchema.php ausente',
+            !is_file($plugin_root . '/includes/infrastructure/wp/FinanceSchema.php')
         );
 
         // Integridad RESTRICT / CASCADE con fixtures de test solamente
+        $now = '2026-01-15 12:00:00';
         $wpdb->insert(
             $f1,
             [
@@ -623,10 +643,36 @@ if ($has_real_wp) {
         $wpdb->prefix = $upgrade_prefix;
         $cleanup_upgrade();
         try {
+            // Sembrar aa_finance_* residuales para probar retiro LEGACY-X.
+            $charset = $wpdb->get_charset_collate();
+            $legacy_c = $upgrade_prefix . 'aa_finance_containers';
+            $legacy_r = $upgrade_prefix . 'aa_finance_records';
+            $wpdb->query("CREATE TABLE `{$legacy_c}` (
+                id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+                variant_key varchar(64) NOT NULL,
+                title varchar(200) NOT NULL,
+                created_at datetime NOT NULL,
+                updated_at datetime NOT NULL,
+                PRIMARY KEY (id)
+            ) ENGINE=InnoDB {$charset}");
+            $wpdb->query("CREATE TABLE `{$legacy_r}` (
+                id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+                container_id bigint(20) unsigned NOT NULL,
+                title varchar(200) NOT NULL,
+                created_at datetime NOT NULL,
+                updated_at datetime NOT NULL,
+                PRIMARY KEY (id)
+            ) ENGINE=InnoDB {$charset}");
+            ac_assert(
+                'MySQL: seed aa_finance_* antes de Schema::install',
+                $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $legacy_c)) === $legacy_c
+                && $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $legacy_r)) === $legacy_r
+            );
+
             update_option('aa_db_version', '20');
             AA_Schema::install();
             $stored = (string) get_option('aa_db_version', '0');
-            ac_assert("MySQL: AA_Schema::install deja aa_db_version=23", $stored === '23');
+            ac_assert("MySQL: AA_Schema::install deja aa_db_version=24", $stored === '24');
             $uf = $wpdb->prefix . AA_Canonical_Schema::TABLE_FAMILIES;
             $uc = $wpdb->prefix . AA_Canonical_Schema::TABLE_CONTAINERS;
             $ur = $wpdb->prefix . AA_Canonical_Schema::TABLE_RECORDS;
@@ -647,6 +693,11 @@ if ($has_real_wp) {
                 (int) $wpdb->get_var("SELECT COUNT(*) FROM `{$uf}`") === 0
                 && (int) $wpdb->get_var("SELECT COUNT(*) FROM `{$uc}`") === 0
                 && (int) $wpdb->get_var("SELECT COUNT(*) FROM `{$ur}`") === 0
+            );
+            ac_assert(
+                'MySQL: aa_finance_* ABSENT tras Schema::install',
+                $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $legacy_c)) === null
+                && $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $legacy_r)) === null
             );
         } finally {
             $cleanup_upgrade();

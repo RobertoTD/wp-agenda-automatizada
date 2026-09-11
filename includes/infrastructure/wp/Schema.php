@@ -66,9 +66,13 @@ final class AA_Schema {
      * Independiente de la versión del plugin. Solo refleja el estado
      * de las tablas/columnas/índices.
      */
-    public const DB_VERSION = '23';
+    public const DB_VERSION = '24';
 
     public const OPTION_INSTALLATION_INITIALIZED_AT = 'aa_installation_initialized_at';
+
+    /** Tablas legacy Finance retiradas en DB 24 (solo nombres base, sin prefijo). */
+    private const LEGACY_FINANCE_TABLE_RECORDS = 'aa_finance_records';
+    private const LEGACY_FINANCE_TABLE_CONTAINERS = 'aa_finance_containers';
 
     /**
      * Registra el activation hook y el chequeo de migraciones.
@@ -583,11 +587,8 @@ final class AA_Schema {
         add_rewrite_rule('^citas-virtuales/?$', 'index.php?aa_citas_virtuales=1', 'top');
         flush_rewrite_rules();
 
-        // 🔹 Esquema físico de Finanzas (DB 19 — contenedores y registros con FK)
-        if (!class_exists('AA_Finance_Schema')) {
-            require_once __DIR__ . '/FinanceSchema.php';
-        }
-        AA_Finance_Schema::install();
+        // 🔹 LEGACY-X Finance (DB 24): retirar aa_finance_* sin recrearlas.
+        self::retire_legacy_finance_tables();
 
         // 🔹 Persistencia Canónica Universal (PCU-2 / DB 21; C1a capabilities DB 23)
         if (!class_exists('AA_Canonical_Schema')) {
@@ -599,6 +600,151 @@ final class AA_Schema {
         // Esto cubre tanto la primera instalación (vía activation hook)
         // como las migraciones automáticas (vía maybe_migrate()).
         update_option('aa_db_version', self::DB_VERSION);
+    }
+
+    /**
+     * Retira las tablas físicas de Finanzas legacy (LEGACY-X / DB 24).
+     *
+     * Orden: FK de records (si aplica) → DROP records → DROP containers.
+     * Idempotente si las tablas ya no existen. No toca aa_canonical_*.
+     * Si el DROP falla o alguna tabla permanece, lanza RuntimeException
+     * para que maybe_migrate() no consolide aa_db_version.
+     *
+     * @throws \RuntimeException
+     */
+    private static function retire_legacy_finance_tables(): void {
+        global $wpdb;
+
+        $prefix = (string) $wpdb->prefix;
+        $records_table = $prefix . self::LEGACY_FINANCE_TABLE_RECORDS;
+        $containers_table = $prefix . self::LEGACY_FINANCE_TABLE_CONTAINERS;
+
+        if (self::legacy_finance_table_exists($records_table)) {
+            self::drop_legacy_finance_foreign_key_if_present($records_table, $prefix);
+            self::drop_legacy_finance_table($records_table);
+        }
+
+        if (self::legacy_finance_table_exists($containers_table)) {
+            self::drop_legacy_finance_table($containers_table);
+        }
+
+        if (self::legacy_finance_table_exists($records_table)) {
+            throw new \RuntimeException(
+                '[AA_Schema] LEGACY-X: aa_finance_records sigue presente tras DROP.'
+            );
+        }
+        if (self::legacy_finance_table_exists($containers_table)) {
+            throw new \RuntimeException(
+                '[AA_Schema] LEGACY-X: aa_finance_containers sigue presente tras DROP.'
+            );
+        }
+    }
+
+    private static function legacy_finance_table_exists(string $table): bool {
+        global $wpdb;
+
+        $found = $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $table));
+
+        return is_string($found) && $found === $table;
+    }
+
+    /**
+     * Nombre determinista del FK legacy (misma fórmula histórica de FinanceSchema).
+     */
+    private static function legacy_finance_foreign_key_name(string $prefix): string {
+        $clean_prefix = preg_replace('/[^a-zA-Z0-9_]/', '', $prefix);
+        $prefix_part = rtrim(substr((string) $clean_prefix, 0, 32), '_');
+        $hash = substr(md5($prefix . ':aa_finance_records:container_id'), 0, 16);
+        $base = $prefix_part !== '' ? 'fk_' . $prefix_part . '_aa_fin_rec_' : 'fk_aa_fin_rec_';
+
+        return substr($base . $hash, 0, 64);
+    }
+
+    private static function drop_legacy_finance_foreign_key_if_present(
+        string $records_table,
+        string $prefix
+    ): void {
+        global $wpdb;
+
+        $fk_name = self::legacy_finance_foreign_key_name($prefix);
+        if (!self::legacy_finance_foreign_key_exists($records_table, $fk_name)) {
+            return;
+        }
+
+        $wpdb->last_error = '';
+        $result = $wpdb->query(
+            'ALTER TABLE `' . str_replace('`', '``', $records_table) . '` DROP FOREIGN KEY `'
+            . str_replace('`', '``', $fk_name) . '`'
+        );
+        if ($result === false) {
+            throw new \RuntimeException(
+                '[AA_Schema] LEGACY-X: no se pudo eliminar FK de aa_finance_records: '
+                . (string) $wpdb->last_error
+            );
+        }
+    }
+
+    private static function legacy_finance_foreign_key_exists(
+        string $records_table,
+        string $fk_name
+    ): bool {
+        global $wpdb;
+
+        if (defined('DB_NAME') && DB_NAME) {
+            $row = $wpdb->get_row(
+                $wpdb->prepare(
+                    "SELECT CONSTRAINT_NAME
+                     FROM information_schema.REFERENTIAL_CONSTRAINTS
+                     WHERE CONSTRAINT_SCHEMA = %s
+                       AND TABLE_NAME = %s
+                       AND CONSTRAINT_NAME = %s",
+                    DB_NAME,
+                    $records_table,
+                    $fk_name
+                ),
+                ARRAY_A
+            );
+            if (is_array($row) && !empty($row['CONSTRAINT_NAME'])) {
+                return true;
+            }
+        }
+
+        $show = $wpdb->get_row(
+            'SHOW CREATE TABLE `' . str_replace('`', '``', $records_table) . '`',
+            ARRAY_A
+        );
+        if (is_array($show)) {
+            $create_sql = (string) ($show['Create Table'] ?? reset($show) ?? '');
+            if (preg_match(
+                '/CONSTRAINT\s+[`"]?' . preg_quote($fk_name, '/') . '[`"]?\s+FOREIGN KEY/i',
+                $create_sql
+            )) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @throws \RuntimeException
+     */
+    private static function drop_legacy_finance_table(string $table): void {
+        global $wpdb;
+
+        $wpdb->last_error = '';
+        $result = $wpdb->query('DROP TABLE IF EXISTS `' . str_replace('`', '``', $table) . '`');
+        if ($result === false) {
+            throw new \RuntimeException(
+                '[AA_Schema] LEGACY-X: DROP falló para ' . $table . ': '
+                . (string) $wpdb->last_error
+            );
+        }
+        if (self::legacy_finance_table_exists($table)) {
+            throw new \RuntimeException(
+                '[AA_Schema] LEGACY-X: tabla ' . $table . ' permanece tras DROP IF EXISTS.'
+            );
+        }
     }
 
     /**

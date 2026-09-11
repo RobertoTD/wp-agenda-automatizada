@@ -1,8 +1,8 @@
 <?php
 /**
- * Canonical Shell Base URL Policy — URLs del módulo paralelo `canonical_shell`.
+ * Canonical Shell Base URL Policy — URLs del módulo `canonical_shell`.
  *
- * Hermano de AA_Canonical_Shell_Url_Policy. No altera el builder de `module=canonical`.
+ * Único builder de URLs del shell canónico tras LEGACY-X (module=canonical retirado).
  *
  * @package WP_Agenda_Automatizada
  * @subpackage Infrastructure\WP

@@ -135,13 +135,11 @@ require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/canonical/capa
 require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/canonical/capabilities/class-aa-canonical-capability-write-bootstrap.php';
 require_once plugin_dir_path(__FILE__) . 'includes/admin/ui/modules/canonical_shell/presenters/class-aa-canonical-amount-shell-presenter.php';
 AA_Canonical_Capability_Page_Contributor_Bootstrap::bootstrap();
-require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/wp/class-aa-canonical-shell-url-policy.php';
 require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/wp/class-aa-canonical-shell-base-url-policy.php';
 require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/wp/class-aa-canonical-access-policy.php';
 require_once plugin_dir_path(__FILE__) . 'includes/auth-helper.php';
 
 // 1️⃣b Infrastructure: WP schema lifecycle (activation hook)
-require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/wp/FinanceSchema.php';
 require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/wp/Schema.php';
 require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/canonical/class-aa-canonical-family-catalog-lifecycle.php';
 require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/canonical/class-aa-canonical-capability-defaults-lifecycle.php';
@@ -379,15 +377,6 @@ StaffAjax::register();
 // ================================
 require_once __DIR__ . '/includes/http/ajax/ServiceAjax.php';
 ServiceAjax::register();
-
-// ================================
-// Endpoint AJAX: Finanzas Canónicas (capa http/ajax)
-// ================================
-require_once __DIR__ . '/includes/http/ajax/FinanceAjaxSupport.php';
-require_once __DIR__ . '/includes/http/ajax/FinanceContainersAjax.php';
-FinanceContainersAjax::register();
-require_once __DIR__ . '/includes/http/ajax/FinanceRecordsAjax.php';
-FinanceRecordsAjax::register();
 
 require_once __DIR__ . '/includes/http/ajax/CanonicalFamilyEnabledAjax.php';
 CanonicalFamilyEnabledAjax::register();

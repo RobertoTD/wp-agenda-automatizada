@@ -6,7 +6,7 @@ alwaysApply: true
 
 No cargues ni copies aquí la constitución, el documento de capacidades ni el plan.
 
-Si el encargo toca canon, familia, variante, capability, adaptador, gateway, contrato contenedor–registro, Shell Canónico, o cambios de sidebar/router/shared orientados a vestir familias canónicas:
+Si el encargo toca canon, familia, capability, adaptador, gateway, contrato contenedor–registro, Shell Canónico, o cambios de sidebar/router/shared orientados a vestir familias canónicas:
 
 1. Lee `docs/04-canonical-constitution.md` antes de razonar o modificar.
 2. Si el encargo toca capabilities (asignación, configuración, activación, valores, `amount`, imágenes u otras), lee también `docs/05-canonical-capabilities.md`.
@@ -21,8 +21,8 @@ Si el encargo toca canon, familia, variante, capability, adaptador, gateway, con
 - Las particularidades viven en capabilities tipadas, reutilizables; detalle normativo en `docs/05-canonical-capabilities.md`.
 - El shell permanece neutral y opera por contratos/adaptadores.
 - Barrera futura: API, exportación/importación, identidades públicas y runtime público de solo lectura — no implementarlas prematuramente.
-- Finance y Expedientes legacy permanecen intactos durante la transición; no son el nuevo canon.
+- Finance legacy está retirado (LEGACY-X). Expedientes legacy no es el nuevo canon.
 
-Estado de la ruta PCU (PCU-0…PCU-5, SB1-5B+, SET-1, CAP-*, LEGACY-X): ver “Decisiones posteriores y estado” en `docs/plans/shell-canonical-base-v1.md`.
+Estado de la ruta PCU / CAP / LEGACY-X Finance: ver “Decisiones posteriores y estado” en `docs/plans/shell-canonical-base-v1.md`.
 
 Si el encargo es ajeno a ese ámbito, no abras esos documentos.

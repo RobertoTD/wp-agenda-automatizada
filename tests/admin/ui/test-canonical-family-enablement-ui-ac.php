@@ -53,8 +53,8 @@ ac_assert('Sidebar entrada Listas', strpos($sidebar, '>Listas</span>') !== false
     && strpos($sidebar, 'AA_Canonical_Shell_Base_Url_Policy::build_module_url') !== false);
 ac_assert('Sidebar sin grupo Tipos de registros ni nav id', strpos($sidebar, 'Tipos de registros') === false
     && strpos($sidebar, 'aa-canonical-record-types-nav') === false);
-ac_assert('Finance legacy intacto', strpos($sidebar, 'data-aa-nav-module="canonical"') !== false
-    && strpos($sidebar, '>Finanzas</span>') !== false);
+ac_assert('Finance legacy nav ausente', strpos($sidebar, 'data-aa-nav-module="canonical"') === false
+    && strpos($sidebar, '>Finanzas</span>') === false);
 
 ac_assert('Gate family_disabled en router', strpos($router, "family_disabled") !== false);
 ac_assert('Gate antes de compose', strpos($router, 'aa_enablement_gate_state') !== false
@@ -71,7 +71,7 @@ ac_assert('Parent sin handler de nav obsoleto', strpos($parent, 'aa-canonical-fa
 ac_assert('Binding Finance legacy ausente del bootstrap productivo', strpos($binding, 'AA_Finance_Canonical_Read_Adapter') === false);
 ac_assert('Bootstrap read usa Relational', strpos($binding, 'AA_Canonical_Relational_Read_Adapter') !== false
     || strpos($binding, 'Relational_Read_Adapter') !== false);
-ac_assert('DB_VERSION=22', strpos($schema, "DB_VERSION = '22'") !== false);
+ac_assert('DB_VERSION=24', strpos($schema, "DB_VERSION = '24'") !== false);
 ac_assert('CATALOG_VERSION=1', strpos($catalog, 'CATALOG_VERSION = 1') !== false);
 
 echo "\n--- Resumen: {$passed}/{$total} ---\n";

@@ -33,11 +33,11 @@ function aa_render_iframe_test_page() {
 add_action('admin_post_aa_iframe_content', 'aa_handle_iframe_content');
 add_action('admin_post_nopriv_aa_iframe_content', 'aa_handle_iframe_content_nopriv');
 
-if (!class_exists('AA_Canonical_Shell_Url_Policy')) {
-    require_once dirname(__DIR__) . '/infrastructure/wp/class-aa-canonical-shell-url-policy.php';
-}
 if (!class_exists('AA_Canonical_Shell_Base_Url_Policy')) {
     require_once dirname(__DIR__) . '/infrastructure/wp/class-aa-canonical-shell-base-url-policy.php';
+}
+if (!class_exists('AA_Canonical_Key')) {
+    require_once dirname(__DIR__) . '/domain/canonical/class-aa-canonical-key.php';
 }
 
 /**
@@ -46,11 +46,7 @@ if (!class_exists('AA_Canonical_Shell_Base_Url_Policy')) {
  */
 function aa_handle_iframe_content_nopriv() {
     $module_raw = isset($_GET['module']) ? sanitize_key($_GET['module']) : '';
-    if ($module_raw === AA_Canonical_Shell_Url_Policy::MODULE_CANONICAL) {
-        $family = isset($_GET['family']) && is_string($_GET['family']) ? wp_unslash($_GET['family']) : '';
-        $variant = isset($_GET['variant']) && is_string($_GET['variant']) ? wp_unslash($_GET['variant']) : null;
-        $target_url = AA_Canonical_Shell_Url_Policy::build_url($family, $variant);
-    } elseif ($module_raw === AA_Canonical_Shell_Base_Url_Policy::MODULE_SHELL) {
+    if ($module_raw === AA_Canonical_Shell_Base_Url_Policy::MODULE_SHELL) {
         $family = isset($_GET['family']) && is_string($_GET['family']) ? wp_unslash($_GET['family']) : '';
         $variant = isset($_GET['variant']) && is_string($_GET['variant']) ? wp_unslash($_GET['variant']) : null;
         if (is_string($family) && $family !== '' && AA_Canonical_Key::is_valid($family)) {
@@ -78,11 +74,7 @@ function aa_handle_iframe_content() {
     // Defensive guard: redirect to login if not logged in
     if (!is_user_logged_in()) {
         $module_raw = isset($_GET['module']) ? sanitize_key($_GET['module']) : '';
-        if ($module_raw === AA_Canonical_Shell_Url_Policy::MODULE_CANONICAL) {
-            $family = isset($_GET['family']) && is_string($_GET['family']) ? wp_unslash($_GET['family']) : '';
-            $variant = isset($_GET['variant']) && is_string($_GET['variant']) ? wp_unslash($_GET['variant']) : null;
-            $target_url = AA_Canonical_Shell_Url_Policy::build_url($family, $variant);
-        } elseif ($module_raw === AA_Canonical_Shell_Base_Url_Policy::MODULE_SHELL) {
+        if ($module_raw === AA_Canonical_Shell_Base_Url_Policy::MODULE_SHELL) {
             $family = isset($_GET['family']) && is_string($_GET['family']) ? wp_unslash($_GET['family']) : '';
             $variant = isset($_GET['variant']) && is_string($_GET['variant']) ? wp_unslash($_GET['variant']) : null;
             if (is_string($family) && $family !== '' && AA_Canonical_Key::is_valid($family)) {

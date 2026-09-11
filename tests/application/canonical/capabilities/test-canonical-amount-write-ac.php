@@ -25,10 +25,10 @@ function ac_assert(string $label, bool $ok, string $detail = ''): void {
 }
 
 echo "=== 1. Contención normalizador / producto ===\n";
-$finance_src = (string) file_get_contents($plugin_root . '/includes/application/finance/FinanceUseCaseSupport.php');
+$finance_support_path = $plugin_root . '/includes/application/finance/FinanceUseCaseSupport.php';
+ac_assert('FinanceUseCaseSupport ausente (LEGACY-X)', !is_file($finance_support_path));
 $norm_src = (string) file_get_contents($plugin_root . '/includes/application/canonical/capabilities/AA_Canonical_Amount_Normalizer.php');
-ac_assert('Finance no delega al normalizador canónico', strpos($finance_src, 'AA_Canonical_Amount_Normalizer') === false);
-ac_assert('Normalizador canónico no importa Finance', strpos($norm_src, 'FinanceUseCaseSupport') === false);
+ac_assert('Normalizador canónico no importa FinanceUseCaseSupport', strpos($norm_src, 'FinanceUseCaseSupport') === false);
 
 $product_boot = (string) file_get_contents(
     $plugin_root . '/includes/infrastructure/canonical/class-aa-canonical-capability-registry-bootstrap.php'

@@ -1,6 +1,6 @@
 <?php
 /**
- * AC Test — Login Redirect for Canonical Module in iframe gateway.
+ * AC Test — Login Redirect for Canonical Shell in iframe gateway (LEGACY-X).
  *
  * Ejecutar: php tests/admin/test-iframe-canonical-login-redirect-ac.php
  */
@@ -60,7 +60,7 @@ if (!function_exists('aa_app_login_url')) {
 
 $plugin_root = dirname(__DIR__, 2);
 require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-key.php';
-require_once $plugin_root . '/includes/infrastructure/wp/class-aa-canonical-shell-url-policy.php';
+require_once $plugin_root . '/includes/infrastructure/wp/class-aa-canonical-shell-base-url-policy.php';
 
 $total = 0;
 $passed = 0;
@@ -80,55 +80,81 @@ function ac_assert(string $label, bool $ok, string $detail = ''): void {
     echo '[FAIL] ' . $label . ($detail !== '' ? ' - ' . $detail : '') . "\n";
 }
 
-// 1. Test canonical request redirects with preserved family and variant
-$_GET = [
-    'module' => 'canonical',
-    'family' => 'finance',
-    'variant' => 'general',
-    'arbitrary' => 'dropped',
-];
+/**
+ * Mirror of aa_handle_iframe_content_nopriv shell/login redirect target selection.
+ */
+function lx_iframe_login_target_url(): string {
+    $module_raw = isset($_GET['module']) ? sanitize_key($_GET['module']) : '';
+    if ($module_raw === AA_Canonical_Shell_Base_Url_Policy::MODULE_SHELL) {
+        $family = isset($_GET['family']) && is_string($_GET['family']) ? wp_unslash($_GET['family']) : '';
+        $variant = isset($_GET['variant']) && is_string($_GET['variant']) ? wp_unslash($_GET['variant']) : null;
+        if (is_string($family) && $family !== '' && AA_Canonical_Key::is_valid($family)) {
+            return AA_Canonical_Shell_Base_Url_Policy::build_url(
+                $family,
+                (is_string($variant) && $variant !== '') ? $variant : null
+            );
+        }
 
-$module_raw = isset($_GET['module']) ? sanitize_key($_GET['module']) : '';
-if ($module_raw === AA_Canonical_Shell_Url_Policy::MODULE_CANONICAL) {
-    $family = isset($_GET['family']) && is_string($_GET['family']) ? wp_unslash($_GET['family']) : '';
-    $variant = isset($_GET['variant']) && is_string($_GET['variant']) ? wp_unslash($_GET['variant']) : null;
-    $target_url = AA_Canonical_Shell_Url_Policy::build_url($family, $variant);
-} else {
+        return AA_Canonical_Shell_Base_Url_Policy::build_module_url();
+    }
+
     $target_url = admin_url('admin-post.php?action=aa_iframe_content');
     if ($module_raw !== '') {
         $target_url = add_query_arg('module', $module_raw, $target_url);
     }
+
+    return $target_url;
 }
+
+// 1. Shell request preserves family via Base_Url_Policy
+$_GET = [
+    'module' => 'canonical_shell',
+    'family' => 'finance',
+    'arbitrary' => 'dropped',
+];
+$last_redirect = null;
+$target_url = lx_iframe_login_target_url();
 $login_url = aa_app_login_url($target_url);
 wp_safe_redirect($login_url);
 
-ac_assert('Redirect preserves module=canonical', strpos($last_redirect, 'module%3Dcanonical') !== false);
+ac_assert('Redirect preserves module=canonical_shell', strpos($last_redirect, 'module%3Dcanonical_shell') !== false);
 ac_assert('Redirect preserves family=finance', strpos($last_redirect, 'family%3Dfinance') !== false);
-ac_assert('Redirect preserves variant=general', strpos($last_redirect, 'variant%3Dgeneral') !== false);
 ac_assert('Redirect drops arbitrary parameter', strpos($last_redirect, 'arbitrary') === false);
 ac_assert('Redirect includes deoia_app_login flag', strpos($last_redirect, 'deoia_app_login=1') !== false);
 
-// 2. Test legacy module (calendar) keeps legacy redirect shape
+// 2. Retired module=canonical is not treated as shell policy (generic module arg only)
+$_GET = [
+    'module' => 'canonical',
+    'family' => 'finance',
+];
+$last_redirect = null;
+$target_url = lx_iframe_login_target_url();
+$login_url = aa_app_login_url($target_url);
+wp_safe_redirect($login_url);
+
+ac_assert(
+    'Retired module=canonical uses generic iframe redirect (not shell builder)',
+    strpos($last_redirect, 'module%3Dcanonical') !== false
+    && strpos($last_redirect, 'family%3Dfinance') === false
+);
+
+// 3. Calendar keeps legacy redirect shape
 $_GET = [
     'module' => 'calendar',
     'view' => 'day',
 ];
-$module_raw = isset($_GET['module']) ? sanitize_key($_GET['module']) : '';
-if ($module_raw === AA_Canonical_Shell_Url_Policy::MODULE_CANONICAL) {
-    $family = isset($_GET['family']) && is_string($_GET['family']) ? wp_unslash($_GET['family']) : '';
-    $variant = isset($_GET['variant']) && is_string($_GET['variant']) ? wp_unslash($_GET['variant']) : null;
-    $target_url = AA_Canonical_Shell_Url_Policy::build_url($family, $variant);
-} else {
-    $target_url = admin_url('admin-post.php?action=aa_iframe_content');
-    if ($module_raw !== '') {
-        $target_url = add_query_arg('module', $module_raw, $target_url);
-    }
-}
+$last_redirect = null;
+$target_url = lx_iframe_login_target_url();
 $login_url = aa_app_login_url($target_url);
 wp_safe_redirect($login_url);
 
 ac_assert('Legacy redirect has module=calendar', strpos($last_redirect, 'module%3Dcalendar') !== false);
-ac_assert('Legacy redirect does not add family or variant', strpos($last_redirect, 'family') === false && strpos($last_redirect, 'variant') === false);
+ac_assert('Legacy redirect does not add family', strpos($last_redirect, 'family') === false);
+
+ac_assert(
+    'Shell_Url_Policy ausente',
+    !is_file($plugin_root . '/includes/infrastructure/wp/class-aa-canonical-shell-url-policy.php')
+);
 
 echo "\n--- Resumen: {$passed}/{$total} ---\n";
 

@@ -12,7 +12,7 @@
 - **Estado implementado** — lo que existe hoy en el repositorio.
 - **Mecanismo técnico pendiente** — diseño o código aún no aprobado o no construido.
 
-Hoy (tras A1b): schema `DB_VERSION=23`, catálogo con `amount` (`is_ready=true`, `scope=record`), configuración C1a, escritura atómica A1a, **lectura por lote + contribución SSR/UI** (contributors/presenters/módulo JS), lifecycle defaults `DEFAULTS_VERSION=2` (insert-if-missing de `finance`/`amount`). Listas existentes no reciben activación masiva.
+Hoy (tras LEGACY-X Finance): schema `DB_VERSION=24`; familia canónica `finance` y capability `amount` (`is_ready=true`) sobre `aa_canonical_*`; escritura/lectura/UI amount operativas; único normalizador `AA_Canonical_Amount_Normalizer`. El módulo Finance legacy (`module=canonical`, `aa_finance_*`) está **retirado**.
 
 ---
 
@@ -127,16 +127,16 @@ Incluye:
 
 Una futura totalización será responsabilidad separada (históricamente anticipada en el plan como agregado monetario / CAP-2; no forma parte de `amount` v1).
 
-### 8.3 Referencia legacy (no contrato canónico)
+### 8.3 Contrato canónico de `amount` (límites operativos)
 
-El módulo Finance legacy (`aa_finance_*`, `FinanceUseCaseSupport::normalize_amount`, UI `module=canonical`) es **referencia de comportamiento y de límites** para la implementación futura:
+Reglas vigentes del normalizador y del almacenamiento tipado (sin referencia a código retirado):
 
-- almacenamiento legacy: `decimal(19,2)` nullable firmado en `aa_finance_records.amount`;
-- normalización: cadena o null; vacío → null; longitud máxima de entrada 60; como máximo 2 decimales; como máximo 17 dígitos enteros; `-0` → `0.00`; códigos `invalid_amount`, `amount_too_many_decimals`, `amount_out_of_range`;
-- totales de contenedor (`amount_total`) son **agregados calculados**, no columna; fuera de `amount` v1;
-- **contrato de update legacy distinto del canónico:** en Finance la clave `amount` es obligatoria en update (`missing_amount` si falta); vacío limpia. El canónico usa **omitir = conservar**.
+- almacenamiento: `decimal(19,2)` nullable firmado en `aa_canonical_record_amount.amount`;
+- normalización (`AA_Canonical_Amount_Normalizer`): cadena o null; vacío → null; longitud máxima de entrada 60; como máximo 2 decimales; como máximo 17 dígitos enteros; `-0` → `0.00`; códigos `invalid_amount`, `amount_too_many_decimals`, `amount_out_of_range`;
+- update canónico: **omitir = conservar**; vacío conocido = clear; cero válido;
+- totales de contenedor quedan fuera de `amount` v1.
 
-La capacidad canónica `amount` **no** debe depender de controladores, tablas base ni inicialización exclusivos del módulo legacy. Finanzas puede incluir `amount` por defecto en sus listas nuevas, pero **no es propietaria** de la capacidad.
+La familia `finance` puede materializar `amount` por defecto en listas nuevas; **no es propietaria** de la capacidad.
 
 ---
 
@@ -144,24 +144,16 @@ La capacidad canónica `amount` **no** debe depender de controladores, tablas ba
 
 Orden vinculante de etapas de producto:
 
-1. **Documentación del paradigma** (D0) — este documento y referencias; **completada** al aprobarse este texto.
-2. **Capacidad canónica `amount`** integrada en el shell y validada (núcleo de capacidades + `amount` v1).
-3. **Transición de datos** (si se aprueba) y **retirada de Finanzas legacy**, con higiene de datos, referencias y consumidores.
-4. **Etapa de imágenes** (posterior; CAP histórico de imágenes).
+1. **Documentación del paradigma** (D0) — este documento y referencias; **completada**.
+2. **Capacidad canónica `amount`** integrada en el shell y validada; **completada** (C1a–A1b).
+3. **Retirada de Finanzas legacy**; **completada** (LEGACY-X / `DB_VERSION=24`). Sin migración de datos (ya vaciados).
+4. **Etapa de imágenes** (posterior).
 
 Shell visual y CRUD base pueden seguir evolucionando en paralelo mientras no contradigan este paradigma.
 
-### 9.1 Retirada de legacy (marco)
+### 9.1 Retirada de Finance (cerrada)
 
-La retirada debe contemplar datos, referencias y consumidores (navegación, configuración, otros módulos, helpers compartidos).
-
-Diferenciar operaciones:
-
-- **deshabilitar accesos** (p. ej. dejar de ofrecer la UI clásica);
-- **retirar código**;
-- **eliminar tablas o datos**.
-
-La eliminación de tablas o datos **no** es consecuencia automática de disponer de la UI canónica nueva. No eliminar datos solo porque la nueva UI los sustituya visualmente.
+LEGACY-X retiró accesos, código y tablas `aa_finance_*` en el mecanismo versionado. La familia canónica `finance` y `amount` permanecen. Detalle histórico en Git y en la decisión 30 del plan.
 
 Queda **abierta** la futura evaluación de reutilización de galería, resize y helpers de Storage de Expedientes para la etapa de imágenes; no se diseña aquí esa capacidad.
 
@@ -179,14 +171,14 @@ No presentar bajar `DB_VERSION` como procedimiento ordinario de rollback. La ide
 
 ## 10. Estado implementado (inventario breve)
 
-Hechos del repositorio tras A1b (no sustituyen el paradigma):
+Hechos del repositorio tras A1b + LEGACY-X Finance (no sustituyen el paradigma):
 
-- Persistencia universal `aa_canonical_*` con CRUD de `title` / `details` en el shell.
+- Persistencia universal `aa_canonical_*` (`DB_VERSION=24`) con CRUD de `title` / `details` en el shell.
 - **C1a:** tablas de defaults/configuración/`record_amount`; config Use Cases + Ops.
 - **A1a:** `CanonicalCapabilityWriteBag` + handlers/effects; `CanonicalRecordAmountRepository`; TX registro+efectos+touch; materialización al crear listas; normalizador canónico paralelo a Finance.
 - **A1b:** `amount` **`is_ready=true`**; contributors de página + enrich en `build_records_view_data`; estados `known_value` / `known_absent` / `read_failed`; presenters + formulario genérico por clave + módulo JS amount; lifecycle `DEFAULTS_VERSION=2` insert-if-missing sin sobrescribir guardados; sin activación masiva de listas existentes.
 - Familia `finance` / `archive` en registry; enablement de familia.
-- Finance legacy operativo en paralelo (`module=canonical`, `aa_finance_*`); duplicación temporal del normalizador hasta retirada del legacy (antes de imágenes).
+- **LEGACY-X Finance:** módulo clásico retirado (`module=canonical`, `aa_finance_*`, normalizador duplicado). `DB_VERSION=24` deja de instalar y elimina esas tablas.
 
 ---
 
@@ -197,7 +189,7 @@ Cerrados en C1a/A1a/A1b (inventario §10 / decisiones 27–29 del plan): schema/
 Quedan abiertos para órdenes posteriores. **No** son arquitectura normativa cerrada aquí:
 
 - operación explícita de aplicación de capacidades a listas existentes (Ops ya permite activación puntual);
-- retirada efectiva de Finance legacy (sin migración de datos vaciados);
+- ~~retirada efectiva de Finance legacy~~ (**cerrada** en LEGACY-X / DB 24);
 - totalización, API pública, Settings de capabilities, imágenes.
 
 Las alternativas exploradas en sesiones de diseño no obligan al diseño final.
