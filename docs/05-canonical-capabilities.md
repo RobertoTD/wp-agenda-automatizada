@@ -12,7 +12,7 @@
 - **Estado implementado** — lo que existe hoy en el repositorio.
 - **Mecanismo técnico pendiente** — diseño o código aún no aprobado o no construido.
 
-Hoy (tras IMG-3a / DB 27): schema `DB_VERSION=27`; repertorio familiar en `aa_canonical_family_capabilities`; selección explícita de capacidades por lista en create/update del shell; familia canónica `finance` y capability `amount` (`is_ready=true`) sobre `aa_canonical_*`; escritura/lectura/UI amount operativas; único normalizador `AA_Canonical_Amount_Normalizer`; tablas físicas `images`/ops/purge + credenciales de admisión en ops; helper de consumo de instalación; capability `images` **registrada `is_ready=false`** (sin seeds ni attach/UI de producto). El módulo Finance legacy (`module=canonical`, `aa_finance_*`) está **retirado**.
+Hoy (tras IMG-3b / DB 27): schema `DB_VERSION=27`; repertorio familiar en `aa_canonical_family_capabilities`; selección explícita de capacidades por lista en create/update del shell; familia canónica `finance` y capability `amount` (`is_ready=true`) sobre `aa_canonical_*`; escritura/lectura/UI amount operativas; único normalizador `AA_Canonical_Amount_Normalizer`; tablas físicas `images`/ops/purge + credenciales de admisión en ops; helper de consumo de instalación; attach Application/AJAX canónico (`aa_attach_canonical_record_image`) implementado; capability `images` **registrada `is_ready=false`** (sin seeds ni UI de producto). El módulo Finance legacy (`module=canonical`, `aa_finance_*`) está **retirado**.
 
 ---
 
@@ -205,6 +205,7 @@ Hechos del repositorio tras A1b + LEGACY-X Finance + selección por lista (no su
 - **IMG-0:** paradigma `images` en §12 (docs).
 - **IMG-1:** tablas `aa_canonical_record_images` / `aa_canonical_image_upload_operations` / `aa_canonical_purge_runs` (`DB_VERSION=26`); catálogo `images` not-ready sin seeds; **sin** upload/UI/activación de producto.
 - **IMG-3a:** `DB_VERSION=27`; columnas `upload_intent` / `upload_objects_json` en ops; helper `AA_Installation_Storage_Usage` (confirmed/reserved/admission); repos suma images + persistencia ops; callers legacy de upload + usage informativo alineados. **Sin** attach canónico / UI / `is_ready`.
+- **IMG-3b:** attach canónico Application/AJAX (`UploadCanonicalRecordImageUseCase`, confirmación TX, `aa_attach_canonical_record_image`); sin migración schema; `images` sigue not-ready sin seeds/UI.
 
 ---
 

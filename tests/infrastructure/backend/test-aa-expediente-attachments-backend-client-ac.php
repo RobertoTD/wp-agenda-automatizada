@@ -658,6 +658,82 @@ ac_assert('v1 sin path_contract', !array_key_exists('path_contract', $v1_payload
 ac_assert('v1 sin wp_expediente_id', !array_key_exists('wp_expediente_id', $v1_payload));
 ac_assert('v1 sigue ok', !empty($v1['ok']));
 
+function aa_authorize_canonical_input(array $over = []): array {
+    return array_merge([
+        'upload_operation_id' => '550e8400-e29b-41d4-a716-446655440000',
+        'wp_record_id' => 10,
+        'mime_type' => 'image/jpeg',
+        'byte_size' => 1000,
+        'width' => 100,
+        'height' => 80,
+        'content_sha256' => str_repeat('ab', 32),
+        'used_bytes' => 0,
+        'variants_manifest_version' => 1,
+        'variant_byte_sizes' => [
+            'summary' => 100,
+            'gallery' => 200,
+            'display' => 300,
+        ],
+    ], $over);
+}
+
+reset_http();
+$GLOBALS['aa_test_http_response'] = [
+    'response' => ['code' => 200],
+    'body' => json_encode([
+        'ok' => true,
+        'variants_manifest_version' => 1,
+        'upload_operation_id' => '550e8400-e29b-41d4-a716-446655440000',
+        'storage_path' => 'installations/11111111-1111-4111-8111-111111111111/canonical/records/10/550e8400-e29b-41d4-a716-446655440000.jpg',
+        'upload_intent' => 'intent-canonical',
+        'admission_expires_at_ms' => 9999999999999,
+        'objects' => aa_authorize_objects(),
+    ]),
+];
+$can = $client->authorize_canonical_upload(aa_authorize_canonical_input());
+ac_assert('authorize canonical ok', !empty($can['ok']));
+$can_payload = $GLOBALS['aa_test_http_calls'][0]['data'] ?? [];
+ac_assert('canonical path_contract', ($can_payload['path_contract'] ?? '') === 'canonical_v1');
+ac_assert('canonical content_sha256', ($can_payload['content_sha256'] ?? '') === str_repeat('ab', 32));
+ac_assert('canonical sin client/expediente', !array_key_exists('wp_client_id', $can_payload)
+    && !array_key_exists('wp_expediente_id', $can_payload));
+
+reset_http();
+$bad_sha = $client->authorize_canonical_upload(aa_authorize_canonical_input(['content_sha256' => 'short']));
+ac_assert('canonical sha inválido', ($bad_sha['ok'] ?? true) === false && ($bad_sha['code'] ?? '') === 'invalid_content_sha256');
+ac_assert('sha inválido sin HTTP', $GLOBALS['aa_test_http_calls'] === []);
+
+reset_http();
+$hybrid_c = $client->authorize_canonical_upload(aa_authorize_canonical_input(['wp_client_id' => 1]));
+ac_assert('canonical híbrido client rechazado', ($hybrid_c['ok'] ?? true) === false && ($hybrid_c['code'] ?? '') === 'path_contract_invalid');
+
+reset_http();
+$GLOBALS['aa_test_http_response'] = [
+    'response' => ['code' => 200],
+    'body' => json_encode([
+        'ok' => true,
+        'variants_manifest_version' => 1,
+        'upload_operation_id' => '550e8400-e29b-41d4-a716-446655440000',
+        'storage_path' => 'installations/11111111-1111-4111-8111-111111111111/canonical/records/10/550e8400-e29b-41d4-a716-446655440000.jpg',
+        'upload_intent' => 'prior-intent',
+        'admission_expires_at_ms' => 9999999999999,
+        'objects' => [
+            'original' => ['status' => 'pending_upload'],
+            'summary' => ['status' => 'already_uploaded'],
+            'gallery' => ['status' => 'pending_upload'],
+            'display' => ['status' => 'already_uploaded'],
+        ],
+    ]),
+];
+$resume = $client->authorize_canonical_upload(aa_authorize_canonical_input([
+    'prior_upload_intent' => 'prior-intent',
+]));
+ac_assert('canonical resume ok sin signed_url nuevas', !empty($resume['ok']));
+$resume_objects = $resume['result']['objects'] ?? [];
+ac_assert('resume pending sin url', ($resume_objects['original']['status'] ?? '') === 'pending_upload'
+    && !isset($resume_objects['original']['signed_url']));
+ac_assert('resume already_uploaded', ($resume_objects['summary']['status'] ?? '') === 'already_uploaded');
+
 echo "\n";
 if (count($failed) === 0) {
     echo "Passed {$passed}/{$total}\n";

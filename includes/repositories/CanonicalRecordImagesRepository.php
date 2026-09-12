@@ -2,8 +2,8 @@
 /**
  * Canonical Record Images Repository — SQL de aa_canonical_record_images.
  *
- * Solo suma de consumo confirmado canónico en este incremento (IMG-3a).
- * Sin TX propia.
+ * Suma de consumo confirmado + lectura/escritura de confirmación (IMG-3b).
+ * Sin TX propia; participa en la conexión/TX del caller.
  *
  * @package WP_Agenda_Automatizada
  * @subpackage Repositories
@@ -73,6 +73,122 @@ final class CanonicalRecordImagesRepository {
         }
 
         return $value;
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     *
+     * @throws CanonicalImageUploadPersistenceFailed
+     * @throws CanonicalImageUploadSchemaNotReady
+     */
+    public function find_by_upload_operation_id(string $upload_operation_id): ?array {
+        $table = AA_Canonical_Schema::record_images_table_name();
+        $this->assert_table_exists($table);
+
+        $op = trim($upload_operation_id);
+        if ($op === '') {
+            return null;
+        }
+
+        $this->clear_error_state();
+        $row = $this->wpdb->get_row(
+            $this->wpdb->prepare(
+                "SELECT id, record_id, upload_operation_id, storage_path, content_sha256,
+                        mime_type, byte_size, width, height, created_at
+                 FROM `{$table}` WHERE upload_operation_id = %s LIMIT 1",
+                $op
+            ),
+            ARRAY_A
+        );
+
+        if ($this->wpdb->last_error !== '') {
+            throw new CanonicalImageUploadPersistenceFailed('Failed to SELECT record image by operation.');
+        }
+
+        return is_array($row) ? $row : null;
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     *
+     * @throws CanonicalImageUploadPersistenceFailed
+     * @throws CanonicalImageUploadSchemaNotReady
+     */
+    public function find_by_id(int $image_id): ?array {
+        $table = AA_Canonical_Schema::record_images_table_name();
+        $this->assert_table_exists($table);
+
+        if ($image_id < 1) {
+            return null;
+        }
+
+        $this->clear_error_state();
+        $row = $this->wpdb->get_row(
+            $this->wpdb->prepare(
+                "SELECT id, record_id, upload_operation_id, storage_path, content_sha256,
+                        mime_type, byte_size, width, height, created_at
+                 FROM `{$table}` WHERE id = %d LIMIT 1",
+                $image_id
+            ),
+            ARRAY_A
+        );
+
+        if ($this->wpdb->last_error !== '') {
+            throw new CanonicalImageUploadPersistenceFailed('Failed to SELECT record image by id.');
+        }
+
+        return is_array($row) ? $row : null;
+    }
+
+    /**
+     * INSERT de imagen confirmada. Sin commit propio.
+     *
+     * @param array{
+     *   record_id:int,
+     *   upload_operation_id:string,
+     *   storage_path:string,
+     *   content_sha256:string,
+     *   mime_type:string,
+     *   byte_size:int,
+     *   width:int,
+     *   height:int,
+     *   created_at:string
+     * } $row
+     *
+     * @throws CanonicalImageUploadPersistenceFailed
+     * @throws CanonicalImageUploadSchemaNotReady
+     */
+    public function insert_confirmed(array $row): int {
+        $table = AA_Canonical_Schema::record_images_table_name();
+        $this->assert_table_exists($table);
+
+        $this->clear_error_state();
+        $result = $this->wpdb->insert(
+            $table,
+            [
+                'record_id' => (int) $row['record_id'],
+                'upload_operation_id' => (string) $row['upload_operation_id'],
+                'storage_path' => (string) $row['storage_path'],
+                'content_sha256' => (string) $row['content_sha256'],
+                'mime_type' => (string) $row['mime_type'],
+                'byte_size' => (int) $row['byte_size'],
+                'width' => (int) $row['width'],
+                'height' => (int) $row['height'],
+                'created_at' => (string) $row['created_at'],
+            ],
+            ['%d', '%s', '%s', '%s', '%s', '%d', '%d', '%d', '%s']
+        );
+
+        if ($result === false || $this->wpdb->last_error !== '') {
+            throw new CanonicalImageUploadPersistenceFailed('Failed to INSERT confirmed record image.');
+        }
+
+        $id = (int) $this->wpdb->insert_id;
+        if ($id < 1) {
+            throw new CanonicalImageUploadPersistenceFailed('Confirmed record image insert_id invalid.');
+        }
+
+        return $id;
     }
 
     /**

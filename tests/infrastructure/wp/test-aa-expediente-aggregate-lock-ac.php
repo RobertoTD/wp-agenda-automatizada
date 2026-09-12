@@ -279,6 +279,15 @@ ac_assert('quota scope_id', $quota instanceof AA_Expediente_Aggregate_Lock_Lease
 $bad_quota = $lock->acquire(AA_Expediente_Aggregate_Lock::SCOPE_STORAGE_QUOTA, 2, 1);
 ac_assert('quota id≠1 inválido', is_wp_error($bad_quota) && $bad_quota->get_error_code() === 'invalid_lock_scope');
 
+$state->get_lock = 1;
+$state->conn = 99;
+$canon = $lock->acquire(AA_Expediente_Aggregate_Lock::SCOPE_CANONICAL_CONTAINER, 7, 1);
+ac_assert('canonical_container acquire ok', $canon instanceof AA_Expediente_Aggregate_Lock_Lease);
+ac_assert('canonical_container scope', $canon instanceof AA_Expediente_Aggregate_Lock_Lease && $canon->scope_kind() === 'canonical_container');
+ac_assert('canonical_container id', $canon instanceof AA_Expediente_Aggregate_Lock_Lease && $canon->scope_id() === 7);
+$bad_canon = $lock->acquire(AA_Expediente_Aggregate_Lock::SCOPE_CANONICAL_CONTAINER, 0, 1);
+ac_assert('canonical_container id 0 inválido', is_wp_error($bad_canon) && $bad_canon->get_error_code() === 'invalid_lock_scope');
+
 echo "\nResultado: {$passed}/{$total}\n";
 if ($failed !== []) {
     echo "Fallidos:\n- " . implode("\n- ", $failed) . "\n";

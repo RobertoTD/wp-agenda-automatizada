@@ -18,6 +18,8 @@ final class ExpedienteAdjuntoVariants {
 
     public const CONTRACT_CLIENT_V1 = 'client_v1';
     public const CONTRACT_EXPEDIENTE_V2 = 'expediente_v2';
+    /** Path canónico de registros (IMG-2 / IMG-3b). Sin client/expediente. */
+    public const CONTRACT_CANONICAL_V1 = 'canonical_v1';
 
     public const VARIANT_SUMMARY = 'summary';
     public const VARIANT_GALLERY = 'gallery';

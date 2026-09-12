@@ -233,12 +233,12 @@ final class CanonicalImageUploadOperationsRepository {
     }
 
     /**
-     * DELETE por PK. Para TX futura de confirmación o tras purge confirmado.
+     * DELETE por PK. Sin commit propio. Devuelve filas afectadas (0|1).
      *
      * @throws CanonicalImageUploadPersistenceFailed
      * @throws CanonicalImageUploadSchemaNotReady
      */
-    public function delete_by_operation_id(string $upload_operation_id): void {
+    public function delete_by_operation_id(string $upload_operation_id): int {
         $table = AA_Canonical_Schema::image_upload_operations_table_name();
         $this->assert_table_exists($table);
 
@@ -252,6 +252,8 @@ final class CanonicalImageUploadOperationsRepository {
         if ($result === false) {
             throw new CanonicalImageUploadPersistenceFailed('Failed to DELETE image upload operation.');
         }
+
+        return (int) $result;
     }
 
     /**

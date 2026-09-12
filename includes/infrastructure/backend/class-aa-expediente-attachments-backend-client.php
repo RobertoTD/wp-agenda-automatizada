@@ -36,6 +36,9 @@ class AA_Expediente_Attachments_Backend_Client {
         'variant_bytes_exceeded',
         'variant_invalid',
         'path_contract_invalid',
+        'invalid_content_sha256',
+        'object_orphan',
+        'object_probe_failed',
     ];
 
     /** @var list<string> */
@@ -164,6 +167,89 @@ class AA_Expediente_Attachments_Backend_Client {
     }
 
     /**
+     * Authorize upload canónico canonical_v1 (IMG-3b).
+     * Path lo construye Node. Exige content_sha256. Nunca envía client/expediente.
+     *
+     * @param array{
+     *   upload_operation_id:string,
+     *   wp_record_id:int,
+     *   mime_type:string,
+     *   byte_size:int,
+     *   width:int,
+     *   height:int,
+     *   content_sha256:string,
+     *   used_bytes:int,
+     *   variants_manifest_version:int,
+     *   variant_byte_sizes:array{summary:int,gallery:int,display:int},
+     *   prior_upload_intent?:string
+     * } $input
+     * @return array{ok:true,result:array<string,mixed>}|array{ok:false,code:string,error:string,http_status:int}
+     */
+    public function authorize_canonical_upload(array $input): array {
+        $record_id = (int) ($input['wp_record_id'] ?? 0);
+        if ($record_id < 1) {
+            return $this->failure('path_contract_invalid', '', 0);
+        }
+
+        if (array_key_exists('wp_client_id', $input) || array_key_exists('wp_expediente_id', $input)) {
+            return $this->failure('path_contract_invalid', '', 0);
+        }
+
+        $sha = isset($input['content_sha256']) ? strtolower(trim((string) $input['content_sha256'])) : '';
+        if ($sha === '' || !preg_match('/^[0-9a-f]{64}$/', $sha)) {
+            return $this->failure('invalid_content_sha256', '', 0);
+        }
+
+        $manifest = $input['variants_manifest_version'] ?? null;
+        if (
+            !isset($input['variants_manifest_version'])
+            || !is_int($manifest)
+            || $manifest !== ExpedienteAdjuntoVariants::MANIFEST_VERSION
+        ) {
+            return $this->failure('manifest_version_invalid', '', 0);
+        }
+
+        $variant_sizes = $this->normalize_variant_byte_sizes($input['variant_byte_sizes'] ?? null);
+        if ($variant_sizes === null) {
+            return $this->failure('invalid_variant_meta', '', 0);
+        }
+
+        $preflight = $this->preflight();
+        if ($preflight !== null) {
+            return $preflight;
+        }
+
+        $payload = [
+            'path_contract' => ExpedienteAdjuntoVariants::CONTRACT_CANONICAL_V1,
+            'upload_operation_id' => (string) ($input['upload_operation_id'] ?? ''),
+            'wp_record_id' => $record_id,
+            'mime_type' => (string) ($input['mime_type'] ?? ''),
+            'byte_size' => (int) ($input['byte_size'] ?? 0),
+            'width' => (int) ($input['width'] ?? 0),
+            'height' => (int) ($input['height'] ?? 0),
+            'content_sha256' => $sha,
+            'used_bytes' => (int) ($input['used_bytes'] ?? 0),
+            'variants_manifest_version' => ExpedienteAdjuntoVariants::MANIFEST_VERSION,
+            'variant_byte_sizes' => $variant_sizes,
+        ];
+
+        $resume = false;
+        if (array_key_exists('prior_upload_intent', $input)) {
+            $prior = $input['prior_upload_intent'];
+            if (!is_string($prior) || trim($prior) === '') {
+                return $this->failure('upload_intent_invalid', '', 0);
+            }
+            $payload['prior_upload_intent'] = trim($prior);
+            $resume = true;
+        }
+
+        $endpoint = rtrim((string) AA_API_BASE_URL, '/') . '/expediente/attachments/authorize-upload';
+        $response = aa_send_authenticated_request($endpoint, 'POST', $payload);
+
+        return $this->parseAuthorizeResponse($response, $resume);
+    }
+
+    /**
      * @return array{ok:true,result:array<string,mixed>}|array{ok:false,code:string,error:string,http_status:int}
      */
     public function finalize(string $upload_intent): array {
@@ -244,7 +330,7 @@ class AA_Expediente_Attachments_Backend_Client {
      * @param array|\WP_Error $response
      * @return array{ok:true,result:array<string,mixed>}|array{ok:false,code:string,error:string,http_status:int}
      */
-    private function parseAuthorizeResponse($response): array {
+    private function parseAuthorizeResponse($response, bool $resume_mode = false): array {
         $parsed = $this->parseJsonOk($response, [
             'variants_manifest_version',
             'upload_operation_id',
@@ -281,7 +367,7 @@ class AA_Expediente_Attachments_Backend_Client {
             return $this->failure('expediente_attachments_invalid_response', '', 0);
         }
 
-        $normalized_objects = $this->normalize_authorize_objects($objects);
+        $normalized_objects = $this->normalize_authorize_objects($objects, $resume_mode);
         if ($normalized_objects === null) {
             return $this->failure('expediente_attachments_invalid_response', '', 0);
         }
@@ -403,7 +489,7 @@ class AA_Expediente_Attachments_Backend_Client {
      * @param array<string,mixed> $objects
      * @return array<string,array{status:string,signed_url?:string}>|null
      */
-    private function normalize_authorize_objects(array $objects): ?array {
+    private function normalize_authorize_objects(array $objects, bool $resume_mode = false): ?array {
         if (count($objects) !== count(self::OBJECT_KEYS)) {
             return null;
         }
@@ -419,6 +505,14 @@ class AA_Expediente_Attachments_Backend_Client {
 
             $status = isset($entry['status']) ? (string) $entry['status'] : '';
             if ($status === 'pending_upload') {
+                if ($resume_mode) {
+                    if (array_key_exists('signed_url', $entry) && $entry['signed_url'] !== null && $entry['signed_url'] !== '') {
+                        return null;
+                    }
+                    $normalized[$key] = ['status' => 'pending_upload'];
+                    continue;
+                }
+
                 $signed_url = $entry['signed_url'] ?? null;
                 if (!is_string($signed_url) || $signed_url === '') {
                     return null;

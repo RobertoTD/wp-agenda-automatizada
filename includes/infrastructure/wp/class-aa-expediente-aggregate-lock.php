@@ -6,6 +6,7 @@
  * - client:{client_id} — expediente relacionado con cliente
  * - expediente:{expediente_id} — expediente general
  * - storage_quota:{1} — cuota global del blog (P3; tras aggregate)
+ * - canonical_container:{container_id} — mutaciones/attach de un contenedor canónico (IMG-3b)
  *
  * No expone la key. No acepta tenant/blog/prefix desde HTTP.
  *
@@ -65,6 +66,8 @@ class AA_Expediente_Aggregate_Lock {
 
     public const SCOPE_CLIENT = 'client';
     public const SCOPE_EXPEDIENTE = 'expediente';
+    /** Contenedor canónico (IMG-3b). scope_id = container_id. */
+    public const SCOPE_CANONICAL_CONTAINER = 'canonical_container';
     /** Cuota de Storage global al blog (P3). scope_id fijo = 1. */
     public const SCOPE_STORAGE_QUOTA = 'storage_quota';
     public const STORAGE_QUOTA_SCOPE_ID = 1;
@@ -122,7 +125,11 @@ class AA_Expediente_Aggregate_Lock {
             if ($scope_id !== self::STORAGE_QUOTA_SCOPE_ID) {
                 return new WP_Error(self::ERROR_INVALID_SCOPE, 'Identificador de ámbito no válido.');
             }
-        } elseif ($scope_kind !== self::SCOPE_CLIENT && $scope_kind !== self::SCOPE_EXPEDIENTE) {
+        } elseif (
+            $scope_kind !== self::SCOPE_CLIENT
+            && $scope_kind !== self::SCOPE_EXPEDIENTE
+            && $scope_kind !== self::SCOPE_CANONICAL_CONTAINER
+        ) {
             return new WP_Error(self::ERROR_INVALID_SCOPE, 'Ámbito de coordinación no válido.');
         } elseif ($scope_id < 1) {
             return new WP_Error(self::ERROR_INVALID_SCOPE, 'Identificador de ámbito no válido.');
