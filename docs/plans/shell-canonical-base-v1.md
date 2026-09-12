@@ -245,7 +245,7 @@ Cuando la propuesta sea aprobada, el prompt de implementación será una autoriz
   13. **SB1-5C1** — higiene del transporte AJAX de mutaciones canónicas: **implementado** (`CanonicalShellWriteAjaxSupport` + `CanonicalShellWriteAjaxRejection` en `includes/http/ajax/`, cargados por el loader antes de los seis endpoints). El soporte concentra `authorize_identity()` (núcleo → ruta → Access Policy → provisioning → enablement; **devuelve la definición de familia** — family-only; una redacción histórica que hablaba de «familia y variante» quedó **supersedida**), `build_write_gateway()` (registry nuevo por construcción + bootstrap existente → `CanonicalWriteGateway`) y `parse_positive_int()`. No lee la superglobal de la petición, no ejecuta SQL, no instancia repositories, no conoce comandos ni operaciones, no abre transacciones, no genera redirects y no emite JSON: lanza el rechazo y cada endpoint responde con su propio `error()`. Cada endpoint conserva auth, action, nonce, payload, IDs, mensajes, command, Use Case, identidad y manifest en su punto actual, estados, JSON, redirects y `error()` de tres o cuatro parámetros. Se conservan las **dos lecturas de enablement** (gate + bootstrap) sin cache ni cambios de firma, y las inconsistencias históricas de mapeo se preservan documentadas, no corregidas. Los ciclos SB1-5B5 y SB1-5B6 se cerraron sin support compartido; **SB1-5C1 introduce esa extracción**. La futura API reutilizará los contratos y Use Cases de Application, no este helper de WordPress.
   14. **SB1-5B+** — shell visual base restante (cerrado el CRUD contenedores; siguientes mejoras visuales/presets fuera de este cierre).
   15. **SET-1** — activación de familias/presets desde Settings (parcialmente anticipado por PCU-5A enablement AJAX; selección de capabilities por lista en shell = decisión 31; Settings/presets de capabilities siguen pendientes).
-  16. **CAP-*** — sistema de capabilities y `amount` (clave estable aprobada). **C1a–A1b** completadas; **LEGACY-X Finance** (decisión 30) completada; **selección por lista / repertorio DB 25** (decisión 31) completada. Pendiente de CAP: imágenes (y totalización si se autoriza aparte).
+  16. **CAP-*** — sistema de capabilities y `amount` (clave estable aprobada). **C1a–A1b** completadas; **LEGACY-X Finance** (decisión 30) completada; **selección por lista / repertorio DB 25** (decisión 31) completada. **IMG-0** paradigma `images` documental (decisión 32). Pendiente de CAP: implementación `images` (ciclos 1…); totalización si se autoriza aparte.
   17. **LEGACY-X** — **Finance completada** (decisión 30). Otros legacies (p. ej. superficies no canónicas) siguen fuera de este cierre.
 - 18. **Shell family-only (DB 22)** — variantes eliminadas del shell universal `aa_canonical_*`: identidad/contratos/persistencia por `family_key` sola. *(Histórico: Finance clásico tenía `variant_key` local; retirado en LEGACY-X / decisión 30.)* Rollback estructural en `docs/plans/canonical-shell-db22-rollback.md`.
 - 19. **Alcance general «Todas las listas» (Ciclo 1 UI)** — `module=canonical_shell` sin `family` lista contenedores agregados de familias enabled+accesibles (`ReadCanonicalShellAllContainersUseCase` + `CanonicalAggregatedContainersPort` / adapter / repo multi-familia); paginación/orden/conteo globales; vacío de familias → página vacía sin SQL abierto; rutas familiares intactas; `lists_scope=all` solo en retorno de records; header `data-aa-page-title="Todas las listas"`. `DB_VERSION=22` / `CATALOG_VERSION=1` sin índices nuevos.
@@ -261,4 +261,128 @@ Cuando la propuesta sea aprobada, el prompt de implementación será una autoriz
 - 29. **A1b — lectura/UI amount + ready** — **completada**. Contributors de página (`CanonicalCapabilityRecordPageContributor` + registry + enricher) coordinados por `capability_key`; lectura por lote string-preserving; estados inequívocos `known_value` / `known_absent` / `read_failed` (config indeterminable → offered+read_failed, no “desactivada”); única vía `build_records_view_data` (preview sin capabilities); presenters + tarjeta (importe en panel abierto; sin nodo si ausencia conocida; error distinguible); formulario genérico clear→apply→collect + módulo JS amount; `is_ready=true`; lifecycle `DEFAULTS_VERSION=2` insert-if-missing de `finance`/`amount` sin sobrescribir; sin activación masiva de listas existentes. **Excluido:** totalización, API, Settings, imágenes, retirada Finance.
 - 30. **LEGACY-X — retirada Finance legacy** — **completada** (`DB_VERSION=24`). Eliminados accesos (`module=canonical` → 404), AJAX/UI/application/repos/`FinanceSchema`/`Shell_Url_Policy`/adapter desconectado y normalizador duplicado. Conservados: familia `finance`, `amount`, `AA_Canonical_Amount_Normalizer`, `aa_canonical_*`, Access Policy. Migración: DROP `aa_finance_records` luego `aa_finance_containers` (FK respetada); no recreación en installs nuevas; fallo no consolida `aa_db_version`. Sin migración de datos. **Excluido:** imágenes, totalización, Settings.
 - 31. **Selección de capacidades por lista + rename repertorio (DB 25)** — **completada**. `aa_canonical_family_capability_defaults` → `aa_canonical_family_capabilities` (`is_enabled` → `is_default`; fila = repertorio). Wire `capability_selection_scope`/`capability_selection`; create explícito reemplaza materializador; update omit conserva; desactivar conserva valores; snapshot de lista incluye asignadas fuera de repertorio; UI modal + edit desde records. Normativa en `docs/05-canonical-capabilities.md` §§2–4.1. **Excluido:** imágenes, Settings, API, totalización.
+- 32. **IMG-0 — paradigma `images` (documentación) + especificación Ciclo 1 (sin código)** — **completada** (solo docs; sin schema/código ejecutable/backend/UI). Norma: `docs/05-canonical-capabilities.md` §12; punteros en cheatsheet. Producto: clave `images`; repertorio finance/archive defaults off/on; lectura por acceso; subida por beneficio/cuota vigentes; desactivar conserva; v1 una imagen/selección + galería adaptada; fallo conserva registro; borrado registro/lista incluye imágenes aunque inactive; incomplete continuable; paralelo + retirada legacy posterior; multi-select/add-from-gallery pospuestos; no activar producto hasta recorrido completo. **Diseño físico cerrado abajo (especificación Ciclo 1); no ejecutado.**
+
+#### Especificación Ciclo 1 — schema `images` (aprobada para implementar solo tras autorización explícita; este ciclo documental no crea tablas)
+
+**Alcance futuro del incremento de código:** migración aditiva + registro catálogo `images` con `is_ready=false` + tests schema; **sin** seeds de repertorio, sin AJAX/UI, sin bump de activación, sin path backend nuevo en plugin. `DB_VERSION` se decidirá en el prompt de implementación.
+
+##### Tablas
+
+1. **`aa_canonical_record_images`** (imagen confirmada; única fuente de **consumo consolidado** canónico)
+   - `id` BIGINT UNSIGNED AI PK
+   - `record_id` BIGINT UNSIGNED NOT NULL
+   - `upload_operation_id` CHAR(36) NOT NULL — UUID v4; **UNIQUE**
+   - `storage_path` VARCHAR(191) NOT NULL — **UNIQUE**
+   - `content_sha256` CHAR(64) NOT NULL — hex SHA-256 del JPEG preparado admitido
+   - `mime_type` VARCHAR(64) NOT NULL
+   - `byte_size` INT UNSIGNED NOT NULL
+   - `width` INT UNSIGNED NOT NULL
+   - `height` INT UNSIGNED NOT NULL
+   - `created_at` DATETIME NOT NULL (UTC)
+   - FK `record_id` → `aa_canonical_records(id)` **ON DELETE RESTRICT**
+   - KEY `(record_id, id)`
+
+2. **`aa_canonical_image_upload_operations`** (admisión / vuelo / limpieza; **nunca** committed)
+   - `upload_operation_id` CHAR(36) PK
+   - `record_id` BIGINT UNSIGNED NOT NULL
+   - `storage_path` VARCHAR(191) NOT NULL
+   - `content_sha256` CHAR(64) NOT NULL
+   - `mime_type` VARCHAR(64) NOT NULL
+   - `byte_size` INT UNSIGNED NOT NULL
+   - `width` INT UNSIGNED NOT NULL
+   - `height` INT UNSIGNED NOT NULL
+   - `status` ENUM/VARCHAR estable: `admitted` | `cleanup_needed`
+   - `expires_at` DATETIME NOT NULL (UTC) — fijado en la admisión; **no** se amplía al reemitir URLs
+   - `backend_intent_exp_ms` BIGINT UNSIGNED NULL — eco del `exp` del intent si se persiste para auditoría
+   - `created_at` / `updated_at` DATETIME NOT NULL (UTC)
+   - FK `record_id` → `aa_canonical_records(id)` **ON DELETE RESTRICT**
+   - KEY `(status, expires_at)`, KEY `(record_id, status)`, KEY `(storage_path)`
+
+3. **`aa_canonical_purge_runs`** (continuidad de borrado registro/lista)
+   - `id` BIGINT UNSIGNED AI PK
+   - `scope` ENUM: `record` | `container`
+   - `target_id` BIGINT UNSIGNED NOT NULL — record_id o container_id
+   - `family_key` VARCHAR(64) NOT NULL — contexto de auth/redirect (no sustituye Access Policy)
+   - `status` ENUM: `in_progress` | `incomplete` | `completed` | `failed`
+   - `cursor_kind` ENUM: `image` | `operation` — qué cola se está drenando
+   - `cursor_id` BIGINT UNSIGNED NOT NULL DEFAULT 0 — último `id` de imagen **o** no aplica a ops (ver invariante de cursor)
+   - `cursor_operation_id` CHAR(36) NULL — para cola de operaciones (keyset por operation_id ordenado)
+   - `deleted_ok` INT UNSIGNED NOT NULL DEFAULT 0
+   - `failed_count` INT UNSIGNED NOT NULL DEFAULT 0
+   - `created_at` / `updated_at` DATETIME NOT NULL (UTC)
+   - UNIQUE `(scope, target_id)` mientras `status IN (in_progress, incomplete)` — una corrida abierta por target (implementar con índice parcial o invariante de aplicación si el motor no lo permite)
+   - KEY `(scope, target_id, status)`
+
+##### Estados e invariantes de operación
+
+| Status | Reserva cuota | ¿Puede pasar a imagen confirmada? | Siguiente |
+|--------|---------------|-----------------------------------|-----------|
+| `admitted` (y `now < expires_at`) | **Sí** (`byte_size`) | Sí, si acceso OK y (capability active **o** esta admisión preexistente) y finalize coherente | TX: INSERT image + **DELETE** esta fila |
+| `admitted` expirada | **No** (tratar como liberada; transición a `cleanup_needed`) | No — exige nueva admisión | `cleanup_needed` |
+| `cleanup_needed` | **No** | No | Purge Storage → DELETE fila ops |
+
+- **No existe** status `committed` en ops: al confirmar, la fila de operación **se elimina en la misma TX** que inserta `aa_canonical_record_images`.
+- Una fila **no** puede contar a la vez como reserva y como confirmada.
+- Liberar reserva (`cleanup_needed` o DELETE ops) **prohíbe** confirmar esa operación después sin **nueva** admisión (nueva capacidad).
+- Idempotencia post-commit: si ya existe imagen con el mismo `upload_operation_id`, el reintento responde éxito con ese DTO (**sin** re-admitir ni re-cobrar).
+
+##### Consumo, reserva y capacidad (diseño)
+
+Separación obligatoria:
+
+| Concepto | Definición |
+|----------|------------|
+| **Bytes confirmados** | `SUM(aa_expediente_adjuntos.byte_size)` + `SUM(aa_canonical_record_images.byte_size)` |
+| **Bytes reservados** | `SUM(ops.byte_size)` donde `status='admitted'` AND `expires_at > now` |
+| **Capacidad para nuevas admisiones** | `limit(tier) - confirmados - reservados` (evaluación vía backend `evaluateCapacity` con `used_bytes = confirmados + reservados` y `requestedBytes` del candidato) |
+| **Consumo mostrado al usuario** | **Solo bytes confirmados** (no incluir reservas ni variantes). El endpoint informativo canónico futuro y el legacy `aa_get_expediente_storage_usage` deben alinearse a confirmados cuando se adapte coexistencia. |
+
+Transiciones de reserva:
+
+1. Fresh authorize OK → INSERT ops `admitted` → **reserva on**.
+2. Commit TX → INSERT image + DELETE ops → reserva off, confirmado on (atómico).
+3. Fallo / expiración → UPDATE `cleanup_needed` → **reserva off** de inmediato; objetos posibles siguen en inventario de purge.
+4. Purge OK de ops → DELETE fila.
+
+##### Coexistencia (cálculo y lock compartidos; adaptación en ciclo posterior)
+
+**Hecho actual (legacy):** `used_bytes` solo desde `ExpedienteAdjuntosRepository::sum_byte_size_total()` bajo `AA_Expediente_Aggregate_Lock::SCOPE_STORAGE_QUOTA` / id `1` en:
+
+- `UploadExpedienteRegistroAdjuntoUseCase`
+- `UploadExpedienteAdjuntoForExpedienteUseCase`
+- (informativo) `GetExpedienteStorageUsageUseCase` → `ExpedienteAdjuntosAjax`
+
+**Canon futuro:** mismo ámbito de lock; helper único de instalación p. ej. `AA_Installation_Storage_Usage::{confirmed_bytes, reserved_bytes, admission_used_bytes}` consumido por uploads canónicos **y**, en el ciclo de coexistencia, por los Use Cases legacy anteriores + usage AJAX.
+
+Archivos a adaptar en ciclo de coexistencia (no en Ciclo 1): los tres Use Cases/AJAX listados; posiblemente fachada de lock si se renombra sin cambiar la key MySQL.
+
+##### Admisión vinculada y duración
+
+- Inmutable: `record_id`, `operation_id`, `storage_path`, `content_sha256`, `byte_size`, `width`, `height`, `mime`, `expires_at`.
+- `content_sha256` = SHA-256 del JPEG preparado; resume exige el mismo hash (otra imagen → rechazo).
+- `expires_at` = instante de admisión anclado al `exp` del intent backend (TTL 2 h hoy); reemitir signed URLs **no** mueve `expires_at`.
+- Cada request revalida: Access Policy, existencia registro/lista, ausencia de purge abierto en registro **o** su contenedor, vigencia, hash.
+- Distinción: transferencia pendiente (`admitted`) / reconciliación idempotente (imagen ya existe) / nueva admisión.
+
+##### Continuidad de borrado
+
+- Inventario = imágenes del alcance ∪ ops (`admitted`|`cleanup_needed`) del alcance, **aunque** capability inactive.
+- Cursor **keyset**, no OFFSET: drenar primero cola `image` con `id > cursor_id ORDER BY id ASC`; al vaciar, `cursor_kind=operation` y avanzar por `upload_operation_id` ordenado lexicográficamente (o `created_at, upload_operation_id`). Ítems que fallan **permanecen**; no se avanza el cursor past un fallo sin registrar `failed_count` y dejar el ítem para reintento (mismo id).
+- Presupuesto por petición: tope de ítems **y** deadline de wall-clock (p. ej. 10–15 s) / timeout por llamada Storage; al agotar → `incomplete` con cursor conservado.
+- Exclusión mutua: purge `in_progress|incomplete` en **container C** bloquea attach y purge de **cualquier registro** de C, y bloquea nuevo purge de C; purge en **record R** bloquea attach a R y delete de R; no inicia segundo purge concurrente del mismo target.
+- Registro/lista eliminados solo tras inventario vacío + DELETE SQL del recurso; UI «Eliminación incompleta» + Continuar.
+
+##### Catálogo Ciclo 1
+
+- Registrar `images` en `AA_Canonical_Capability_Registry_Bootstrap`: `scope=record`, **`is_ready=false`**.
+- **Sin** `declared_seeds()` para `images`.
+- Lifecycle no materializa `images` en listas.
+
+##### Reversibilidad
+
+- Código/migración aditiva ≠ borrar datos de usuario.
+- `is_ready` / defaults posteriores ≠ alterar listas existentes.
+- Bajar `DB_VERSION` no es rollback ordinario.
+
 - PCU-1 no autoriza ni inicia PCU-2.

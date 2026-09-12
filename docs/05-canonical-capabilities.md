@@ -2,7 +2,7 @@
 
 **Vigencia:** permanente desde su aprobación documental (D0).
 
-**Autoridad:** desarrollo normativo del sistema de capacidades. Complementa `docs/04-canonical-constitution.md` sin sustituirla. La constitución fija los principios generales del canon; este documento fija asignación, configuración, activación, datos y el marco vinculante de `amount`.
+**Autoridad:** desarrollo normativo del sistema de capacidades. Complementa `docs/04-canonical-constitution.md` sin sustituirla. La constitución fija los principios generales del canon; este documento fija asignación, configuración, activación, datos y el marco vinculante de `amount` e `images`.
 
 **Regla documental:** no duplicar aquí el modelo contenedor–registro ni el contrato base del shell. No duplicar este paradigma completo en el cheatsheet, el plan ni las reglas de agente: esos archivos solo referencian.
 
@@ -84,8 +84,8 @@ La solicitud no es un snapshot del setup completo; el snapshot es la capa 3.
 ## 5. Activación y datos (decisión aceptada)
 
 - La activación es independiente de los datos.
-- **Desactivar** una capacidad: conserva sus valores; deja de ofrecer sus controles; **rechaza escrituras** de esa capacidad.
-- **Reactivar** recupera el acceso a los valores conservados.
+- **Desactivar** una capacidad: conserva sus valores (y, cuando existan, recursos asociados y su consumo); deja de ofrecer sus controles y representación; **rechaza nuevas escrituras** de esa capacidad. Una operación de escritura ya admitida bajo reglas propias de la capacidad puede completarse según su contrato (p. ej. `images`); eso no autoriza nuevas admisiones mientras esté inactiva.
+- **Reactivar** recupera el acceso a los valores y recursos conservados.
 - Editar los datos base del registro (`title`, `details`) mientras la capacidad está desactivada **no debe borrar** sus valores.
 - La activación y la configuración pasan por un mecanismo común validado en servidor. Inicialmente lo utiliza el desarrollador; posteriormente podrá exponerse a usuarios autorizados **sin cambiar** el modelo de persistencia.
 - La configuración enviada por el navegador no sustituye permisos ni comprobaciones sobre la lista real del registro.
@@ -169,7 +169,7 @@ Orden vinculante de etapas de producto:
 1. **Documentación del paradigma** (D0) — este documento y referencias; **completada**.
 2. **Capacidad canónica `amount`** integrada en el shell y validada; **completada** (C1a–A1b).
 3. **Retirada de Finanzas legacy**; **completada** (LEGACY-X / `DB_VERSION=24`). Sin migración de datos (ya vaciados).
-4. **Etapa de imágenes** (posterior).
+4. **Etapa de imágenes** — paradigma normativo en §12 (**IMG-0** documental); implementación por ciclos en el plan. Producto **no activable** hasta completar el recorrido previsto.
 
 Shell visual y CRUD base pueden seguir evolucionando en paralelo mientras no contradigan este paradigma.
 
@@ -177,7 +177,7 @@ Shell visual y CRUD base pueden seguir evolucionando en paralelo mientras no con
 
 LEGACY-X retiró accesos, código y tablas `aa_finance_*` en el mecanismo versionado. La familia canónica `finance` y `amount` permanecen. Detalle histórico en Git y en la decisión 30 del plan.
 
-Queda **abierta** la futura evaluación de reutilización de galería, resize y helpers de Storage de Expedientes para la etapa de imágenes; no se diseña aquí esa capacidad.
+La reutilización o copia de piezas de Expedientes (galería, resize, Storage) para `images` es decisión de implementación en el plan; no fija el contrato canónico ni obliga a conservar paths o identidades legacy.
 
 ### 9.2 Rollback (marco)
 
@@ -202,6 +202,7 @@ Hechos del repositorio tras A1b + LEGACY-X Finance + selección por lista (no su
 - Familia `finance` / `archive` en registry; enablement de familia.
 - **LEGACY-X Finance:** módulo clásico retirado (`module=canonical`, `aa_finance_*`, normalizador duplicado). DB 24 dejó de instalar y eliminó esas tablas.
 - **DB 25 / selección por lista:** rename repertorio → `aa_canonical_family_capabilities` + `is_default`; wire `capability_selection_scope` / `capability_selection`; `CanonicalContainerCapabilitySelection` + preparer + effect en TX de create/update contenedor; UI de checkboxes en modal de lista (create/edit); edición desde vista records con `return_view=records` y payload `capabilities` en tarjeta; lectura fallida → `unavailable` sin fabricar selección.
+- **IMG-0:** paradigma `images` en §12 (docs); sin tablas ni registro ready en código.
 
 ---
 
@@ -213,6 +214,63 @@ Quedan abiertos para órdenes posteriores. **No** son arquitectura normativa cer
 
 - ~~aplicación explícita de capacidades a listas existentes vía selección en update~~ (**cerrada** en DB 25 / decisión 31; Ops puntual sigue disponible);
 - ~~retirada efectiva de Finance legacy~~ (**cerrada** en LEGACY-X / DB 24);
-- totalización, API pública, Settings de capabilities, imágenes.
+- ~~paradigma de producto de `images`~~ (**cerrado** normativamente en §12 / IMG-0; diseño físico y ciclos en el plan);
+- totalización, API pública, Settings de capabilities;
+- implementación ejecutable de `images` (schema, backend path, UI, activación) — plan, no esta norma.
 
-Las alternativas exploradas en sesiones de diseño no obligan al diseño final.
+Las alternativas exploradas en sesiones de diseño no obligan al diseño final salvo lo fijado en §12 y en las decisiones del plan.
+
+---
+
+## 12. Capacidad `images` (decisión aceptada — paradigma)
+
+### 12.1 Identidad y configuración
+
+- Clave estable: **`images`**.
+- Independiente de Expedientes/Clientes y de cualquier familia concreta; reutilizable mediante el shell.
+- Configuración efectiva **por lista** (mismas cuatro capas §2–4.1).
+- Repertorio: presente en **`finance`** y **`archive`**.
+- Defaults al crear lista **sin** selección explícita: `finance` → **desactivada**; `archive` → **activada**.
+- Listas existentes: **sin** cambio retroactivo al introducir o alterar defaults.
+- `amount` conserva su comportamiento; ambas pueden coexistir activas en la misma lista.
+
+### 12.2 Lectura, subida y conservación
+
+- **Leer** imágenes exige autorización de acceso al registro (y a la instalación); **no** exige beneficio de almacenamiento ni suscripción.
+- **Subir** conserva los beneficios y cuotas comerciales vigentes (`expediente_storage`: free sin derecho de subida; freemium/pro según política efectiva; degradación Pro→freemium según lógica ya existente). No se rediseña el catálogo de beneficios en esta norma.
+- **Desactivar** `images` en una lista: conserva archivos, metadatos, vínculos y consumo de cuota; deja de ofrecer operaciones y representación; rechaza **nuevas** subidas. **Reactivar** recupera la funcionalidad y las imágenes conservadas.
+- Cambiar el checkbox de selección **no** exige suscripción; subir sí exige beneficio disponible y capacidad según la regla de cuota.
+- No hay borrado implícito por desactivación, cambio de plan o abandono de cuenta.
+
+La conservación reversible al desactivar es el criterio general de capabilities (§5), aplicado también a recursos no escalares.
+
+### 12.3 Experiencia de la primera entrega (producto)
+
+- Una imagen por selección de archivo; varias imágenes **acumulables** por registro en guardados sucesivos.
+- Selector y preview en los modales canónicos de crear y editar registro.
+- Guardar primero el registro (campos base y otras capabilities del mismo POST); **después** adjuntar.
+- Si falla la imagen: el registro y sus campos **se conservan**; se informa y se permite **reintentar solo la imagen**.
+- Galería: miniatura en cabecera, imagen principal en panel expandido, tira/contador cuando corresponda, visor ampliado; selección/orden de sesión como en el legado útil, **sin** portada ni orden persistidos en v1.
+- No copiar contratos base del legacy (p. ej. `details` sigue opcional en el canon).
+- **Pospuesto:** selección múltiple en una operación; añadir imágenes desde la galería.
+
+### 12.4 Borrado deliberado
+
+- Eliminar una imagen elimina sus objetos asociados.
+- Eliminar un registro elimina todas sus imágenes.
+- Eliminar una lista elimina sus registros y todas sus imágenes.
+- Lo anterior aplica **aunque** `images` esté desactivada en la lista.
+- La confirmación debe mencionar que también se eliminarán las imágenes.
+- Si el proceso queda a medias: informar **«Eliminación incompleta»** y permitir **continuar**; no afirmar que no ocurrió nada si ya hubo eliminaciones parciales.
+
+### 12.5 Desarrollo, activación y retirada
+
+- Desarrollo **en paralelo** al legado de adjuntos de Expedientes; se acepta duplicación temporal.
+- Retirada del legado de imágenes **después** de consolidar el canon; **sin** requisito de migrar ni conservar registros legacy de adjuntos.
+- Retirar imágenes legacy **no** implica por sí retirar Clientes/Expedientes.
+- **Producto no activable** (`is_ready` / seeds de repertorio que materialicen en listas reales) hasta completar el recorrido de implementación previsto en el plan.
+- No usar `is_ready=true` sin seeds como sustituto de “bloqueada”.
+
+### 12.6 Qué no fija esta norma
+
+El detalle físico (nombres de tablas, estados de operación, fingerprints, paths Storage, tandas de purge, cálculo exacto de reserva) es **diseño de implementación** registrado en `docs/plans/shell-canonical-base-v1.md` (decisión IMG / Ciclo 1). Ese diseño debe respetar §12; no se eleva aquí a obligación constitucional ni a DDL ejecutado.
