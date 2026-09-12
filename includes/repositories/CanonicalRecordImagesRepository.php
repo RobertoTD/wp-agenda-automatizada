@@ -192,6 +192,95 @@ final class CanonicalRecordImagesRepository {
     }
 
     /**
+     * Metadata pública por lote para registros de un contenedor.
+     * Pertenencia vía JOIN a records. Orden por registro: id DESC.
+     * Lista vacía de IDs → mapa vacío sin SQL.
+     *
+     * @param list<int> $record_ids
+     * @return array<int, list<array{id:int,record_id:int,width:int,height:int,byte_size:int,created_at:string}>>
+     *
+     * @throws CanonicalImageUploadPersistenceFailed
+     * @throws CanonicalImageUploadSchemaNotReady
+     */
+    public function find_public_rows_by_record_ids_for_container(int $container_id, array $record_ids): array {
+        $images_table = AA_Canonical_Schema::record_images_table_name();
+        $records_table = AA_Canonical_Schema::records_table_name();
+        $this->assert_table_exists($images_table);
+        $this->assert_table_exists($records_table);
+
+        if ($container_id < 1) {
+            throw new CanonicalImageUploadPersistenceFailed('Invalid container_id for image batch read.');
+        }
+
+        $ids = [];
+        foreach ($record_ids as $id) {
+            $id = (int) $id;
+            if ($id >= 1) {
+                $ids[$id] = $id;
+            }
+        }
+        $ids = array_values($ids);
+
+        $out = [];
+        foreach ($ids as $id) {
+            $out[$id] = [];
+        }
+
+        if ($ids === []) {
+            return $out;
+        }
+
+        $placeholders = implode(',', array_fill(0, count($ids), '%d'));
+        $params = array_merge([$container_id], $ids);
+
+        $images_safe = str_replace('`', '``', $images_table);
+        $records_safe = str_replace('`', '``', $records_table);
+
+        $this->clear_error_state();
+        $sql = $this->wpdb->prepare(
+            "SELECT i.id, i.record_id, i.width, i.height, i.byte_size, i.created_at
+             FROM `{$images_safe}` i
+             INNER JOIN `{$records_safe}` r ON r.id = i.record_id
+             WHERE r.container_id = %d
+               AND i.record_id IN ({$placeholders})
+             ORDER BY i.record_id ASC, i.id DESC",
+            $params
+        );
+
+        if (!is_string($sql) || $sql === '') {
+            throw new CanonicalImageUploadPersistenceFailed('Failed to prepare image batch SELECT.');
+        }
+
+        $rows = $this->wpdb->get_results($sql, ARRAY_A);
+        if ($rows === false || $this->wpdb->last_error !== '') {
+            throw new CanonicalImageUploadPersistenceFailed('Failed to SELECT record images batch.');
+        }
+        if (!is_array($rows)) {
+            throw new CanonicalImageUploadPersistenceFailed('Failed to SELECT record images batch.');
+        }
+
+        foreach ($rows as $row) {
+            if (!is_array($row) || !isset($row['record_id'], $row['id'])) {
+                continue;
+            }
+            $rid = (int) $row['record_id'];
+            if (!array_key_exists($rid, $out)) {
+                continue;
+            }
+            $out[$rid][] = [
+                'id' => (int) $row['id'],
+                'record_id' => $rid,
+                'width' => (int) ($row['width'] ?? 0),
+                'height' => (int) ($row['height'] ?? 0),
+                'byte_size' => (int) ($row['byte_size'] ?? 0),
+                'created_at' => (string) ($row['created_at'] ?? ''),
+            ];
+        }
+
+        return $out;
+    }
+
+    /**
      * @throws CanonicalImageUploadSchemaNotReady
      */
     private function assert_table_exists(string $table): void {

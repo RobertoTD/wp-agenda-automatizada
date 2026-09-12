@@ -8,6 +8,16 @@
 
 defined('ABSPATH') or die('No direct access');
 
+if (!class_exists('CanonicalImagesRecordsPageContributor')) {
+    require_once dirname(__DIR__, 2) . '/application/canonical/capabilities/images/CanonicalImagesRecordsPageContributor.php';
+}
+if (!class_exists('CanonicalRecordImagesRepository')) {
+    require_once dirname(__DIR__, 2) . '/repositories/CanonicalRecordImagesRepository.php';
+}
+if (!class_exists('CanonicalRecordImagePublicDto')) {
+    require_once dirname(__DIR__, 2) . '/application/canonical/images/CanonicalRecordImagePublicDto.php';
+}
+
 final class AA_Canonical_Capability_Page_Contributor_Bootstrap {
 
     /** @var CanonicalCapabilityRecordPageContributorRegistry|null */
@@ -23,6 +33,14 @@ final class AA_Canonical_Capability_Page_Contributor_Bootstrap {
             new CanonicalAmountRecordsPageContributor(
                 new CanonicalCapabilityConfigRepository($wpdb),
                 new CanonicalRecordAmountRepository($wpdb),
+                $capability_registry
+            )
+        );
+
+        $registry->register(
+            new CanonicalImagesRecordsPageContributor(
+                new CanonicalCapabilityConfigRepository($wpdb),
+                new CanonicalRecordImagesRepository($wpdb),
                 $capability_registry
             )
         );

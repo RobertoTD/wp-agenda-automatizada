@@ -29,6 +29,9 @@ if (!class_exists('AA_Canonical_Schema')) {
 if (!class_exists('AA_Installation_Storage_Usage')) {
     require_once dirname(__DIR__, 3) . '/application/storage/AA_Installation_Storage_Usage.php';
 }
+if (!class_exists('CanonicalRecordImagePublicDto')) {
+    require_once dirname(__DIR__, 3) . '/application/canonical/images/CanonicalRecordImagePublicDto.php';
+}
 
 final class AA_Canonical_Record_Image_Confirmation_Store implements CanonicalRecordImageConfirmationPort {
 
@@ -217,13 +220,7 @@ final class AA_Canonical_Record_Image_Confirmation_Store implements CanonicalRec
      * @return array{id:int,width:int,height:int,byte_size:int,created_at:string}
      */
     private function public_dto(array $row): array {
-        return [
-            'id' => (int) $row['id'],
-            'width' => (int) $row['width'],
-            'height' => (int) $row['height'],
-            'byte_size' => (int) $row['byte_size'],
-            'created_at' => (string) $row['created_at'],
-        ];
+        return CanonicalRecordImagePublicDto::from_row($row);
     }
 
     /**

@@ -78,6 +78,10 @@ if (!class_exists('AA_Installation_Storage_Usage_Failed')) {
     require_once dirname(__DIR__, 3) . '/application/storage/AA_Installation_Storage_Usage_Failed.php';
 }
 
+if (!class_exists('CanonicalRecordImagePublicDto')) {
+    require_once __DIR__ . '/CanonicalRecordImagePublicDto.php';
+}
+
 final class UploadCanonicalRecordImageUseCase {
 
     private const UUID_V4_RE = '/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i';
@@ -1020,13 +1024,7 @@ final class UploadCanonicalRecordImageUseCase {
     private function success_from_row(array $row): array {
         return [
             'ok' => true,
-            'image' => [
-                'id' => (int) $row['id'],
-                'width' => (int) $row['width'],
-                'height' => (int) $row['height'],
-                'byte_size' => (int) $row['byte_size'],
-                'created_at' => (string) $row['created_at'],
-            ],
+            'image' => CanonicalRecordImagePublicDto::from_row($row),
         ];
     }
 

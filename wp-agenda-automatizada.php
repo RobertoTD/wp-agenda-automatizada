@@ -126,6 +126,9 @@ require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/capabil
 require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/capabilities/CanonicalCapabilityRecordPageContributorRegistry.php';
 require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/capabilities/CanonicalCapabilityShellRecordsEnricher.php';
 require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/capabilities/amount/CanonicalAmountRecordsPageContributor.php';
+require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/images/CanonicalRecordImagePublicDto.php';
+require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/capabilities/images/CanonicalImagesRecordsPageContributor.php';
+require_once plugin_dir_path(__FILE__) . 'includes/repositories/CanonicalRecordImagesRepository.php';
 require_once plugin_dir_path(__FILE__) . 'includes/repositories/CanonicalCapabilityConfigRepository.php';
 require_once plugin_dir_path(__FILE__) . 'includes/repositories/CanonicalRecordAmountRepository.php';
 require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/canonical/class-aa-canonical-family-enablement-store.php';
@@ -407,6 +410,9 @@ CanonicalDeleteRecordAjax::register();
 
 require_once __DIR__ . '/includes/http/ajax/CanonicalAttachRecordImageAjax.php';
 CanonicalAttachRecordImageAjax::register();
+
+require_once __DIR__ . '/includes/http/ajax/CanonicalSignRecordImageReadAjax.php';
+CanonicalSignRecordImageReadAjax::register();
 
 // ===============================
 // 🔹 Schema lifecycle: registra el activation hook con AA_Schema::install

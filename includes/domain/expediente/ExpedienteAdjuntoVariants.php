@@ -70,6 +70,9 @@ final class ExpedienteAdjuntoVariants {
     private const EXPEDIENTE_V2_ORIGINAL_RE =
         '#^installations/(' . self::INSTALLATION_UUID . ')/expedientes/(\d+)/records/(\d+)/(' . self::OP_UUID_V4 . ')\.jpg$#i';
 
+    private const CANONICAL_V1_ORIGINAL_RE =
+        '#^installations/(' . self::INSTALLATION_UUID . ')/canonical/records/(\d+)/(' . self::OP_UUID_V4 . ')\.jpg$#i';
+
     /**
      * @return bool
      */
@@ -280,6 +283,32 @@ final class ExpedienteAdjuntoVariants {
             ];
         }
 
+        if (preg_match(self::CANONICAL_V1_ORIGINAL_RE, $path, $match)) {
+            $installation_id = strtolower($match[1]);
+            $record_id = (int) $match[2];
+            $operation_id = strtolower($match[3]);
+            if ($record_id < 1) {
+                return null;
+            }
+
+            $normalized = 'installations/' . $installation_id
+                . '/canonical/records/' . $record_id
+                . '/' . $operation_id . '.jpg';
+
+            return [
+                'contract' => self::CONTRACT_CANONICAL_V1,
+                'installation_id' => $installation_id,
+                'client_id' => null,
+                'expediente_id' => null,
+                'record_id' => $record_id,
+                'operation_id' => $operation_id,
+                'storage_path' => $normalized,
+                'wp_client_id' => null,
+                'wp_record_id' => $record_id,
+                'upload_operation_id' => $operation_id,
+            ];
+        }
+
         return null;
     }
 
@@ -304,6 +333,12 @@ final class ExpedienteAdjuntoVariants {
             return 'installations/' . $parsed['installation_id']
                 . '/clients/' . $parsed['client_id']
                 . '/records/' . $parsed['record_id']
+                . '/' . $parsed['operation_id'] . '_' . $variant . '.jpg';
+        }
+
+        if ($parsed['contract'] === self::CONTRACT_CANONICAL_V1) {
+            return 'installations/' . $parsed['installation_id']
+                . '/canonical/records/' . $parsed['record_id']
                 . '/' . $parsed['operation_id'] . '_' . $variant . '.jpg';
         }
 
