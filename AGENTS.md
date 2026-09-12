@@ -5,7 +5,8 @@ Instrucciones para cualquier agente que trabaje en este repositorio.
 ## Referencias operativas generales
 
 - Capas PHP/JS y reglas de contagio: `.cursor/rules/paradigm.mdc`, `docs/00-paradigm-cheatsheet.md` y `docs/02-architecture-principles.md`.
-- Tests JavaScript: `.cursor/rules/safe-js-tests.mdc` y `scripts/safe-node-test.sh`.
+- Tests JavaScript (plugin): `.cursor/rules/safe-js-tests.mdc` y `scripts/safe-node-test.sh` (`tests/js/*.test.js`).
+- Tests JavaScript (deoia-oauth-backend, multi-root): `deoia-oauth-backend/scripts/safe-node-test.sh` (`tests/*.test.js`). El hook `.cursor/hooks/guard-js-tests.py` reconoce ambas vías acotadas; no usar `npm test` / `node --test` directos.
 
 ## Canon DEO — lectura condicional
 

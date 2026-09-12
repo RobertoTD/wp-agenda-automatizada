@@ -3,12 +3,21 @@ alwaysApply: true
 ---
 # Pruebas JavaScript seguras (obligatorio)
 
-Toda ejecución de tests JavaScript en este repositorio debe usar **exclusivamente**:
+Toda ejecución de tests JavaScript **de este plugin** debe usar **exclusivamente**:
 
 ```bash
 scripts/safe-node-test.sh tests/js/archivo.test.js
 scripts/safe-node-test.sh tests/js/archivo.test.js --pattern "nombre exacto del test"
 ```
+
+En el workspace multi-root, tests del backend `deoia-oauth-backend` usan **su** runner (no el de este plugin):
+
+```bash
+cd /home/roberto/dev/deoia-oauth-backend
+scripts/safe-node-test.sh tests/archivo.test.js
+```
+
+El hook `.cursor/hooks/guard-js-tests.py` solo autoriza invocaciones con forma válida de cada ejecutable aprobado (sin encadenar comandos).
 
 ## Prohibido ejecutar directamente
 
