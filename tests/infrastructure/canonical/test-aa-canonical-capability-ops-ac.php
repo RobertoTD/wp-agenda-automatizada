@@ -147,7 +147,7 @@ try {
         ac_assert('Usuario admin autenticado', is_user_logged_in() && current_user_can('manage_options'));
 
         $enabled = $ops->set_family_default('finance', 'amount', true);
-        ac_assert('Admin + enable amount ready', is_array($enabled) && !empty($enabled['is_enabled']));
+        ac_assert('Admin + enable amount ready', is_array($enabled) && !empty($enabled['is_default']));
 
         $not_ready_registry = (new AA_Canonical_Capability_Registry())
             ->register(new AA_Canonical_Capability_Definition('amount', AA_Canonical_Capability_Definition::SCOPE_RECORD, false))

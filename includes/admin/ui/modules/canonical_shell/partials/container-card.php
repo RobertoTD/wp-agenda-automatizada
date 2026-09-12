@@ -17,15 +17,22 @@ $show_edit_container = !empty($show_edit_container);
 $card_container_id = isset($card_container_id) ? (int) $card_container_id : 0;
 $card_family_key = isset($card_family_key) && is_string($card_family_key) ? $card_family_key : '';
 $card_family_label = isset($card_family_label) && is_string($card_family_label) ? $card_family_label : '';
+$card_capabilities = (isset($card_capabilities) && is_array($card_capabilities))
+    ? $card_capabilities
+    : null;
 $edit_payload_attr = '';
 if ($show_edit_container && $card_container_id >= 1 && $card_family_key !== '') {
+    $edit_payload_data = [
+        'id' => $card_container_id,
+        'title' => (string) $card_title,
+        'details' => is_string($card_details) ? $card_details : '',
+        'family_key' => $card_family_key,
+    ];
+    if (is_array($card_capabilities) && isset($card_capabilities['status'])) {
+        $edit_payload_data['capabilities'] = $card_capabilities;
+    }
     $edit_payload = wp_json_encode(
-        [
-            'id' => $card_container_id,
-            'title' => (string) $card_title,
-            'details' => is_string($card_details) ? $card_details : '',
-            'family_key' => $card_family_key,
-        ],
+        $edit_payload_data,
         JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT
     );
     if (is_string($edit_payload) && $edit_payload !== '') {

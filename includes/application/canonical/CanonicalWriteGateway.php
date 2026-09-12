@@ -67,16 +67,18 @@ final class CanonicalWriteGateway {
     }
 
     /**
+     * @param list<CanonicalContainerCapabilityEffect> $effects
      * @throws CanonicalWriteBindingNotFound
      * @throws CanonicalContainerNotFound
      * @throws CanonicalMutationPersistenceFailed
      */
     public function update_container(
         CanonicalReadIdentity $identity,
-        CanonicalUpdateContainerCommand $command
+        CanonicalUpdateContainerCommand $command,
+        array $effects = []
     ): CanonicalMutationReceipt {
         $adapter = $this->resolver->require($identity);
-        $receipt = $adapter->update_container($identity, $command);
+        $receipt = $adapter->update_container($identity, $command, $effects);
         $this->assert_receipt_identity($identity, $receipt);
         $this->assert_container_mutation_receipt(
             $receipt,

@@ -66,7 +66,8 @@ final class AA_Schema {
      * Independiente de la versión del plugin. Solo refleja el estado
      * de las tablas/columnas/índices.
      */
-    public const DB_VERSION = '24';
+    /** DB 25 renombra la tabla de repertorio de capabilities por familia. */
+    public const DB_VERSION = '25';
 
     public const OPTION_INSTALLATION_INITIALIZED_AT = 'aa_installation_initialized_at';
 

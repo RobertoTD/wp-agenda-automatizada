@@ -1,8 +1,8 @@
 <?php
 /**
- * Canonical Capability Defaults Lifecycle — seeds de defaults sin sobrescritura.
+ * Canonical Capability Defaults Lifecycle — seeds de repertorio sin sobrescritura.
  *
- * Solo inserta filas ausentes para capacidades is_ready. Nunca UPDATE de is_enabled.
+ * Solo inserta filas ausentes para capacidades is_ready. Nunca UPDATE de is_default.
  * A1b: amount ready → insert-if-missing de finance/amount (DEFAULTS_VERSION=2).
  *
  * @package WP_Agenda_Automatizada
@@ -113,10 +113,10 @@ final class AA_Canonical_Capability_Defaults_Lifecycle {
                 continue;
             }
 
-            $repository->insert_family_default_if_missing(
+            $repository->insert_family_capability_if_missing(
                 $family_id,
                 $seed['capability_key'],
-                $seed['is_enabled']
+                $seed['is_default']
             );
         }
     }
@@ -124,14 +124,14 @@ final class AA_Canonical_Capability_Defaults_Lifecycle {
     /**
      * Seeds declarados. Con amount ready (A1b), el ensure inserta finance/amount solo si falta.
      *
-     * @return list<array{family_key:string,capability_key:string,is_enabled:bool}>
+     * @return list<array{family_key:string,capability_key:string,is_default:bool}>
      */
     public static function declared_seeds(): array {
         return [
             [
                 'family_key' => 'finance',
                 'capability_key' => 'amount',
-                'is_enabled' => true,
+                'is_default' => true,
             ],
         ];
     }

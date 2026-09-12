@@ -146,7 +146,8 @@ final class CanonicalShellWriteAjaxSupport {
      * @return array{
      *   gateway: CanonicalWriteGateway,
      *   preparer: CanonicalCapabilityRecordWritePreparer,
-     *   materializer: AA_Canonical_Capability_Defaults_Materializer
+     *   materializer: AA_Canonical_Capability_Defaults_Materializer,
+     *   selection_preparer: CanonicalContainerCapabilitySelectionPreparer
      * }
      * @throws CanonicalShellWriteAjaxRejection
      */
@@ -187,11 +188,118 @@ final class CanonicalShellWriteAjaxSupport {
             'gateway' => new CanonicalWriteGateway($write_registry),
             'preparer' => $capability_stack['preparer'],
             'materializer' => $capability_stack['materializer'],
+            'selection_preparer' => $capability_stack['selection_preparer'],
         ];
     }
 
     /**
-     * Extrae aportaciones de capacidades presentes en un mapa de campos (p. ej. $_POST).
+     * Parsea selección de capacidades de lista desde un mapa de campos (p. ej. fuente POST).
+     *
+     * Ambos `capability_selection_scope` y `capability_selection` ausentes → null (omisión).
+     * Exactamente uno presente → invalid_payload.
+     * Ambos presentes: cada uno debe ser un JSON string (POST WordPress) que, tras
+     * wp_unslash una vez, decodifique a lista de strings (claves; arrays vacíos OK).
+     *
+     * @param array<string, mixed> $source
+     * @return CanonicalContainerCapabilitySelection|null
+     * @throws CanonicalShellWriteAjaxRejection invalid_payload 400
+     */
+    public static function parse_capability_selection_from_source(array $source): ?CanonicalContainerCapabilitySelection {
+        if (!class_exists('CanonicalContainerCapabilitySelection')) {
+            require_once dirname(__DIR__, 2) . '/application/canonical/capabilities/CanonicalContainerCapabilitySelection.php';
+        }
+
+        $has_scope = array_key_exists('capability_selection_scope', $source);
+        $has_selection = array_key_exists('capability_selection', $source);
+
+        if (!$has_scope && !$has_selection) {
+            return null;
+        }
+
+        if ($has_scope !== $has_selection) {
+            throw new CanonicalShellWriteAjaxRejection(
+                'invalid_payload',
+                'La solicitud contiene campos no válidos.',
+                400
+            );
+        }
+
+        $scope = self::parse_capability_key_list_json($source['capability_selection_scope']);
+        $selection = self::parse_capability_key_list_json($source['capability_selection']);
+
+        return CanonicalContainerCapabilitySelection::present($scope, $selection);
+    }
+
+    /**
+     * Normaliza un valor POST de WordPress (wp_unslash) y decodifica la lista JSON.
+     *
+     * @param mixed $raw
+     * @return list<string>
+     * @throws CanonicalShellWriteAjaxRejection
+     */
+    private static function parse_capability_key_list_json($raw): array {
+        if (!is_string($raw)) {
+            throw new CanonicalShellWriteAjaxRejection(
+                'invalid_payload',
+                'La solicitud contiene campos no válidos.',
+                400
+            );
+        }
+
+        $normalized = wp_unslash($raw);
+        if (!is_string($normalized)) {
+            throw new CanonicalShellWriteAjaxRejection(
+                'invalid_payload',
+                'La solicitud contiene campos no válidos.',
+                400
+            );
+        }
+
+        $decoded = json_decode($normalized, true);
+        if (!is_array($decoded) || !self::is_list_array($decoded)) {
+            throw new CanonicalShellWriteAjaxRejection(
+                'invalid_payload',
+                'La solicitud contiene campos no válidos.',
+                400
+            );
+        }
+
+        $keys = [];
+        foreach ($decoded as $item) {
+            if (!is_string($item) || $item === '') {
+                throw new CanonicalShellWriteAjaxRejection(
+                    'invalid_payload',
+                    'La solicitud contiene campos no válidos.',
+                    400
+                );
+            }
+            $keys[] = $item;
+        }
+
+        return $keys;
+    }
+
+    /**
+     * @param array<mixed> $value
+     */
+    private static function is_list_array(array $value): bool {
+        if (function_exists('array_is_list')) {
+            return array_is_list($value);
+        }
+
+        $expected = 0;
+        foreach ($value as $key => $_) {
+            if ($key !== $expected) {
+                return false;
+            }
+            $expected++;
+        }
+
+        return true;
+    }
+
+    /**
+     * Extrae aportaciones de capacidades presentes en un mapa de campos (p. ej. fuente de petición).
      *
      * @param array<string, mixed> $source
      */

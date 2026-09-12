@@ -206,8 +206,11 @@ final class AA_Canonical_Shell_Base_Url_Policy {
     /**
      * Contexto de retorno de mutaciones (navegación). No autoriza ni comprueba pertenencia.
      *
-     * @param array{lists_scope?:mixed,page?:mixed,containers_page?:mixed} $input
-     * @return array{lists_scope:?string,page:?int,containers_page:?int}|null null si el input es inválido
+     * `return_view`: ausente → null (retorno por defecto del endpoint); solo se admite
+     * la cadena exacta `"records"`. Cualquier otro valor presente es inválido.
+     *
+     * @param array{lists_scope?:mixed,page?:mixed,containers_page?:mixed,return_view?:mixed} $input
+     * @return array{lists_scope:?string,page:?int,containers_page:?int,return_view:?string}|null null si el input es inválido
      */
     public static function parse_mutation_return_context(array $input): ?array {
         $lists_scope = null;
@@ -237,10 +240,20 @@ final class AA_Canonical_Shell_Base_Url_Policy {
             $containers_page = $parsed_containers_page;
         }
 
+        $return_view = null;
+        if (array_key_exists('return_view', $input)) {
+            $raw_view = $input['return_view'];
+            if (!is_string($raw_view) || $raw_view !== self::VIEW_RECORDS) {
+                return null;
+            }
+            $return_view = self::VIEW_RECORDS;
+        }
+
         return [
             'lists_scope' => $lists_scope,
             'page' => $page,
             'containers_page' => $containers_page,
+            'return_view' => $return_view,
         ];
     }
 

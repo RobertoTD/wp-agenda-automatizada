@@ -18,11 +18,21 @@
     var deleteNonce = typeof cfg.deleteNonce === 'string' ? cfg.deleteNonce : '';
     var familyKey = typeof cfg.familyKey === 'string' ? cfg.familyKey : '';
     var listsScope = typeof cfg.listsScope === 'string' ? cfg.listsScope : '';
+    var shellView = typeof cfg.shellView === 'string' ? cfg.shellView : 'containers';
     var page = (typeof cfg.page === 'number' && cfg.page > 1) ? cfg.page : null;
+    var containersPage = (typeof cfg.containersPage === 'number' && cfg.containersPage > 1)
+        ? cfg.containersPage
+        : null;
     var availableFamilies = Array.isArray(cfg.availableFamilies) ? cfg.availableFamilies : [];
     var requireFamilySelect = cfg.requireFamilySelect === true;
     var maxTitleLength = typeof cfg.maxTitleLength === 'number' ? cfg.maxTitleLength : 200;
     var canCreateFromAll = listsScope === 'all' && availableFamilies.length > 0;
+    var familyCapabilityOptions = (cfg.familyCapabilityOptions && typeof cfg.familyCapabilityOptions === 'object')
+        ? cfg.familyCapabilityOptions
+        : {};
+    var editContainerCapabilities = (cfg.editContainerCapabilities && typeof cfg.editContainerCapabilities === 'object')
+        ? cfg.editContainerCapabilities
+        : null;
 
     if (!ajaxUrl || !createAction || !createNonce || !updateAction || !updateNonce
         || !deleteAction || !deleteNonce) {
@@ -48,6 +58,8 @@
     var familyField = document.getElementById('aa-shell-container-family-field');
     var familySelect = document.getElementById('aa-shell-container-family');
     var familyError = document.getElementById('aa-shell-container-family-error');
+    var capabilitiesMount = document.getElementById('aa-shell-container-capabilities');
+    var capabilitiesStatus = document.getElementById('aa-shell-container-capabilities-status');
 
     var deleteModal = document.getElementById('aa-shell-delete-container-modal');
     var deleteBackdrop = document.getElementById('aa-shell-delete-container-modal-backdrop');
@@ -69,6 +81,7 @@
     var currentFamilyKey = familyKey;
     var inFlight = false;
     var previousFocus = null;
+    var capabilitiesOperative = false;
 
     var deleteContainerId = null;
     var deleteFamilyKey = null;
@@ -83,6 +96,175 @@
         }
         if (page !== null) {
             body.append('page', String(page));
+        }
+        if (containersPage !== null) {
+            body.append('containers_page', String(containersPage));
+        }
+        if (shellView === 'records' && mode === MODE_UPDATE) {
+            body.append('return_view', 'records');
+        }
+    }
+
+    function optionsForFamily(nextFamilyKey) {
+        if (!nextFamilyKey || typeof familyCapabilityOptions !== 'object' || familyCapabilityOptions === null) {
+            return [];
+        }
+        var list = familyCapabilityOptions[nextFamilyKey];
+        return Array.isArray(list) ? list : [];
+    }
+
+    function clearCapabilitiesStatus() {
+        if (!capabilitiesStatus) {
+            return;
+        }
+        capabilitiesStatus.textContent = '';
+        capabilitiesStatus.classList.add('hidden');
+    }
+
+    function setCapabilitiesUnavailable(message) {
+        capabilitiesOperative = false;
+        if (capabilitiesMount) {
+            capabilitiesMount.innerHTML = '';
+            capabilitiesMount.setAttribute('hidden', '');
+            capabilitiesMount.setAttribute('aria-disabled', 'true');
+        }
+        if (!capabilitiesStatus) {
+            return;
+        }
+        capabilitiesStatus.textContent = message
+            || 'No se pudieron cargar los campos y funciones de esta lista.';
+        capabilitiesStatus.classList.remove('hidden');
+    }
+
+    function renderCapabilityCheckboxes(nextFamilyKey, checkedKeys) {
+        if (!capabilitiesMount) {
+            capabilitiesOperative = false;
+            return;
+        }
+        capabilitiesOperative = true;
+        clearCapabilitiesStatus();
+        capabilitiesMount.removeAttribute('hidden');
+        capabilitiesMount.removeAttribute('aria-disabled');
+        capabilitiesMount.innerHTML = '';
+
+        var opts = optionsForFamily(nextFamilyKey);
+        if (opts.length === 0) {
+            return;
+        }
+        if (typeof document.createElement !== 'function') {
+            capabilitiesOperative = false;
+            return;
+        }
+
+        var checkedSet = null;
+        if (Array.isArray(checkedKeys)) {
+            checkedSet = {};
+            var c;
+            for (c = 0; c < checkedKeys.length; c++) {
+                if (typeof checkedKeys[c] === 'string' && checkedKeys[c] !== '') {
+                    checkedSet[checkedKeys[c]] = true;
+                }
+            }
+        }
+
+        var i;
+        for (i = 0; i < opts.length; i++) {
+            var opt = opts[i];
+            if (!opt || typeof opt !== 'object') {
+                continue;
+            }
+            var key = typeof opt.key === 'string' ? opt.key : '';
+            if (key === '') {
+                continue;
+            }
+            var labelText = typeof opt.label === 'string' && opt.label !== '' ? opt.label : key;
+            var shouldCheck = checkedSet
+                ? !!checkedSet[key]
+                : opt.is_default === true;
+
+            var row = document.createElement('label');
+            row.className = 'flex items-center gap-2 text-sm text-gray-800';
+
+            var input = document.createElement('input');
+            input.type = 'checkbox';
+            input.value = key;
+            input.setAttribute('data-aa-capability-key', key);
+            input.className = 'rounded border-gray-300 text-indigo-600 focus:ring-indigo-500';
+            input.checked = shouldCheck;
+            input.disabled = inFlight;
+
+            var span = document.createElement('span');
+            span.textContent = labelText;
+
+            row.appendChild(input);
+            row.appendChild(span);
+            capabilitiesMount.appendChild(row);
+        }
+    }
+
+    function applyCreateCapabilities(nextFamilyKey) {
+        renderCapabilityCheckboxes(nextFamilyKey, null);
+    }
+
+    function applyUpdateCapabilities(nextFamilyKey, capabilitiesState) {
+        var state = (capabilitiesState && typeof capabilitiesState === 'object')
+            ? capabilitiesState
+            : editContainerCapabilities;
+        if (!state || state.status !== 'ok') {
+            setCapabilitiesUnavailable();
+            return;
+        }
+        var active = Array.isArray(state.active) ? state.active : [];
+        var opts = optionsForFamily(nextFamilyKey);
+        var repertoire = {};
+        var i;
+        for (i = 0; i < opts.length; i++) {
+            if (opts[i] && typeof opts[i].key === 'string' && opts[i].key !== '') {
+                repertoire[opts[i].key] = true;
+            }
+        }
+        var checked = [];
+        for (i = 0; i < active.length; i++) {
+            if (typeof active[i] === 'string' && repertoire[active[i]]) {
+                checked.push(active[i]);
+            }
+        }
+        renderCapabilityCheckboxes(nextFamilyKey, checked);
+    }
+
+    function collectCapabilitySelectionFields(body) {
+        if (!capabilitiesOperative) {
+            return;
+        }
+        var scope = [];
+        var selected = [];
+        if (capabilitiesMount && typeof capabilitiesMount.querySelectorAll === 'function') {
+            var inputs = capabilitiesMount.querySelectorAll('input[data-aa-capability-key]');
+            var i;
+            for (i = 0; i < inputs.length; i++) {
+                var input = inputs[i];
+                var key = input.getAttribute('data-aa-capability-key');
+                if (typeof key !== 'string' || key === '') {
+                    continue;
+                }
+                scope.push(key);
+                if (input.checked) {
+                    selected.push(key);
+                }
+            }
+        }
+        body.append('capability_selection_scope', JSON.stringify(scope));
+        body.append('capability_selection', JSON.stringify(selected));
+    }
+
+    function setCapabilityInputsDisabled(disabled) {
+        if (!capabilitiesMount || typeof capabilitiesMount.querySelectorAll !== 'function') {
+            return;
+        }
+        var inputs = capabilitiesMount.querySelectorAll('input[data-aa-capability-key]');
+        var i;
+        for (i = 0; i < inputs.length; i++) {
+            inputs[i].disabled = disabled;
         }
     }
 
@@ -198,6 +380,7 @@
         if (familySelect && mode === MODE_CREATE && requireFamilySelect) {
             familySelect.disabled = busy;
         }
+        setCapabilityInputsDisabled(busy);
         if (cancelBtn) {
             cancelBtn.disabled = busy;
         }
@@ -225,7 +408,7 @@
         }
     }
 
-    function openModal(nextMode, containerId, titleValue, detailsValue, triggerEl, nextFamilyKey) {
+    function openModal(nextMode, containerId, titleValue, detailsValue, triggerEl, nextFamilyKey, capabilitiesState) {
         if (inFlight || deleteInFlight || deleteBlocked) {
             return;
         }
@@ -257,6 +440,11 @@
         titleInput.value = typeof titleValue === 'string' ? titleValue : '';
         if (detailsInput) {
             detailsInput.value = typeof detailsValue === 'string' ? detailsValue : '';
+        }
+        if (mode === MODE_UPDATE) {
+            applyUpdateCapabilities(currentFamilyKey, capabilitiesState || null);
+        } else {
+            applyCreateCapabilities(currentFamilyKey);
         }
         modal.classList.remove('hidden');
         modal.setAttribute('aria-hidden', 'false');
@@ -314,11 +502,16 @@
         if (payloadFamily === '') {
             return null;
         }
+        var capabilities = null;
+        if (data.capabilities && typeof data.capabilities === 'object') {
+            capabilities = data.capabilities;
+        }
         return {
             id: id,
             title: typeof data.title === 'string' ? data.title : '',
             details: typeof data.details === 'string' ? data.details : '',
-            family_key: payloadFamily
+            family_key: payloadFamily,
+            capabilities: capabilities
         };
     }
 
@@ -402,6 +595,7 @@
         body.append('title', titleInput.value);
         body.append('details', detailsInput ? detailsInput.value : '');
         appendReturnContext(body);
+        collectCapabilitySelectionFields(body);
 
         fetch(ajaxUrl, {
             method: 'POST',
@@ -665,6 +859,16 @@
         });
     }
 
+    if (familySelect) {
+        familySelect.addEventListener('change', function () {
+            if (mode !== MODE_CREATE) {
+                return;
+            }
+            currentFamilyKey = typeof familySelect.value === 'string' ? familySelect.value : '';
+            applyCreateCapabilities(currentFamilyKey);
+        });
+    }
+
     var editButtons = document.querySelectorAll('.aa-shell-edit-container-btn');
     for (var i = 0; i < editButtons.length; i++) {
         (function (btn) {
@@ -679,7 +883,8 @@
                     container.title,
                     container.details,
                     btn,
-                    container.family_key
+                    container.family_key,
+                    container.capabilities
                 );
             });
         })(editButtons[i]);

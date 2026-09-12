@@ -15,6 +15,7 @@ final class AA_Canonical_Capability_Write_Bootstrap {
      * @return array{
      *   preparer: CanonicalCapabilityRecordWritePreparer,
      *   materializer: AA_Canonical_Capability_Defaults_Materializer,
+     *   selection_preparer: CanonicalContainerCapabilitySelectionPreparer,
      *   handlers: CanonicalCapabilityWriteHandlerRegistry
      * }
      */
@@ -43,6 +44,10 @@ final class AA_Canonical_Capability_Write_Bootstrap {
                 $capability_registry,
                 $config_repository
             ),
+            'selection_preparer' => new CanonicalContainerCapabilitySelectionPreparer(
+                $config_repository,
+                $capability_registry
+            ),
             'handlers' => $handlers,
         ];
     }
@@ -54,6 +59,8 @@ final class AA_Canonical_Capability_Write_Bootstrap {
 
         $files = [
             $app . '/CanonicalCapabilityWriteBag.php',
+            $app . '/CanonicalContainerCapabilitySelection.php',
+            $app . '/CanonicalContainerCapabilitySelectionPreparer.php',
             $app . '/CanonicalRecordMutationContext.php',
             $app . '/CanonicalContainerMutationContext.php',
             $app . '/CanonicalRecordCapabilityEffect.php',
@@ -70,6 +77,7 @@ final class AA_Canonical_Capability_Write_Bootstrap {
             $infra . '/class-aa-canonical-amount-write-handler.php',
             $infra . '/class-aa-canonical-capability-defaults-materializer.php',
             $infra . '/class-aa-canonical-materialize-family-defaults-effect.php',
+            $infra . '/class-aa-canonical-apply-container-capability-selection-effect.php',
         ];
 
         foreach ($files as $file) {

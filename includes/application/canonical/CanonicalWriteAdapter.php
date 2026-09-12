@@ -46,12 +46,14 @@ interface CanonicalWriteAdapter {
     ): CanonicalMutationReceipt;
 
     /**
+     * @param list<CanonicalContainerCapabilityEffect> $effects
      * @throws CanonicalContainerNotFound
      * @throws CanonicalMutationPersistenceFailed
      */
     public function update_container(
         CanonicalReadIdentity $identity,
-        CanonicalUpdateContainerCommand $command
+        CanonicalUpdateContainerCommand $command,
+        array $effects = []
     ): CanonicalMutationReceipt;
 
     /**

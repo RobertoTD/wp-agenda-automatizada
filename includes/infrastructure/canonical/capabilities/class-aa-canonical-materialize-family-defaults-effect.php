@@ -1,6 +1,6 @@
 <?php
 /**
- * Efecto: copiar defaults ready+enabled a container_capabilities.
+ * Efecto: copiar repertorio familiar ready+is_default a container_capabilities.
  *
  * @package WP_Agenda_Automatizada
  * @subpackage Infrastructure\Canonical\Capabilities
@@ -27,9 +27,9 @@ final class AA_Canonical_Materialize_Family_Defaults_Effect implements Canonical
     public function apply(CanonicalContainerMutationContext $context): void {
         try {
             $this->config_repository->assert_schema_ready();
-            $defaults = $this->config_repository->list_family_defaults($context->family_id());
+            $defaults = $this->config_repository->list_family_capabilities($context->family_id());
             foreach ($defaults as $row) {
-                if (empty($row['is_enabled'])) {
+                if (empty($row['is_default'])) {
                     continue;
                 }
                 $key = (string) $row['capability_key'];

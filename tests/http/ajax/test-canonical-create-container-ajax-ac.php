@@ -37,7 +37,7 @@ ac_assert('Bootstrap registra', strpos($boot_src, 'CanonicalCreateContainerAjax:
 ac_assert('Access Policy vía soporte SB1-5C1', strpos($support_src, 'AA_Canonical_Access_Policy::check_family_access') !== false
     && strpos($ajax_src, 'CanonicalShellWriteAjaxSupport::authorize_identity') !== false);
 ac_assert('Write bootstrap vía soporte SB1-5C1', strpos($support_src, 'AA_Canonical_Write_Binding_Bootstrap::register_productive') !== false
-    && strpos($ajax_src, 'CanonicalShellWriteAjaxSupport::build_write_gateway') !== false);
+    && strpos($ajax_src, 'CanonicalShellWriteAjaxSupport::build_write_composition') !== false);
 ac_assert('UseCase create', strpos($ajax_src, 'WriteCanonicalShellContainerUseCase') !== false);
 ac_assert('Sin SQL directo', preg_match('/\$wpdb|->query\(|->insert\(|->update\(/', $ajax_src) !== 1);
 ac_assert('Códigos estables', strpos($ajax_src, "'uncertain'") !== false
@@ -58,6 +58,19 @@ ac_assert('Soporte contenido: sin SQL, JSON, $_POST, redirects ni commands', str
 ac_assert('Sin aa_finance_', strpos($ajax_src, 'aa_finance_') === false);
 ac_assert('Sin aa_expediente_', strpos($ajax_src, 'aa_expediente_') === false);
 ac_assert('Sin amount', strpos($ajax_src, 'amount') === false);
+ac_assert(
+    'Parsea selection vía soporte',
+    strpos($ajax_src, 'CanonicalShellWriteAjaxSupport::parse_capability_selection_from_source') !== false
+);
+ac_assert(
+    'Create pasa selection al UseCase',
+    strpos($ajax_src, '$use_case->create($manifest, $command, $selection)') !== false
+    || preg_match('/->create\(\s*\$manifest\s*,\s*\$command\s*,\s*\$selection\s*\)/', $ajax_src) === 1
+);
+ac_assert(
+    'Soporte expone parse_capability_selection_from_source',
+    strpos($support_src, 'function parse_capability_selection_from_source') !== false
+);
 
 if (!defined('ABSPATH')) {
     define('ABSPATH', $plugin_root . '/');
@@ -97,7 +110,7 @@ if (!function_exists('wp_verify_nonce')) {
 }
 if (!function_exists('wp_unslash')) {
     function wp_unslash($v) {
-        return $v;
+        return is_string($v) ? stripslashes($v) : $v;
     }
 }
 if (!function_exists('sanitize_key')) {
@@ -186,6 +199,9 @@ require_once $plugin_root . '/includes/application/canonical/WriteCanonicalShell
 require_once $plugin_root . '/includes/infrastructure/canonical/class-aa-canonical-write-binding-registry.php';
 require_once $plugin_root . '/includes/infrastructure/wp/class-aa-canonical-shell-base-url-policy.php';
 require_once $plugin_root . '/tests/support/canonical/CanonicalFixtureWriteAdapter.php';
+require_once $plugin_root . '/includes/application/canonical/capabilities/CanonicalContainerMutationContext.php';
+require_once $plugin_root . '/includes/application/canonical/capabilities/CanonicalContainerCapabilityEffect.php';
+require_once $plugin_root . '/includes/application/canonical/capabilities/CanonicalContainerCapabilitySelection.php';
 
 final class AA_Canonical_Family_Enablement_Store implements CanonicalFamilyEnablementPort {
     public static $mode = 'ok';
@@ -238,6 +254,40 @@ final class AA_Canonical_Write_Binding_Bootstrap {
             $identity = new CanonicalReadIdentity($key);
             $registry->register($identity, $adapter);
         }
+    }
+}
+
+final class AA_Test_Noop_Container_Capability_Effect implements CanonicalContainerCapabilityEffect {
+    public function apply(CanonicalContainerMutationContext $context): void {
+    }
+}
+
+final class AA_Test_Container_Capability_Selection_Preparer_Stub {
+    public function build_create_effect(string $family_key, $selection) {
+        return new AA_Test_Noop_Container_Capability_Effect();
+    }
+
+    public function build_update_effect(string $family_key, int $container_id, $selection) {
+        return new AA_Test_Noop_Container_Capability_Effect();
+    }
+}
+
+final class AA_Canonical_Capability_Write_Bootstrap {
+    /**
+     * @return array{
+     *   preparer:null,
+     *   materializer:null,
+     *   selection_preparer:AA_Test_Container_Capability_Selection_Preparer_Stub,
+     *   handlers:null
+     * }
+     */
+    public static function build_stack($wpdb = null): array {
+        return [
+            'preparer' => null,
+            'materializer' => null,
+            'selection_preparer' => new AA_Test_Container_Capability_Selection_Preparer_Stub(),
+            'handlers' => null,
+        ];
     }
 }
 
@@ -340,6 +390,41 @@ ac_assert(
     is_string($r['data']['redirect_url'] ?? null)
     && strpos($r['data']['redirect_url'], 'family=finance') !== false
         && strpos($r['data']['redirect_url'], 'page=') === false
+);
+
+$r = aa_run_create_ajax(aa_base_post([
+    'capability_selection_scope' => addslashes('["amount"]'),
+    'capability_selection' => addslashes('["amount"]'),
+]));
+ac_assert(
+    'Create: POST WP-slashed ["amount"] no invalid_payload',
+    ($r['success'] ?? false) === true && ($r['data']['status'] ?? '') === 'confirmed'
+);
+
+$r = aa_run_create_ajax(aa_base_post([
+    'capability_selection_scope' => addslashes('["amount"]'),
+    'capability_selection' => addslashes('[]'),
+]));
+ac_assert(
+    'Create: scope slashed + selection [] confirmed',
+    ($r['success'] ?? false) === true && ($r['data']['status'] ?? '') === 'confirmed'
+);
+
+$r = aa_run_create_ajax(aa_base_post([
+    'capability_selection_scope' => '[]',
+    'capability_selection' => '[]',
+]));
+ac_assert(
+    'Create: ambos [] confirmed (explícito vacío)',
+    ($r['success'] ?? false) === true && ($r['data']['status'] ?? '') === 'confirmed'
+);
+
+$r = aa_run_create_ajax(aa_base_post([
+    'capability_selection_scope' => addslashes('["amount"]'),
+]));
+ac_assert(
+    'Create: solo scope → invalid_payload',
+    ($r['data']['code'] ?? '') === 'invalid_payload'
 );
 
 CanonicalCreateContainerAjax::register();

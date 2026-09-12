@@ -71,7 +71,7 @@ ac_assert('Parent sin handler de nav obsoleto', strpos($parent, 'aa-canonical-fa
 ac_assert('Binding Finance legacy ausente del bootstrap productivo', strpos($binding, 'AA_Finance_Canonical_Read_Adapter') === false);
 ac_assert('Bootstrap read usa Relational', strpos($binding, 'AA_Canonical_Relational_Read_Adapter') !== false
     || strpos($binding, 'Relational_Read_Adapter') !== false);
-ac_assert('DB_VERSION=24', strpos($schema, "DB_VERSION = '24'") !== false);
+ac_assert('DB_VERSION=25', strpos($schema, "DB_VERSION = '25'") !== false);
 ac_assert('CATALOG_VERSION=1', strpos($catalog, 'CATALOG_VERSION = 1') !== false);
 
 echo "\n--- Resumen: {$passed}/{$total} ---\n";

@@ -86,6 +86,12 @@ final class CanonicalCreateContainerAjax {
             self::error('invalid_payload', 'La solicitud contiene campos no válidos.', 400);
         }
 
+        try {
+            $selection = CanonicalShellWriteAjaxSupport::parse_capability_selection_from_source($_POST);
+        } catch (CanonicalShellWriteAjaxRejection $e) {
+            self::error($e->error_code(), $e->error_message(), $e->http_status());
+        }
+
         $identity = new CanonicalReadIdentity($resolved_family_key);
         $manifest = new CanonicalShellManifest($identity, $family);
 
@@ -97,14 +103,19 @@ final class CanonicalCreateContainerAjax {
 
         $use_case = new WriteCanonicalShellContainerUseCase(
             $composition['gateway'],
-            $composition['materializer']
+            $composition['materializer'],
+            $composition['selection_preparer']
         );
 
         try {
-            $result = $use_case->create($manifest, $command);
+            $result = $use_case->create($manifest, $command, $selection);
         } catch (\InvalidArgumentException $e) {
             self::error('persistence_failed', 'No se pudo crear la lista.', 500);
         } catch (\Throwable $e) {
+            $mapped = CanonicalShellWriteAjaxSupport::map_capability_write_exception($e);
+            if ($mapped !== null) {
+                self::error($mapped->error_code(), $mapped->error_message(), $mapped->http_status());
+            }
             self::error('persistence_failed', 'No se pudo crear la lista.', 500);
         }
 

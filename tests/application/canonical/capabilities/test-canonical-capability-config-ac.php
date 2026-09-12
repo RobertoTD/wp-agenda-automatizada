@@ -46,7 +46,7 @@ ac_assert('Ops no menciona FinanceSchema/aa_finance', stripos($ops_src, 'aa_fina
 ac_assert('Repo config no menciona finance', stripos($repo_src, 'finance') === false);
 ac_assert('Bootstrap registra amount is_ready true', strpos($boot_src, "'amount'") !== false && preg_match("/new AA_Canonical_Capability_Definition\(\s*'amount'\s*,\s*AA_Canonical_Capability_Definition::SCOPE_RECORD\s*,\s*true\s*\)/", $boot_src) === 1);
 ac_assert('Lifecycle DEFAULTS_VERSION=2', strpos($life_src, 'DEFAULTS_VERSION = 2') !== false);
-ac_assert('Lifecycle usa insert_family_default_if_missing', strpos($life_src, 'insert_family_default_if_missing') !== false);
+ac_assert('Lifecycle usa insert_family_capability_if_missing', strpos($life_src, 'insert_family_capability_if_missing') !== false);
 ac_assert('Lifecycle filtra !is_ready', strpos($life_src, 'is_ready()') !== false);
 ac_assert('Ops sin AJAX/Settings', stripos($ops_src, 'wp_ajax') === false && stripos($ops_src, 'options.php') === false);
 ac_assert('Ops sin bypass wp-config', stripos($ops_src, 'wp-config') === false && stripos($ops_src, 'AA_CAPABILITY') === false);
@@ -129,7 +129,7 @@ try {
     $read_container = new ReadContainerCapabilityConfigUseCase($repo, $family_registry, $capability_registry);
 
     $enabled_default = $set_default->execute(new SetFamilyCapabilityDefaultCommand('finance', 'amount', true));
-    ac_assert('Habilitar default amount ready', is_array($enabled_default) && $enabled_default['is_enabled'] === true);
+    ac_assert('Habilitar default amount ready', is_array($enabled_default) && $enabled_default['is_default'] === true);
 
     // Fixture not-ready conserva cobertura de rechazo.
     $not_ready_registry = new AA_Canonical_Capability_Registry();
@@ -150,22 +150,22 @@ try {
     $probe_registry->register(new AA_Canonical_Capability_Definition('probe', 'record', true));
     $probe_registry->freeze();
 
-    $inserted = $repo->insert_family_default_if_missing((int) $finance_id, 'probe', true);
+    $inserted = $repo->insert_family_capability_if_missing((int) $finance_id, 'probe', true);
     ac_assert('Lifecycle-style: insert probe enabled', $inserted === true);
-    $row = $repo->find_family_default((int) $finance_id, 'probe');
-    ac_assert('probe default is_enabled=1', is_array($row) && $row['is_enabled'] === true);
+    $row = $repo->find_family_capability((int) $finance_id, 'probe');
+    ac_assert('probe default is_default=1', is_array($row) && $row['is_default'] === true);
 
-    $repo->upsert_family_default((int) $finance_id, 'probe', false);
-    $row2 = $repo->find_family_default((int) $finance_id, 'probe');
-    ac_assert('UC-style: upsert puede desactivar default existente', is_array($row2) && $row2['is_enabled'] === false);
+    $repo->upsert_family_capability((int) $finance_id, 'probe', false);
+    $row2 = $repo->find_family_capability((int) $finance_id, 'probe');
+    ac_assert('UC-style: upsert puede desactivar default existente', is_array($row2) && $row2['is_default'] === false);
 
-    $skipped = $repo->insert_family_default_if_missing((int) $finance_id, 'probe', true);
-    $row3 = $repo->find_family_default((int) $finance_id, 'probe');
-    ac_assert('Lifecycle-style: no sobrescribe default guardado', $skipped === false && is_array($row3) && $row3['is_enabled'] === false);
+    $skipped = $repo->insert_family_capability_if_missing((int) $finance_id, 'probe', true);
+    $row3 = $repo->find_family_capability((int) $finance_id, 'probe');
+    ac_assert('Lifecycle-style: no sobrescribe default guardado', $skipped === false && is_array($row3) && $row3['is_default'] === false);
 
     $set_probe = new SetFamilyCapabilityDefaultUseCase($repo, $family_registry, $probe_registry);
     $updated = $set_probe->execute(new SetFamilyCapabilityDefaultCommand('finance', 'probe', true));
-    ac_assert('UC explícito re-habilita probe ready', $updated['is_enabled'] === true);
+    ac_assert('UC explícito re-habilita probe ready', $updated['is_default'] === true);
 
     $now = gmdate('Y-m-d H:i:s');
     $c_table = AA_Canonical_Schema::containers_table_name();
@@ -211,8 +211,8 @@ try {
     }
     ac_assert('Lifecycle declara seed finance/amount', $has_amount_seed);
 
-    $repo->upsert_family_default((int) $finance_id, 'amount', false);
-    $before_guard = $repo->find_family_default((int) $finance_id, 'amount');
+    $repo->upsert_family_capability((int) $finance_id, 'amount', false);
+    $before_guard = $repo->find_family_capability((int) $finance_id, 'amount');
     foreach ($seeds as $seed) {
         if (!$capability_registry->has($seed['capability_key'])) {
             continue;
@@ -225,22 +225,22 @@ try {
         if ($fid === null) {
             continue;
         }
-        $repo->insert_family_default_if_missing($fid, $seed['capability_key'], $seed['is_enabled']);
+        $repo->insert_family_capability_if_missing($fid, $seed['capability_key'], $seed['is_default']);
     }
-    $after_guard = $repo->find_family_default((int) $finance_id, 'amount');
+    $after_guard = $repo->find_family_capability((int) $finance_id, 'amount');
     ac_assert(
         'Lifecycle no sobrescribe amount guardado',
-        is_array($before_guard) && $before_guard['is_enabled'] === false
-        && is_array($after_guard) && $after_guard['is_enabled'] === false
+        is_array($before_guard) && $before_guard['is_default'] === false
+        && is_array($after_guard) && $after_guard['is_default'] === false
     );
 
     // Ausencia: inserta si falta.
     $wpdb->delete(
-        AA_Canonical_Schema::family_capability_defaults_table_name(),
+        AA_Canonical_Schema::family_capabilities_table_name(),
         ['family_id' => (int) $finance_id, 'capability_key' => 'amount'],
         ['%d', '%s']
     );
-    $missing = $repo->find_family_default((int) $finance_id, 'amount');
+    $missing = $repo->find_family_capability((int) $finance_id, 'amount');
     ac_assert('Fila amount ausente para re-seed', $missing === null);
     foreach ($seeds as $seed) {
         if ($seed['capability_key'] !== 'amount') {
@@ -250,12 +250,12 @@ try {
         if ($fid === null) {
             continue;
         }
-        $repo->insert_family_default_if_missing($fid, $seed['capability_key'], $seed['is_enabled']);
+        $repo->insert_family_capability_if_missing($fid, $seed['capability_key'], $seed['is_default']);
     }
-    $reseeded = $repo->find_family_default((int) $finance_id, 'amount');
+    $reseeded = $repo->find_family_capability((int) $finance_id, 'amount');
     ac_assert(
         'Lifecycle inserta amount solo si falta',
-        is_array($reseeded) && $reseeded['is_enabled'] === true
+        is_array($reseeded) && $reseeded['is_default'] === true
     );
 
 } catch (\Throwable $e) {

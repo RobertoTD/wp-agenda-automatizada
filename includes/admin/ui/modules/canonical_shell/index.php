@@ -131,8 +131,6 @@ $show_create_ui = $show_read_ui
     && in_array($read_state, ['empty', 'resolved_page'], true)
     && ($create_family_key !== '' || $can_create_from_all);
 
-$show_container_write_ui = $show_create_ui;
-
 $settings_url = admin_url('admin-post.php?action=aa_iframe_content&module=settings');
 $can_open_settings = function_exists('current_user_can') && current_user_can('manage_options');
 
@@ -152,6 +150,11 @@ $show_create_record_ui = $show_read_ui
     && in_array($read_state, ['empty', 'resolved_page'], true)
     && $create_family_key !== ''
     && $create_container_id >= 1;
+
+// Editar lista desde records: misma puerta de escritura que crear registro (familia + contenedor padre).
+$show_edit_container_on_records = $show_create_record_ui;
+
+$show_container_write_ui = $show_create_ui || $show_edit_container_on_records;
 
 $is_records_fill = $show_read_ui
     && !$is_preview
@@ -276,6 +279,21 @@ $is_records_fill = $show_read_ui
                 $parent_has_updated = ($parent_iso !== '' && $parent_display !== '');
                 $parent_has_details_block = $parent_has_details_text || $parent_has_updated;
                 $list_heading = $parent_title !== '' ? $parent_title : 'Contenedor';
+                $edit_list_payload_attr = '';
+                if ($show_edit_container_on_records && $create_container_id >= 1 && $create_family_key !== '') {
+                    $edit_list_payload = wp_json_encode(
+                        [
+                            'id' => $create_container_id,
+                            'title' => $parent_title,
+                            'details' => is_string($parent_details) ? $parent_details : '',
+                            'family_key' => $create_family_key,
+                        ],
+                        JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT
+                    );
+                    if (is_string($edit_list_payload) && $edit_list_payload !== '') {
+                        $edit_list_payload_attr = esc_attr($edit_list_payload);
+                    }
+                }
                 ?>
 
                 <?php if ($is_records_fill) : ?>
@@ -296,15 +314,25 @@ $is_records_fill = $show_read_ui
                                         >Volver a contenedores</a>
                                     <?php endif; ?>
                                 </p>
-                                <?php if ($parent_has_details_block) : ?>
-                                    <button
-                                        type="button"
-                                        id="aa-shell-list-details-toggle"
-                                        class="shrink-0 text-sm font-medium text-indigo-700 hover:underline focus:outline-none focus:ring-2 focus:ring-indigo-500 rounded"
-                                        aria-expanded="false"
-                                        aria-controls="aa-shell-list-details"
-                                    >Detalles</button>
-                                <?php endif; ?>
+                                <div class="shrink-0 flex items-center gap-3 flex-wrap">
+                                    <?php if ($edit_list_payload_attr !== '') : ?>
+                                        <button
+                                            type="button"
+                                            class="aa-shell-edit-container-btn text-sm font-medium text-indigo-700 hover:underline focus:outline-none focus:ring-2 focus:ring-indigo-500 rounded"
+                                            data-aa-container="<?php echo $edit_list_payload_attr; ?>"
+                                            aria-label="<?php echo esc_attr('Editar lista: ' . $list_heading); ?>"
+                                        >Editar lista</button>
+                                    <?php endif; ?>
+                                    <?php if ($parent_has_details_block) : ?>
+                                        <button
+                                            type="button"
+                                            id="aa-shell-list-details-toggle"
+                                            class="text-sm font-medium text-indigo-700 hover:underline focus:outline-none focus:ring-2 focus:ring-indigo-500 rounded"
+                                            aria-expanded="false"
+                                            aria-controls="aa-shell-list-details"
+                                        >Detalles</button>
+                                    <?php endif; ?>
+                                </div>
                             </div>
                         </header>
                         <div class="aa-shell-list-panel-body p-4<?php echo $show_create_record_ui ? ' aa-shell-list-panel-body--fab' : ''; ?>">
@@ -421,9 +449,19 @@ $is_records_fill = $show_read_ui
 
                 <?php else : ?>
                     <section class="mb-4" aria-labelledby="aa-shell-parent-heading">
-                        <h3 id="aa-shell-parent-heading" class="text-lg font-semibold text-gray-900">
-                            <?php echo esc_html($list_heading); ?>
-                        </h3>
+                        <div class="flex items-start justify-between gap-3 flex-wrap">
+                            <h3 id="aa-shell-parent-heading" class="text-lg font-semibold text-gray-900 m-0">
+                                <?php echo esc_html($list_heading); ?>
+                            </h3>
+                            <?php if ($edit_list_payload_attr !== '') : ?>
+                                <button
+                                    type="button"
+                                    class="aa-shell-edit-container-btn shrink-0 text-sm font-medium text-indigo-700 hover:underline focus:outline-none focus:ring-2 focus:ring-indigo-500 rounded"
+                                    data-aa-container="<?php echo $edit_list_payload_attr; ?>"
+                                    aria-label="<?php echo esc_attr('Editar lista: ' . $list_heading); ?>"
+                                >Editar lista</button>
+                            <?php endif; ?>
+                        </div>
                         <?php if ($parent_has_details_text) : ?>
                             <p class="mt-2 text-sm text-gray-600 whitespace-pre-wrap"><?php echo esc_html($parent_details); ?></p>
                         <?php endif; ?>
@@ -562,6 +600,46 @@ $is_records_fill = $show_read_ui
                             ? (string) $item['family_label']
                             : '';
                         $show_edit_container = $show_container_write_ui && $card_family_key !== '';
+                        $card_capabilities = ['status' => 'unavailable'];
+                        if (
+                            $show_edit_container
+                            && $card_container_id >= 1
+                            && $card_family_key !== ''
+                            && class_exists('CanonicalCapabilityConfigRepository')
+                            && class_exists('ReadContainerCapabilityConfigUseCase')
+                            && class_exists('AA_Canonical_Capability_Registry_Bootstrap')
+                            && class_exists('AA_Canonical_Core_Bootstrap')
+                        ) {
+                            try {
+                                $card_caps_repo = new CanonicalCapabilityConfigRepository();
+                                $card_caps_uc = new ReadContainerCapabilityConfigUseCase(
+                                    $card_caps_repo,
+                                    AA_Canonical_Core_Bootstrap::instance(),
+                                    AA_Canonical_Capability_Registry_Bootstrap::bootstrap()
+                                );
+                                $card_caps_snap = $card_caps_uc->execute($card_family_key, $card_container_id);
+                                $card_active = [];
+                                $card_assigned = [];
+                                foreach ($card_caps_snap->capabilities() as $snap_key => $snap_meta) {
+                                    if (!is_string($snap_key) || $snap_key === '' || !is_array($snap_meta)) {
+                                        continue;
+                                    }
+                                    if (!empty($snap_meta['assigned'])) {
+                                        $card_assigned[] = $snap_key;
+                                    }
+                                    if (!empty($snap_meta['active'])) {
+                                        $card_active[] = $snap_key;
+                                    }
+                                }
+                                $card_capabilities = [
+                                    'status' => 'ok',
+                                    'active' => $card_active,
+                                    'assigned' => $card_assigned,
+                                ];
+                            } catch (Throwable $e) {
+                                $card_capabilities = ['status' => 'unavailable'];
+                            }
+                        }
                         require __DIR__ . '/partials/container-card.php';
                         ?>
                     <?php endforeach; ?>
@@ -660,6 +738,148 @@ $is_records_fill = $show_read_ui
     if (!class_exists('CanonicalCreateContainerCommand')) {
         require_once dirname(__DIR__, 4) . '/application/canonical/CanonicalCreateContainerCommand.php';
     }
+    if (!class_exists('CanonicalCapabilityConfigRepository')) {
+        require_once dirname(__DIR__, 4) . '/repositories/CanonicalCapabilityConfigRepository.php';
+    }
+    if (!class_exists('CanonicalCapabilitySchemaNotReady')) {
+        require_once dirname(__DIR__, 4) . '/application/canonical/capabilities/CanonicalCapabilitySchemaNotReady.php';
+    }
+    if (!class_exists('CanonicalCapabilityPersistenceFailed')) {
+        require_once dirname(__DIR__, 4) . '/application/canonical/capabilities/CanonicalCapabilityPersistenceFailed.php';
+    }
+    if (!class_exists('AA_Canonical_Capability_Definition')) {
+        require_once dirname(__DIR__, 4) . '/domain/canonical/class-aa-canonical-capability-definition.php';
+    }
+    if (!class_exists('AA_Canonical_Capability_Registry')) {
+        require_once dirname(__DIR__, 4) . '/domain/canonical/class-aa-canonical-capability-registry.php';
+    }
+    if (!class_exists('AA_Canonical_Capability_Registry_Bootstrap')) {
+        require_once dirname(__DIR__, 4) . '/infrastructure/canonical/class-aa-canonical-capability-registry-bootstrap.php';
+    }
+    if (!class_exists('CanonicalFamilyUnknown')) {
+        require_once dirname(__DIR__, 4) . '/application/canonical/CanonicalFamilyUnknown.php';
+    }
+    if (!class_exists('CanonicalFamilyNotProvisioned')) {
+        require_once dirname(__DIR__, 4) . '/application/canonical/CanonicalFamilyNotProvisioned.php';
+    }
+    if (!class_exists('CanonicalContainerNotFound')) {
+        require_once dirname(__DIR__, 4) . '/application/canonical/CanonicalContainerNotFound.php';
+    }
+    if (!class_exists('ReadContainerCapabilityConfigUseCase')) {
+        require_once dirname(__DIR__, 4) . '/application/canonical/capabilities/ReadContainerCapabilityConfigUseCase.php';
+    }
+    if (!class_exists('CanonicalContainerCapabilityConfigSnapshot')) {
+        require_once dirname(__DIR__, 4) . '/application/canonical/capabilities/CanonicalContainerCapabilityConfigSnapshot.php';
+    }
+
+    $families_for_capability_options = [];
+    if ($is_all_lists_scope) {
+        $families_for_capability_options = $normalized_available_families;
+    } elseif ($create_family_key !== '') {
+        $families_for_capability_options[] = [
+            'family_key' => $create_family_key,
+            'label' => $family_label !== '' ? $family_label : $create_family_key,
+        ];
+    }
+
+    $family_capability_options = [];
+    $capability_registry_for_shell = null;
+    $capability_config_repo_for_shell = null;
+    try {
+        if (class_exists('AA_Canonical_Capability_Registry_Bootstrap')) {
+            $capability_registry_for_shell = AA_Canonical_Capability_Registry_Bootstrap::bootstrap();
+        }
+        if (class_exists('CanonicalCapabilityConfigRepository')) {
+            $capability_config_repo_for_shell = new CanonicalCapabilityConfigRepository();
+        }
+    } catch (Throwable $e) {
+        $capability_registry_for_shell = null;
+        $capability_config_repo_for_shell = null;
+    }
+
+    foreach ($families_for_capability_options as $family_option_row) {
+        $option_family_key = (string) ($family_option_row['family_key'] ?? '');
+        if ($option_family_key === '') {
+            continue;
+        }
+        $family_capability_options[$option_family_key] = [];
+        if ($capability_config_repo_for_shell === null || $capability_registry_for_shell === null) {
+            continue;
+        }
+        try {
+            $option_family_id = $capability_config_repo_for_shell->resolve_family_id($option_family_key);
+            if ($option_family_id === null) {
+                continue;
+            }
+            $repertoire_rows = $capability_config_repo_for_shell->list_family_capabilities($option_family_id);
+            foreach ($repertoire_rows as $repertoire_row) {
+                $cap_key = isset($repertoire_row['capability_key'])
+                    ? (string) $repertoire_row['capability_key']
+                    : '';
+                if ($cap_key === '') {
+                    continue;
+                }
+                try {
+                    $cap_def = $capability_registry_for_shell->get($cap_key);
+                } catch (OutOfBoundsException $e) {
+                    continue;
+                }
+                if (!$cap_def->is_ready()) {
+                    continue;
+                }
+                $family_capability_options[$option_family_key][] = [
+                    'key' => $cap_key,
+                    'label' => ($cap_key === 'amount') ? 'Importe' : $cap_key,
+                    'is_default' => !empty($repertoire_row['is_default']),
+                ];
+            }
+        } catch (Throwable $e) {
+            $family_capability_options[$option_family_key] = [];
+        }
+    }
+
+    $edit_container_capabilities_boot = null;
+    if ($show_edit_container_on_records) {
+        $edit_container_capabilities_boot = ['status' => 'unavailable'];
+        if (
+            $capability_config_repo_for_shell !== null
+            && $capability_registry_for_shell !== null
+            && class_exists('AA_Canonical_Core_Bootstrap')
+            && class_exists('ReadContainerCapabilityConfigUseCase')
+        ) {
+            try {
+                $read_container_caps_uc = new ReadContainerCapabilityConfigUseCase(
+                    $capability_config_repo_for_shell,
+                    AA_Canonical_Core_Bootstrap::instance(),
+                    $capability_registry_for_shell
+                );
+                $container_caps_snapshot = $read_container_caps_uc->execute(
+                    $create_family_key,
+                    $create_container_id
+                );
+                $active_keys = [];
+                $assigned_keys = [];
+                foreach ($container_caps_snapshot->capabilities() as $snap_key => $snap_meta) {
+                    if (!is_string($snap_key) || $snap_key === '' || !is_array($snap_meta)) {
+                        continue;
+                    }
+                    if (!empty($snap_meta['assigned'])) {
+                        $assigned_keys[] = $snap_key;
+                    }
+                    if (!empty($snap_meta['active'])) {
+                        $active_keys[] = $snap_key;
+                    }
+                }
+                $edit_container_capabilities_boot = [
+                    'status' => 'ok',
+                    'active' => $active_keys,
+                    'assigned' => $assigned_keys,
+                ];
+            } catch (Throwable $e) {
+                $edit_container_capabilities_boot = ['status' => 'unavailable'];
+            }
+        }
+    }
     ?>
     <div
         id="aa-shell-container-modal"
@@ -744,6 +964,23 @@ $is_records_fill = $show_read_ui
                             class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                         ></textarea>
                     </div>
+                    <details class="rounded-lg border border-gray-200 bg-gray-50/60 open:bg-white">
+                        <summary class="cursor-pointer select-none px-3 py-2 text-xs font-semibold text-gray-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded-lg">
+                            Campos y funciones
+                        </summary>
+                        <div class="px-3 pb-3 pt-1 space-y-2">
+                            <p
+                                id="aa-shell-container-capabilities-status"
+                                class="hidden text-xs font-medium text-amber-900"
+                                role="status"
+                                aria-live="polite"
+                            ></p>
+                            <div
+                                id="aa-shell-container-capabilities"
+                                class="space-y-2"
+                            ></div>
+                        </div>
+                    </details>
                 </div>
 
                 <div class="mt-6 flex items-center justify-end gap-3">
@@ -836,10 +1073,14 @@ $is_records_fill = $show_read_ui
         deleteNonce: <?php echo wp_json_encode(wp_create_nonce(CanonicalDeleteContainerAjax::NONCE_ACTION)); ?>,
         familyKey: <?php echo wp_json_encode($create_family_key); ?>,
         listsScope: <?php echo wp_json_encode($is_all_lists_scope ? 'all' : ''); ?>,
+        shellView: <?php echo wp_json_encode($is_records ? 'records' : 'containers'); ?>,
         page: <?php echo wp_json_encode($page_num !== null && $page_num > 1 ? $page_num : null); ?>,
+        containersPage: <?php echo wp_json_encode($containers_page_num !== null && $containers_page_num > 1 ? $containers_page_num : null); ?>,
         availableFamilies: <?php echo wp_json_encode($normalized_available_families); ?>,
         requireFamilySelect: <?php echo $show_family_select_on_create ? 'true' : 'false'; ?>,
-        maxTitleLength: <?php echo (int) CanonicalCreateContainerCommand::MAX_TITLE_LENGTH; ?>
+        maxTitleLength: <?php echo (int) CanonicalCreateContainerCommand::MAX_TITLE_LENGTH; ?>,
+        familyCapabilityOptions: <?php echo wp_json_encode($family_capability_options); ?>,
+        editContainerCapabilities: <?php echo wp_json_encode($edit_container_capabilities_boot); ?>
     };
     </script>
     <script src="<?php echo function_exists('aa_asset_url')

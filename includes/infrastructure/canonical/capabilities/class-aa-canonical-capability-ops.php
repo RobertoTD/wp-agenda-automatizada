@@ -34,7 +34,7 @@ final class AA_Canonical_Capability_Ops {
     }
 
     /**
-     * @return array{id:int,family_id:int,capability_key:string,is_enabled:bool,created_at:string,updated_at:string}
+     * @return array{id:int,family_id:int,capability_key:string,is_default:bool,created_at:string,updated_at:string}
      * @throws CanonicalCapabilityUnauthorized
      * @throws CanonicalCapabilityUnknown
      * @throws CanonicalCapabilityNotReady

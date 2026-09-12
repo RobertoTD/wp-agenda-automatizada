@@ -1,6 +1,6 @@
 <?php
 /**
- * Canonical Capability Config Repository — SQL de defaults y asignación por lista (C1a).
+ * Canonical Capability Config Repository — SQL de repertorio familiar y asignación por lista.
  *
  * Configuración de capacidades; valores de amount viven en CanonicalRecordAmountRepository.
  *
@@ -33,7 +33,7 @@ final class CanonicalCapabilityConfigRepository {
      */
     public function assert_schema_ready(): void {
         foreach ([
-            AA_Canonical_Schema::family_capability_defaults_table_name(),
+            AA_Canonical_Schema::family_capabilities_table_name(),
             AA_Canonical_Schema::container_capabilities_table_name(),
             AA_Canonical_Schema::record_amount_table_name(),
         ] as $table) {
@@ -71,18 +71,18 @@ final class CanonicalCapabilityConfigRepository {
     }
 
     /**
-     * @return array{id:int,family_id:int,capability_key:string,is_enabled:bool,created_at:string,updated_at:string}|null
+     * @return array{id:int,family_id:int,capability_key:string,is_default:bool,created_at:string,updated_at:string}|null
      * @throws CanonicalCapabilityPersistenceFailed
      * @throws CanonicalCapabilitySchemaNotReady
      */
-    public function find_family_default(int $family_id, string $capability_key): ?array {
-        $table = AA_Canonical_Schema::family_capability_defaults_table_name();
+    public function find_family_capability(int $family_id, string $capability_key): ?array {
+        $table = AA_Canonical_Schema::family_capabilities_table_name();
         $this->assert_table_exists($table);
 
         $this->clear_error_state();
         $row = $this->wpdb->get_row(
             $this->wpdb->prepare(
-                "SELECT id, family_id, capability_key, is_enabled, created_at, updated_at
+                "SELECT id, family_id, capability_key, is_default, created_at, updated_at
                  FROM `{$table}`
                  WHERE family_id = %d AND capability_key = %s
                  LIMIT 1",
@@ -93,30 +93,30 @@ final class CanonicalCapabilityConfigRepository {
         );
 
         if ($row === false || $this->wpdb->last_error !== '') {
-            throw new CanonicalCapabilityPersistenceFailed('Failed to SELECT family capability default.');
+            throw new CanonicalCapabilityPersistenceFailed('Failed to SELECT family capability.');
         }
 
-        return $this->map_family_default_row(is_array($row) ? $row : null);
+        return $this->map_family_capability_row(is_array($row) ? $row : null);
     }
 
     /**
-     * Inserta solo si falta la fila. Nunca actualiza is_enabled existente.
+     * Inserta solo si falta la fila. Nunca actualiza is_default existente.
      *
      * @return bool true si insertó; false si ya existía
      * @throws CanonicalCapabilityPersistenceFailed
      * @throws CanonicalCapabilitySchemaNotReady
      */
-    public function insert_family_default_if_missing(
+    public function insert_family_capability_if_missing(
         int $family_id,
         string $capability_key,
-        bool $is_enabled
+        bool $is_default
     ): bool {
-        $existing = $this->find_family_default($family_id, $capability_key);
+        $existing = $this->find_family_capability($family_id, $capability_key);
         if ($existing !== null) {
             return false;
         }
 
-        $table = AA_Canonical_Schema::family_capability_defaults_table_name();
+        $table = AA_Canonical_Schema::family_capabilities_table_name();
         $now = gmdate('Y-m-d H:i:s');
         $this->clear_error_state();
         $result = $this->wpdb->insert(
@@ -124,7 +124,7 @@ final class CanonicalCapabilityConfigRepository {
             [
                 'family_id' => $family_id,
                 'capability_key' => $capability_key,
-                'is_enabled' => $is_enabled ? 1 : 0,
+                'is_default' => $is_default ? 1 : 0,
                 'created_at' => $now,
                 'updated_at' => $now,
             ],
@@ -136,27 +136,27 @@ final class CanonicalCapabilityConfigRepository {
         }
 
         // Carrera UNIQUE: si ya existe, éxito concurrente sin sobrescribir.
-        if ($this->find_family_default($family_id, $capability_key) !== null) {
+        if ($this->find_family_capability($family_id, $capability_key) !== null) {
             return false;
         }
 
-        throw new CanonicalCapabilityPersistenceFailed('Failed to INSERT family capability default.');
+        throw new CanonicalCapabilityPersistenceFailed('Failed to INSERT family capability.');
     }
 
     /**
-     * Upsert explícito: inserta o actualiza is_enabled (modificación deliberada).
+     * Upsert explícito: inserta o actualiza is_default (modificación deliberada).
      *
-     * @return array{id:int,family_id:int,capability_key:string,is_enabled:bool,created_at:string,updated_at:string}
+     * @return array{id:int,family_id:int,capability_key:string,is_default:bool,created_at:string,updated_at:string}
      * @throws CanonicalCapabilityPersistenceFailed
      * @throws CanonicalCapabilitySchemaNotReady
      */
-    public function upsert_family_default(
+    public function upsert_family_capability(
         int $family_id,
         string $capability_key,
-        bool $is_enabled
+        bool $is_default
     ): array {
-        $existing = $this->find_family_default($family_id, $capability_key);
-        $table = AA_Canonical_Schema::family_capability_defaults_table_name();
+        $existing = $this->find_family_capability($family_id, $capability_key);
+        $table = AA_Canonical_Schema::family_capabilities_table_name();
         $now = gmdate('Y-m-d H:i:s');
 
         if ($existing === null) {
@@ -166,21 +166,21 @@ final class CanonicalCapabilityConfigRepository {
                 [
                     'family_id' => $family_id,
                     'capability_key' => $capability_key,
-                    'is_enabled' => $is_enabled ? 1 : 0,
+                    'is_default' => $is_default ? 1 : 0,
                     'created_at' => $now,
                     'updated_at' => $now,
                 ],
                 ['%d', '%s', '%d', '%s', '%s']
             );
             if ($result === false) {
-                throw new CanonicalCapabilityPersistenceFailed('Failed to INSERT family capability default.');
+                throw new CanonicalCapabilityPersistenceFailed('Failed to INSERT family capability.');
             }
         } else {
             $this->clear_error_state();
             $result = $this->wpdb->update(
                 $table,
                 [
-                    'is_enabled' => $is_enabled ? 1 : 0,
+                    'is_default' => $is_default ? 1 : 0,
                     'updated_at' => $now,
                 ],
                 [
@@ -191,13 +191,13 @@ final class CanonicalCapabilityConfigRepository {
                 ['%d', '%s']
             );
             if ($result === false) {
-                throw new CanonicalCapabilityPersistenceFailed('Failed to UPDATE family capability default.');
+                throw new CanonicalCapabilityPersistenceFailed('Failed to UPDATE family capability.');
             }
         }
 
-        $row = $this->find_family_default($family_id, $capability_key);
+        $row = $this->find_family_capability($family_id, $capability_key);
         if ($row === null) {
-            throw new CanonicalCapabilityPersistenceFailed('Family capability default missing after upsert.');
+            throw new CanonicalCapabilityPersistenceFailed('Family capability missing after upsert.');
         }
 
         return $row;
@@ -258,18 +258,18 @@ final class CanonicalCapabilityConfigRepository {
     }
 
     /**
-     * @return list<array{id:int,family_id:int,capability_key:string,is_enabled:bool,created_at:string,updated_at:string}>
+     * @return list<array{id:int,family_id:int,capability_key:string,is_default:bool,created_at:string,updated_at:string}>
      * @throws CanonicalCapabilityPersistenceFailed
      * @throws CanonicalCapabilitySchemaNotReady
      */
-    public function list_family_defaults(int $family_id): array {
-        $table = AA_Canonical_Schema::family_capability_defaults_table_name();
+    public function list_family_capabilities(int $family_id): array {
+        $table = AA_Canonical_Schema::family_capabilities_table_name();
         $this->assert_table_exists($table);
 
         $this->clear_error_state();
         $rows = $this->wpdb->get_results(
             $this->wpdb->prepare(
-                "SELECT id, family_id, capability_key, is_enabled, created_at, updated_at
+                "SELECT id, family_id, capability_key, is_default, created_at, updated_at
                  FROM `{$table}`
                  WHERE family_id = %d
                  ORDER BY capability_key ASC",
@@ -279,12 +279,12 @@ final class CanonicalCapabilityConfigRepository {
         );
 
         if ($rows === false || $this->wpdb->last_error !== '') {
-            throw new CanonicalCapabilityPersistenceFailed('Failed to LIST family capability defaults.');
+            throw new CanonicalCapabilityPersistenceFailed('Failed to LIST family capabilities.');
         }
 
         $out = [];
         foreach ((array) $rows as $row) {
-            $mapped = $this->map_family_default_row(is_array($row) ? $row : null);
+            $mapped = $this->map_family_capability_row(is_array($row) ? $row : null);
             if ($mapped !== null) {
                 $out[] = $mapped;
             }
@@ -404,9 +404,9 @@ final class CanonicalCapabilityConfigRepository {
 
     /**
      * @param array<string,mixed>|null $row
-     * @return array{id:int,family_id:int,capability_key:string,is_enabled:bool,created_at:string,updated_at:string}|null
+     * @return array{id:int,family_id:int,capability_key:string,is_default:bool,created_at:string,updated_at:string}|null
      */
-    private function map_family_default_row(?array $row): ?array {
+    private function map_family_capability_row(?array $row): ?array {
         if (!is_array($row) || !isset($row['id']) || (int) $row['id'] < 1) {
             return null;
         }
@@ -415,7 +415,7 @@ final class CanonicalCapabilityConfigRepository {
             'id' => (int) $row['id'],
             'family_id' => (int) ($row['family_id'] ?? 0),
             'capability_key' => (string) ($row['capability_key'] ?? ''),
-            'is_enabled' => !empty($row['is_enabled']),
+            'is_default' => !empty($row['is_default']),
             'created_at' => (string) ($row['created_at'] ?? ''),
             'updated_at' => (string) ($row['updated_at'] ?? ''),
         ];

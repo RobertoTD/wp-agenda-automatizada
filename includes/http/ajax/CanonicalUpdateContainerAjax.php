@@ -96,22 +96,36 @@ final class CanonicalUpdateContainerAjax {
             self::error('invalid_payload', 'La solicitud contiene campos no válidos.', 400);
         }
 
-        $identity = new CanonicalReadIdentity($resolved_family_key);
-        $manifest = new CanonicalShellManifest($identity, $family);
-
         try {
-            $gateway = CanonicalShellWriteAjaxSupport::build_write_gateway();
+            $selection = CanonicalShellWriteAjaxSupport::parse_capability_selection_from_source($_POST);
         } catch (CanonicalShellWriteAjaxRejection $e) {
             self::error($e->error_code(), $e->error_message(), $e->http_status());
         }
 
-        $use_case = new WriteCanonicalShellContainerUseCase($gateway);
+        $identity = new CanonicalReadIdentity($resolved_family_key);
+        $manifest = new CanonicalShellManifest($identity, $family);
 
         try {
-            $result = $use_case->update($manifest, $command);
+            $composition = CanonicalShellWriteAjaxSupport::build_write_composition();
+        } catch (CanonicalShellWriteAjaxRejection $e) {
+            self::error($e->error_code(), $e->error_message(), $e->http_status());
+        }
+
+        $use_case = new WriteCanonicalShellContainerUseCase(
+            $composition['gateway'],
+            $composition['materializer'],
+            $composition['selection_preparer']
+        );
+
+        try {
+            $result = $use_case->update($manifest, $command, $selection);
         } catch (\InvalidArgumentException $e) {
             self::error('persistence_failed', 'No se pudo actualizar la lista.', 500);
         } catch (\Throwable $e) {
+            $mapped = CanonicalShellWriteAjaxSupport::map_capability_write_exception($e);
+            if ($mapped !== null) {
+                self::error($mapped->error_code(), $mapped->error_message(), $mapped->http_status());
+            }
             self::error('persistence_failed', 'No se pudo actualizar la lista.', 500);
         }
 
@@ -152,17 +166,32 @@ final class CanonicalUpdateContainerAjax {
         if (array_key_exists('containers_page', $_POST)) {
             $return_ctx_input['containers_page'] = wp_unslash($_POST['containers_page']);
         }
+        if (array_key_exists('return_view', $_POST)) {
+            $return_ctx_input['return_view'] = wp_unslash($_POST['return_view']);
+        }
         $return_ctx = AA_Canonical_Shell_Base_Url_Policy::parse_mutation_return_context($return_ctx_input);
         if ($return_ctx === null) {
             self::error('invalid_payload', 'La solicitud contiene campos no válidos.', 400);
         }
 
-        $redirect_page = $return_ctx['page'];
-        $redirect_url = AA_Canonical_Shell_Base_Url_Policy::build_containers_return_url(
-            $return_ctx['lists_scope'],
-            $resolved_family_key,
-            ($redirect_page !== null && $redirect_page > 1) ? $redirect_page : null
-        );
+        if ($return_ctx['return_view'] === 'records') {
+            $records_page = $return_ctx['page'];
+            $containers_page = $return_ctx['containers_page'];
+            $redirect_url = AA_Canonical_Shell_Base_Url_Policy::build_records_url(
+                $resolved_family_key,
+                $command->container_id(),
+                ($records_page !== null && $records_page > 1) ? $records_page : null,
+                ($containers_page !== null && $containers_page > 1) ? $containers_page : null,
+                $return_ctx['lists_scope']
+            );
+        } else {
+            $redirect_page = $return_ctx['page'];
+            $redirect_url = AA_Canonical_Shell_Base_Url_Policy::build_containers_return_url(
+                $return_ctx['lists_scope'],
+                $resolved_family_key,
+                ($redirect_page !== null && $redirect_page > 1) ? $redirect_page : null
+            );
+        }
 
         wp_send_json_success([
             'status' => 'confirmed',

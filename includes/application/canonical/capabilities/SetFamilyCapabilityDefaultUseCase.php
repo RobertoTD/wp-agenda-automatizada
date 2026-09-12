@@ -33,7 +33,7 @@ final class SetFamilyCapabilityDefaultUseCase {
     }
 
     /**
-     * @return array{id:int,family_id:int,capability_key:string,is_enabled:bool,created_at:string,updated_at:string}
+     * @return array{id:int,family_id:int,capability_key:string,is_default:bool,created_at:string,updated_at:string}
      * @throws CanonicalCapabilityUnknown
      * @throws CanonicalCapabilityNotReady
      * @throws CanonicalFamilyUnknown
@@ -65,7 +65,7 @@ final class SetFamilyCapabilityDefaultUseCase {
             throw new CanonicalFamilyNotProvisioned($command->family_key());
         }
 
-        return $this->repository->upsert_family_default(
+        return $this->repository->upsert_family_capability(
             $family_id,
             $command->capability_key(),
             $command->enabled()

@@ -72,8 +72,10 @@ ac_assert('Soporte disponible antes de los seis endpoints', $loaded_before_all);
 $adopters = 0;
 foreach (array_keys($endpoint_positions) as $endpoint) {
     $src = (string) file_get_contents($plugin_root . '/includes/http/ajax/' . $endpoint . '.php');
+    $uses_write_stack = strpos($src, 'CanonicalShellWriteAjaxSupport::build_write_gateway') !== false
+        || strpos($src, 'CanonicalShellWriteAjaxSupport::build_write_composition') !== false;
     if (strpos($src, 'CanonicalShellWriteAjaxSupport::authorize_identity') !== false
-        && strpos($src, 'CanonicalShellWriteAjaxSupport::build_write_gateway') !== false
+        && $uses_write_stack
         && strpos($src, 'catch (CanonicalShellWriteAjaxRejection $e)') !== false
     ) {
         $adopters++;
@@ -100,6 +102,13 @@ $GLOBALS['aa_test_json'] = null;
 $GLOBALS['aa_test_logged_in'] = true;
 $GLOBALS['aa_test_caps'] = ['manage_options' => true];
 $GLOBALS['aa_test_multisite'] = false;
+
+// Sustituto fiel de wp_unslash (WordPress): desescapa addslashes de $_POST.
+if (!function_exists('wp_unslash')) {
+    function wp_unslash($value) {
+        return is_string($value) ? stripslashes($value) : $value;
+    }
+}
 
 if (!function_exists('is_user_logged_in')) {
     function is_user_logged_in(): bool {
@@ -213,6 +222,18 @@ final class AA_Canonical_Write_Binding_Bootstrap {
             $adapter = CanonicalFixtureWriteAdapter::with_seed($key, []);
             $registry->register(new CanonicalReadIdentity($key), $adapter);
         }
+    }
+}
+
+final class AA_Canonical_Capability_Write_Bootstrap {
+    /** @return array{preparer:null,materializer:null,selection_preparer:null,handlers:null} */
+    public static function build_stack($wpdb = null): array {
+        return [
+            'preparer' => null,
+            'materializer' => null,
+            'selection_preparer' => null,
+            'handlers' => null,
+        ];
     }
 }
 
@@ -370,6 +391,109 @@ foreach ($cases as $case) {
 }
 ac_assert('parse_positive_int conserva el comportamiento compartido', $parse_ok, $parse_detail);
 ac_assert('parse_positive_int no lanza ni emite JSON', $GLOBALS['aa_test_json'] === null);
+
+// --- parse_capability_selection_from_source ---
+ac_assert(
+    'Soporte declara parse_capability_selection_from_source',
+    strpos($support_src, 'function parse_capability_selection_from_source') !== false
+    && strpos($support_src, 'capability_selection_scope') !== false
+);
+
+$omit_sel = CanonicalShellWriteAjaxSupport::parse_capability_selection_from_source(['title' => 'x']);
+ac_assert('Selection: ambos ausentes → null', $omit_sel === null);
+
+$r = aa_support_reject(function () {
+    CanonicalShellWriteAjaxSupport::parse_capability_selection_from_source([
+        'capability_selection_scope' => '[]',
+    ]);
+});
+ac_assert('Selection: solo scope → invalid_payload 400', $r !== null && $r['code'] === 'invalid_payload' && $r['status'] === 400);
+
+$r = aa_support_reject(function () {
+    CanonicalShellWriteAjaxSupport::parse_capability_selection_from_source([
+        'capability_selection' => '[]',
+    ]);
+});
+ac_assert('Selection: solo selection → invalid_payload 400', $r !== null && $r['code'] === 'invalid_payload' && $r['status'] === 400);
+
+$present = CanonicalShellWriteAjaxSupport::parse_capability_selection_from_source([
+    'capability_selection_scope' => '["amount"]',
+    'capability_selection' => '["amount"]',
+]);
+ac_assert(
+    'Selection: ambos presentes → instancia',
+    $present instanceof CanonicalContainerCapabilitySelection
+    && $present->scope() === ['amount']
+    && $present->selection() === ['amount']
+);
+
+$empty_both = CanonicalShellWriteAjaxSupport::parse_capability_selection_from_source([
+    'capability_selection_scope' => '[]',
+    'capability_selection' => '[]',
+]);
+ac_assert(
+    'Selection: arrays vacíos explícitos',
+    $empty_both instanceof CanonicalContainerCapabilitySelection
+    && $empty_both->scope() === []
+    && $empty_both->selection() === []
+);
+
+$r = aa_support_reject(function () {
+    CanonicalShellWriteAjaxSupport::parse_capability_selection_from_source([
+        'capability_selection_scope' => '{bad}',
+        'capability_selection' => '[]',
+    ]);
+});
+ac_assert('Selection: JSON inválido → invalid_payload', $r !== null && $r['code'] === 'invalid_payload');
+
+$r = aa_support_reject(function () {
+    CanonicalShellWriteAjaxSupport::parse_capability_selection_from_source([
+        'capability_selection_scope' => ['amount'],
+        'capability_selection' => '[]',
+    ]);
+});
+ac_assert('Selection: tipo no string → invalid_payload', $r !== null && $r['code'] === 'invalid_payload');
+
+// Regresión: valores escapados como en $_POST de WordPress (addslashes).
+$wp_slashed_amount = addslashes('["amount"]');
+$wp_slashed_empty = addslashes('[]');
+ac_assert(
+    'Harness: addslashes(["amount"]) invalida json_decode directo',
+    json_decode($wp_slashed_amount, true) === null && strpos($wp_slashed_amount, '\\') !== false
+);
+
+$slashed_both = CanonicalShellWriteAjaxSupport::parse_capability_selection_from_source([
+    'capability_selection_scope' => $wp_slashed_amount,
+    'capability_selection' => $wp_slashed_amount,
+]);
+ac_assert(
+    'Regresión WP: scope+selection slashed ["amount"] → OK',
+    $slashed_both instanceof CanonicalContainerCapabilitySelection
+    && $slashed_both->scope() === ['amount']
+    && $slashed_both->selection() === ['amount']
+);
+
+$slashed_empty_sel = CanonicalShellWriteAjaxSupport::parse_capability_selection_from_source([
+    'capability_selection_scope' => $wp_slashed_amount,
+    'capability_selection' => $wp_slashed_empty,
+]);
+ac_assert(
+    'Regresión WP: scope slashed ["amount"] + selection [] → OK',
+    $slashed_empty_sel instanceof CanonicalContainerCapabilitySelection
+    && $slashed_empty_sel->scope() === ['amount']
+    && $slashed_empty_sel->selection() === []
+);
+
+$slashed_empty_both = CanonicalShellWriteAjaxSupport::parse_capability_selection_from_source([
+    'capability_selection_scope' => $wp_slashed_empty,
+    'capability_selection' => $wp_slashed_empty,
+]);
+ac_assert(
+    'Regresión WP: ambos [] (slashed no-op) → selección explícita vacía',
+    $slashed_empty_both instanceof CanonicalContainerCapabilitySelection
+    && $slashed_empty_both->scope() === []
+    && $slashed_empty_both->selection() === []
+);
 
 echo "\n--- Resumen: {$passed}/{$total} ---\n";
 if ($failed !== []) {

@@ -51,7 +51,7 @@ Las tablas base almacenan exclusivamente estado y campos universales del contrat
 
 Toda característica no universal se implementa como capability. Cada capability exige estructura y validación explícitas para sus datos; la forma de persistencia es propia del contrato de esa capability (p. ej. extensión decimal tipada para `amount`), referida al contenedor, al registro o a ambos según su alcance. No se impone “un campo / una tabla” como regla universal, ni se exime a capacidades complejas de datos tipados. Una capability se implementa una vez y puede contribuir a persistencia, validación, formularios, cards, API y runtime público. El desarrollo normativo de asignación, configuración, activación y valores está en `docs/05-canonical-capabilities.md`.
 
-Las definiciones de familia son contratos de producto declarados en código. La base de datos guarda estado de instalación y habilitación, contenedores, registros y —según `docs/05-canonical-capabilities.md`— la configuración de capabilities (incluidos defaults de familia y asignación por lista); nunca clases, callbacks, SQL ni definiciones ejecutables.
+Las definiciones de familia son contratos de producto declarados en código. La base de datos guarda estado de instalación y habilitación, contenedores, registros y —según `docs/05-canonical-capabilities.md`— la configuración de capabilities (repertorio y defaults de familia, selección/asignación por lista); nunca clases, callbacks, SQL ni definiciones ejecutables.
 
 Los timestamps técnicos de las tablas canónicas universales se almacenan en UTC. UTC es la fuente de verdad; la conversión a la zona configurada ocurre en la presentación.
 
@@ -112,7 +112,7 @@ Un booleano puede activar una capability, pero no constituye por sí mismo su im
 
 Una característica particular nunca debe añadirse al shell base solamente porque la primera familia la utiliza.
 
-La lista (contenedor) es la unidad de asignación y configuración efectiva de capabilities. Los defaults de familia, la materialización al crear listas, la activación frente a los datos y el marco de `amount` se desarrollan de forma vinculante en `docs/05-canonical-capabilities.md`. Este documento no duplica esas reglas.
+La lista (contenedor) es la unidad de asignación y configuración efectiva de capabilities. El repertorio y defaults de familia, la selección por lista, la materialización al crear, la activación frente a los datos y el marco de `amount` se desarrollan de forma vinculante en `docs/05-canonical-capabilities.md`. Este documento no duplica esas reglas.
 
 ## Contrato canónico común
 

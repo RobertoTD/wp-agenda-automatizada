@@ -41,22 +41,28 @@ final class WriteCanonicalShellContainerUseCase {
     /** @var AA_Canonical_Capability_Defaults_Materializer|null */
     private $defaults_materializer;
 
+    /** @var CanonicalContainerCapabilitySelectionPreparer|null */
+    private $selection_preparer;
+
     public function __construct(
         CanonicalWriteGateway $gateway,
-        $defaults_materializer = null
+        $defaults_materializer = null,
+        $selection_preparer = null
     ) {
         $this->gateway = $gateway;
         $this->defaults_materializer = $defaults_materializer;
+        $this->selection_preparer = $selection_preparer;
     }
 
+    /**
+     * @param CanonicalContainerCapabilitySelection|null $selection null = omisión
+     */
     public function create(
         CanonicalShellManifest $manifest,
-        CanonicalCreateContainerCommand $command
+        CanonicalCreateContainerCommand $command,
+        $selection = null
     ): CanonicalShellMutationResult {
-        $effects = [];
-        if ($this->defaults_materializer !== null) {
-            $effects[] = $this->defaults_materializer->build_effect();
-        }
+        $effects = $this->resolve_create_effects($manifest->identity()->family_key(), $selection);
 
         return $this->execute(
             $manifest,
@@ -66,14 +72,24 @@ final class WriteCanonicalShellContainerUseCase {
         );
     }
 
+    /**
+     * @param CanonicalContainerCapabilitySelection|null $selection null = omisión
+     */
     public function update(
         CanonicalShellManifest $manifest,
-        CanonicalUpdateContainerCommand $command
+        CanonicalUpdateContainerCommand $command,
+        $selection = null
     ): CanonicalShellMutationResult {
+        $effects = $this->resolve_update_effects(
+            $manifest->identity()->family_key(),
+            $command->container_id(),
+            $selection
+        );
+
         return $this->execute(
             $manifest,
-            static function (CanonicalWriteGateway $gateway, CanonicalReadIdentity $identity) use ($command): CanonicalMutationReceipt {
-                return $gateway->update_container($identity, $command);
+            function (CanonicalWriteGateway $gateway, CanonicalReadIdentity $identity) use ($command, $effects): CanonicalMutationReceipt {
+                return $gateway->update_container($identity, $command, $effects);
             }
         );
     }
@@ -88,6 +104,45 @@ final class WriteCanonicalShellContainerUseCase {
                 return $gateway->delete_container($identity, $command);
             }
         );
+    }
+
+    /**
+     * @param CanonicalContainerCapabilitySelection|null $selection
+     * @return list<CanonicalContainerCapabilityEffect>
+     */
+    private function resolve_create_effects(string $family_key, $selection): array {
+        if ($selection instanceof CanonicalContainerCapabilitySelection) {
+            if ($this->selection_preparer === null) {
+                throw new CanonicalMutationPersistenceFailed(
+                    'Capability selection preparer is not available.'
+                );
+            }
+
+            return [$this->selection_preparer->build_create_effect($family_key, $selection)];
+        }
+
+        if ($this->defaults_materializer !== null) {
+            return [$this->defaults_materializer->build_effect()];
+        }
+
+        return [];
+    }
+
+    /**
+     * @param CanonicalContainerCapabilitySelection|null $selection
+     * @return list<CanonicalContainerCapabilityEffect>
+     */
+    private function resolve_update_effects(string $family_key, int $container_id, $selection): array {
+        if (!($selection instanceof CanonicalContainerCapabilitySelection)) {
+            return [];
+        }
+        if ($this->selection_preparer === null) {
+            throw new CanonicalMutationPersistenceFailed(
+                'Capability selection preparer is not available.'
+            );
+        }
+
+        return [$this->selection_preparer->build_update_effect($family_key, $container_id, $selection)];
     }
 
     /**

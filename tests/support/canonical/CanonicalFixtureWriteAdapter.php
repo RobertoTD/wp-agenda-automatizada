@@ -112,7 +112,8 @@ final class CanonicalFixtureWriteAdapter implements CanonicalWriteAdapter {
 
     public function update_container(
         CanonicalReadIdentity $identity,
-        CanonicalUpdateContainerCommand $command
+        CanonicalUpdateContainerCommand $command,
+        array $effects = []
     ): CanonicalMutationReceipt {
         $this->assert_family($identity);
         $this->assert_not_persistence_failed();

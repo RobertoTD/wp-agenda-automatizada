@@ -87,8 +87,8 @@ try {
 
     $config = new CanonicalCapabilityConfigRepository($wpdb);
     $family_id = (int) $config->resolve_family_id('finance');
-    $config->upsert_family_default($family_id, 'amount', true);
-    $config->upsert_family_default($family_id, 'probe', true);
+    $config->upsert_family_capability($family_id, 'amount', true);
+    $config->upsert_family_capability($family_id, 'probe', true);
 
     $existing_id = null;
     $relational = new CanonicalRelationalRepository($wpdb);

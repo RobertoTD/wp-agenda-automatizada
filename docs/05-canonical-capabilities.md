@@ -12,7 +12,7 @@
 - **Estado implementado** — lo que existe hoy en el repositorio.
 - **Mecanismo técnico pendiente** — diseño o código aún no aprobado o no construido.
 
-Hoy (tras LEGACY-X Finance): schema `DB_VERSION=24`; familia canónica `finance` y capability `amount` (`is_ready=true`) sobre `aa_canonical_*`; escritura/lectura/UI amount operativas; único normalizador `AA_Canonical_Amount_Normalizer`. El módulo Finance legacy (`module=canonical`, `aa_finance_*`) está **retirado**.
+Hoy (tras selección por lista / DB 25): schema `DB_VERSION=25`; repertorio familiar en `aa_canonical_family_capabilities`; selección explícita de capacidades por lista en create/update del shell; familia canónica `finance` y capability `amount` (`is_ready=true`) sobre `aa_canonical_*`; escritura/lectura/UI amount operativas; único normalizador `AA_Canonical_Amount_Normalizer`. El módulo Finance legacy (`module=canonical`, `aa_finance_*`) está **retirado**.
 
 ---
 
@@ -24,17 +24,18 @@ El shell consulta capacidades activadas según la configuración efectiva de cad
 
 ---
 
-## 2. Separación de responsabilidades (decisión aceptada)
+## 2. Cuatro capas (decisión aceptada)
 
-Tres responsabilidades distintas:
+Cuatro capas distintas; no confundirlas:
 
-1. **Definición e implementación** de la capacidad — en código (contrato, validación, persistencia propia cuando corresponda, presentación).
-2. **Asignación y configuración** de la capacidad para una lista — persistidas; fuente efectiva de lo que esa lista ofrece.
-3. **Valores o recursos** de la capacidad — vinculados a registros, a la lista, o a ambos, según el alcance declarado.
+1. **Repertorio y defaults de familia** — filas en `aa_canonical_family_capabilities`: la **presencia** de la fila = capacidad en el repertorio de esa familia; `is_default` = predeterminada para materializar en listas nuevas. El código puede **inicializar** filas ausentes; **no** debe sobrescribir `is_default` ya guardado.
+2. **Solicitud de modificación** (wire `scope` + `selection`) — contrato de transporte/Application para **cambiar** la configuración de una lista. No es el setup completo persistido. Ausencia de instancia = omisión; instancia presente (incluso con arrays vacíos) = modificación explícita.
+3. **Setup persistido de la lista** — filas en `aa_canonical_container_capabilities` leídas como `CanonicalContainerCapabilityConfigSnapshot` (`ReadContainerCapabilityConfigUseCase`): asignación y activación efectivas de esa lista, **incluida** cualquier capacidad conocida ya asignada aunque ya no esté en el repertorio familiar.
+4. **Valores o recursos** de la capacidad — vinculados a registros, a la lista, o a ambos según el alcance declarado (p. ej. `aa_canonical_record_amount`). Separados de la activación en la lista.
 
-El núcleo canónico conserva identidad, permisos, CRUD base y coordinación. Los módulos de capacidad aportan sus datos, validación, persistencia y presentación mediante puntos de integración definidos. Las reglas particulares de una capacidad no deben dispersarse en el shell.
+La **definición e implementación** de cada capacidad permanece en código (contrato, validación, persistencia tipada, presentación). El núcleo canónico conserva identidad, permisos, CRUD base y coordinación. Las reglas particulares de una capacidad no deben dispersarse en el shell.
 
-Las carpetas y módulos deben corresponder a límites de responsabilidad, no solo a separación visual de archivos. La organización concreta de paquetes queda para la propuesta técnica de implementación.
+Las carpetas y módulos deben corresponder a límites de responsabilidad, no solo a separación visual de archivos.
 
 ---
 
@@ -49,13 +50,34 @@ La **lista** (contenedor canónico) es la unidad de asignación y configuración
 
 ---
 
-## 4. Defaults de familia (decisión aceptada)
+## 4. Repertorio y defaults de familia (decisión aceptada)
 
-- Los defaults de familia son **configuración persistida en la base de datos**.
-- El código puede **inicializarlos**, pero **no debe sobrescribir** ajustes ya guardados.
-- Al **crear una lista**, esos defaults se **materializan** en la configuración propia de la lista.
-- Cambiar los defaults afecta a **listas nuevas**.
-- Aplicar defaults (u otras capacidades) a listas **existentes** requiere una **operación explícita**.
+Tabla: `aa_canonical_family_capabilities` (antes `aa_canonical_family_capability_defaults`; columna `is_enabled` → `is_default` en `DB_VERSION=25`).
+
+- Fila presente = capacidad en el **repertorio** de la familia.
+- `is_default=1` = predeterminada: al **crear una lista sin** solicitud de modificación explícita, el materializador copia solo repertorio **ready + is_default** a `container_capabilities`.
+- Cambiar defaults afecta a **listas nuevas** (u operación explícita sobre existentes).
+- Aplicar defaults (u otras capacidades) a listas **existentes** requiere una **operación explícita** (selección en update, Ops, etc.).
+
+---
+
+## 4.1 Solicitud de modificación scope+selection (decisión aceptada)
+
+Contrato aprobado (transporte AJAX / Use Case de contenedor):
+
+- **Ambos ausentes** → omisión (`null`): no hay modificación de capacidades en esa petición.
+- **Exactamente uno presente** → inválido (`invalid_payload`).
+- **Ambos presentes** → cada uno es un array JSON de claves (listas; vacíos permitidos). Debe cumplirse **selection ⊆ scope**.
+- Solo se modifican claves de **scope**. Nunca se reasigna en silencio el scope al repertorio actual.
+- **Create:** cada clave de scope debe ser known + ready y estar en el **repertorio actual** de la familia.
+- **Update:** cada clave de scope debe ser known + ready y (estar en el repertorio **o** ya asignada a esa lista).
+- **Create con selección explícita** (incluso `scope=[]` / `selection=[]`) **sustituye** al materializador: no se copian defaults.
+- **Create omitiendo** ambos campos → usa el materializador de defaults.
+- **Update omitiendo** → conserva la configuración de capacidades de la lista.
+- **Desactivar** (clave en scope y ausente de selection) conserva los **valores** de registro; reactivar los recupera.
+- Si la lectura del setup de la lista falla, la UI **no** debe fabricar selección vacía ni defaults: estado `unavailable` y omisión de campos de selección en el envío.
+
+La solicitud no es un snapshot del setup completo; el snapshot es la capa 3.
 
 ---
 
@@ -171,24 +193,25 @@ No presentar bajar `DB_VERSION` como procedimiento ordinario de rollback. La ide
 
 ## 10. Estado implementado (inventario breve)
 
-Hechos del repositorio tras A1b + LEGACY-X Finance (no sustituyen el paradigma):
+Hechos del repositorio tras A1b + LEGACY-X Finance + selección por lista (no sustituyen el paradigma):
 
-- Persistencia universal `aa_canonical_*` (`DB_VERSION=24`) con CRUD de `title` / `details` en el shell.
-- **C1a:** tablas de defaults/configuración/`record_amount`; config Use Cases + Ops.
-- **A1a:** `CanonicalCapabilityWriteBag` + handlers/effects; `CanonicalRecordAmountRepository`; TX registro+efectos+touch; materialización al crear listas; normalizador canónico paralelo a Finance.
-- **A1b:** `amount` **`is_ready=true`**; contributors de página + enrich en `build_records_view_data`; estados `known_value` / `known_absent` / `read_failed`; presenters + formulario genérico por clave + módulo JS amount; lifecycle `DEFAULTS_VERSION=2` insert-if-missing sin sobrescribir guardados; sin activación masiva de listas existentes.
+- Persistencia universal `aa_canonical_*` (`DB_VERSION=25`) con CRUD de `title` / `details` en el shell.
+- **C1a:** tablas de configuración/`record_amount`; config Use Cases + Ops. (Nombre histórico de repertorio: `aa_canonical_family_capability_defaults`.)
+- **A1a:** `CanonicalCapabilityWriteBag` + handlers/effects; `CanonicalRecordAmountRepository`; TX registro+efectos+touch; materialización al crear listas; normalizador canónico.
+- **A1b:** `amount` **`is_ready=true`**; contributors de página + enrich en `build_records_view_data`; estados `known_value` / `known_absent` / `read_failed`; presenters + formulario genérico por clave + módulo JS amount; lifecycle insert-if-missing sin sobrescribir guardados; sin activación masiva de listas existentes.
 - Familia `finance` / `archive` en registry; enablement de familia.
-- **LEGACY-X Finance:** módulo clásico retirado (`module=canonical`, `aa_finance_*`, normalizador duplicado). `DB_VERSION=24` deja de instalar y elimina esas tablas.
+- **LEGACY-X Finance:** módulo clásico retirado (`module=canonical`, `aa_finance_*`, normalizador duplicado). DB 24 dejó de instalar y eliminó esas tablas.
+- **DB 25 / selección por lista:** rename repertorio → `aa_canonical_family_capabilities` + `is_default`; wire `capability_selection_scope` / `capability_selection`; `CanonicalContainerCapabilitySelection` + preparer + effect en TX de create/update contenedor; UI de checkboxes en modal de lista (create/edit); edición desde vista records con `return_view=records` y payload `capabilities` en tarjeta; lectura fallida → `unavailable` sin fabricar selección.
 
 ---
 
 ## 11. Mecanismos técnicos pendientes (no cerrados en esta norma)
 
-Cerrados en C1a/A1a/A1b (inventario §10 / decisiones 27–29 del plan): schema/config, escritura atómica, lectura/UI amount, ready + seed insert-if-missing.
+Cerrados en C1a/A1a/A1b + DB 25 (inventario §10 / decisiones 27–31 del plan): schema/config, escritura atómica, lectura/UI amount, ready + seed, repertorio rename, selección explícita por lista.
 
 Quedan abiertos para órdenes posteriores. **No** son arquitectura normativa cerrada aquí:
 
-- operación explícita de aplicación de capacidades a listas existentes (Ops ya permite activación puntual);
+- ~~aplicación explícita de capacidades a listas existentes vía selección en update~~ (**cerrada** en DB 25 / decisión 31; Ops puntual sigue disponible);
 - ~~retirada efectiva de Finance legacy~~ (**cerrada** en LEGACY-X / DB 24);
 - totalización, API pública, Settings de capabilities, imágenes.
 

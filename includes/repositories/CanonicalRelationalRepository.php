@@ -449,48 +449,89 @@ final class CanonicalRelationalRepository {
     }
 
     /**
+     * @param list<CanonicalContainerCapabilityEffect> $effects
      * @return array{id:int,public_id:string,family_id:int,title:string,details:?string,created_at:string,updated_at:string}|null
      * @throws CanonicalRelationalQueryFailed
+     * @throws CanonicalRelationalAmbiguousOutcome
      */
     public function update_container(
         int $family_id,
         int $container_id,
         string $title,
-        ?string $details
+        ?string $details,
+        array $effects = []
     ): ?array {
-        $table = $this->containers_table();
-        $now = $this->utc_now();
-
-        $this->clear_error_state();
-        $result = $this->wpdb->update(
-            $table,
-            [
-                'title' => $title,
-                'details' => $details,
-                'updated_at' => $now,
-            ],
-            [
-                'family_id' => $family_id,
-                'id' => $container_id,
-            ],
-            [
-                '%s',
-                $details === null ? null : '%s',
-                '%s',
-            ],
-            ['%d', '%d']
-        );
-
-        if ($result === false) {
-            throw new CanonicalRelationalQueryFailed('update_container failed.');
-        }
-
-        $row = $this->find_container($family_id, $container_id);
-        if ($row === null) {
+        $existing = $this->find_container($family_id, $container_id);
+        if ($existing === null) {
             return null;
         }
 
-        return $row;
+        $table = $this->containers_table();
+        $now = $this->utc_now();
+
+        $this->begin_transaction();
+        $mutation_possible = false;
+
+        try {
+            $this->clear_error_state();
+            $result = $this->wpdb->update(
+                $table,
+                [
+                    'title' => $title,
+                    'details' => $details,
+                    'updated_at' => $now,
+                ],
+                [
+                    'family_id' => $family_id,
+                    'id' => $container_id,
+                ],
+                [
+                    '%s',
+                    $details === null ? null : '%s',
+                    '%s',
+                ],
+                ['%d', '%d']
+            );
+
+            if ($result === false) {
+                $this->rollback_confirmed('update_container failed.');
+            }
+
+            $mutation_possible = true;
+
+            $this->apply_container_effects(
+                $effects,
+                new CanonicalContainerMutationContext($family_id, $container_id, $now),
+                'update',
+                $container_id
+            );
+
+            $this->commit_or_ambiguous('update', 'container', $container_id, null);
+
+            $row = $this->find_container($family_id, $container_id);
+            if ($row === null) {
+                throw new CanonicalRelationalAmbiguousOutcome(
+                    'update',
+                    'container',
+                    $container_id,
+                    null,
+                    'update_container row missing after commit.'
+                );
+            }
+
+            return $row;
+        } catch (CanonicalRelationalAmbiguousOutcome $e) {
+            throw $e;
+        } catch (CanonicalRelationalQueryFailed $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            if ($mutation_possible) {
+                $this->rollback_after_possible_mutation('update', 'container', $container_id, null);
+            } else {
+                $this->rollback_confirmed('update_container unexpected failure.');
+            }
+            throw new CanonicalRelationalQueryFailed('update_container unexpected failure.');
+        }
     }
 
     /**

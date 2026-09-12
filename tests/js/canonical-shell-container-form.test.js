@@ -14,6 +14,7 @@ const jsPath = path.join(
 function createEl(id) {
     const el = {
         id: id || '',
+        className: '',
         classList: {
             _set: new Set(['hidden']),
             add(name) {
@@ -30,6 +31,9 @@ function createEl(id) {
         value: '',
         textContent: '',
         disabled: false,
+        checked: false,
+        type: '',
+        _children: [],
         _listeners: {},
         focusCalls: 0,
         getAttribute(name) {
@@ -47,6 +51,24 @@ function createEl(id) {
             this._listeners[type] = this._listeners[type] || [];
             this._listeners[type].push(fn);
         },
+        appendChild(child) {
+            this._children.push(child);
+        },
+        querySelectorAll(selector) {
+            if (selector !== 'input[data-aa-capability-key]') {
+                return [];
+            }
+            const out = [];
+            const walk = (node) => {
+                if (node && typeof node.getAttribute === 'function'
+                    && node.getAttribute('data-aa-capability-key')) {
+                    out.push(node);
+                }
+                (node._children || []).forEach(walk);
+            };
+            walk(this);
+            return out;
+        },
         focus() {
             this.focusCalls += 1;
             documentRef.activeElement = this;
@@ -55,6 +77,17 @@ function createEl(id) {
             this.value = '';
         }
     };
+    Object.defineProperty(el, 'innerHTML', {
+        configurable: true,
+        get() {
+            return '';
+        },
+        set(value) {
+            if (value === '') {
+                this._children = [];
+            }
+        }
+    });
     return el;
 }
 
@@ -83,6 +116,10 @@ function boot(fetchImpl, payloads, cfgOverrides) {
     const familySelect = createEl('aa-shell-container-family');
     const familyError = createEl('aa-shell-container-family-error');
     familyError.classList.add('hidden');
+    const capabilitiesMount = createEl('aa-shell-container-capabilities');
+    capabilitiesMount.classList.remove('hidden');
+    const capabilitiesStatus = createEl('aa-shell-container-capabilities-status');
+    capabilitiesStatus.classList.add('hidden');
 
     const deleteModal = createEl('aa-shell-delete-container-modal');
     const deleteBackdrop = createEl('aa-shell-delete-container-modal-backdrop');
@@ -125,6 +162,8 @@ function boot(fetchImpl, payloads, cfgOverrides) {
         'aa-shell-container-family-field': familyField,
         'aa-shell-container-family': familySelect,
         'aa-shell-container-family-error': familyError,
+        'aa-shell-container-capabilities': capabilitiesMount,
+        'aa-shell-container-capabilities-status': capabilitiesStatus,
         'aa-shell-delete-container-modal': deleteModal,
         'aa-shell-delete-container-modal-backdrop': deleteBackdrop,
         'aa-shell-delete-container-modal-close-btn': deleteCloseBtn,
@@ -154,6 +193,9 @@ function boot(fetchImpl, payloads, cfgOverrides) {
             }
             return [];
         },
+        createElement(tag) {
+            return createEl(tag);
+        },
         addEventListener(type, fn) {
             documentListeners[type] = documentListeners[type] || [];
             documentListeners[type].push(fn);
@@ -170,9 +212,12 @@ function boot(fetchImpl, payloads, cfgOverrides) {
         deleteNonce: 'delete-nonce',
         familyKey: 'finance',
         listsScope: '',
+        shellView: 'containers',
         availableFamilies: [],
         requireFamilySelect: false,
-        maxTitleLength: 200
+        maxTitleLength: 200,
+        familyCapabilityOptions: {},
+        editContainerCapabilities: null
     }, cfgOverrides || {});
 
     const env = {
@@ -225,6 +270,8 @@ function boot(fetchImpl, payloads, cfgOverrides) {
         familyField,
         familySelect,
         familyError,
+        capabilitiesMount,
+        capabilitiesStatus,
         deleteTitleEl,
         deleteStatusEl,
         deleteConfirmBtn,
@@ -608,5 +655,164 @@ describe('canonical-shell-container-form', () => {
         ui.form._listeners.submit[0]({ preventDefault() {} });
         assert.equal(ui.getLastFormData().family_key, 'finance');
         assert.equal(ui.getLastFormData().action, 'aa_update_canonical_container');
+    });
+
+    it('create marca defaults del repertorio familiar', () => {
+        const ui = boot(async () => ({ status: 200, text: async () => '{}' }), [], {
+            familyCapabilityOptions: {
+                finance: [
+                    { key: 'amount', label: 'Importe', is_default: true },
+                    { key: 'extra', label: 'Extra', is_default: false }
+                ]
+            }
+        });
+        ui.openBtn._listeners.click[0]();
+        const inputs = ui.capabilitiesMount.querySelectorAll('input[data-aa-capability-key]');
+        assert.equal(inputs.length, 2);
+        assert.equal(inputs[0].getAttribute('data-aa-capability-key'), 'amount');
+        assert.equal(inputs[0].checked, true);
+        assert.equal(inputs[1].getAttribute('data-aa-capability-key'), 'extra');
+        assert.equal(inputs[1].checked, false);
+        assert.equal(ui.capabilitiesStatus.classList.contains('hidden'), true);
+    });
+
+    it('cambio de familia en create re-renderiza opciones y defaults', () => {
+        const ui = boot(async () => ({ status: 200, text: async () => '{}' }), [], {
+            familyKey: '',
+            listsScope: 'all',
+            requireFamilySelect: true,
+            availableFamilies: [
+                { family_key: 'finance', label: 'Finanzas' },
+                { family_key: 'archive', label: 'Archivo' }
+            ],
+            familyCapabilityOptions: {
+                finance: [{ key: 'amount', label: 'Importe', is_default: true }],
+                archive: [{ key: 'notes', label: 'Notas', is_default: false }]
+            }
+        });
+        ui.openBtn._listeners.click[0]();
+        assert.equal(ui.familySelect.value, 'archive');
+        let inputs = ui.capabilitiesMount.querySelectorAll('input[data-aa-capability-key]');
+        assert.equal(inputs.length, 1);
+        assert.equal(inputs[0].getAttribute('data-aa-capability-key'), 'notes');
+        assert.equal(inputs[0].checked, false);
+
+        ui.familySelect.value = 'finance';
+        ui.familySelect._listeners.change[0]();
+        inputs = ui.capabilitiesMount.querySelectorAll('input[data-aa-capability-key]');
+        assert.equal(inputs.length, 1);
+        assert.equal(inputs[0].getAttribute('data-aa-capability-key'), 'amount');
+        assert.equal(inputs[0].checked, true);
+    });
+
+    it('create con repertorio vacío envía arrays JSON vacíos', async () => {
+        const ui = boot(async () => ({
+            status: 200,
+            text: async () => JSON.stringify({
+                success: true,
+                data: { status: 'confirmed', redirect_url: 'https://example.test/ok' }
+            })
+        }), [], {
+            familyCapabilityOptions: { finance: [] }
+        });
+        ui.openBtn._listeners.click[0]();
+        ui.titleInput.value = 'Vacía';
+        ui.form._listeners.submit[0]({ preventDefault() {} });
+        assert.equal(ui.getLastFormData().capability_selection_scope, '[]');
+        assert.equal(ui.getLastFormData().capability_selection, '[]');
+    });
+
+    it('update unavailable omite campos de selección', async () => {
+        const ui = boot(async () => ({
+            status: 200,
+            text: async () => JSON.stringify({
+                success: true,
+                data: { status: 'confirmed', redirect_url: 'https://example.test/ok' }
+            })
+        }), [
+            { id: 33, title: 'Lista', details: '' }
+        ], {
+            familyCapabilityOptions: {
+                finance: [{ key: 'amount', label: 'Importe', is_default: true }]
+            },
+            editContainerCapabilities: { status: 'unavailable' }
+        });
+        ui.editBtns[0]._listeners.click[0]();
+        assert.equal(ui.capabilitiesMount.querySelectorAll('input[data-aa-capability-key]').length, 0);
+        assert.equal(ui.capabilitiesStatus.classList.contains('hidden'), false);
+        ui.titleInput.value = 'Ok';
+        ui.form._listeners.submit[0]({ preventDefault() {} });
+        const body = ui.getLastFormData();
+        assert.equal(Object.prototype.hasOwnProperty.call(body, 'capability_selection_scope'), false);
+        assert.equal(Object.prototype.hasOwnProperty.call(body, 'capability_selection'), false);
+    });
+
+    it('records update envía return_view y selección activa del repertorio', async () => {
+        const ui = boot(async () => ({
+            status: 200,
+            text: async () => JSON.stringify({
+                success: true,
+                data: { status: 'confirmed', redirect_url: 'https://example.test/records' }
+            })
+        }), [
+            { id: 44, title: 'Padre', details: 'd' }
+        ], {
+            shellView: 'records',
+            containersPage: 3,
+            familyCapabilityOptions: {
+                finance: [
+                    { key: 'amount', label: 'Importe', is_default: true },
+                    { key: 'extra', label: 'Extra', is_default: false }
+                ]
+            },
+            editContainerCapabilities: {
+                status: 'ok',
+                active: ['amount', 'ghost'],
+                assigned: ['amount', 'ghost']
+            }
+        });
+        ui.editBtns[0]._listeners.click[0]();
+        const inputs = ui.capabilitiesMount.querySelectorAll('input[data-aa-capability-key]');
+        assert.equal(inputs.length, 2);
+        assert.equal(inputs[0].checked, true);
+        assert.equal(inputs[1].checked, false);
+        ui.titleInput.value = 'Padre';
+        ui.form._listeners.submit[0]({ preventDefault() {} });
+        const body = ui.getLastFormData();
+        assert.equal(body.return_view, 'records');
+        assert.equal(body.containers_page, '3');
+        assert.equal(body.capability_selection_scope, JSON.stringify(['amount', 'extra']));
+        assert.equal(body.capability_selection, JSON.stringify(['amount']));
+    });
+
+    it('edit desde tarjeta usa payload.capabilities sobre boot unavailable', () => {
+        const ui = boot(async () => ({ status: 200, text: async () => '{}' }), [
+            {
+                id: 55,
+                title: 'Con caps',
+                details: '',
+                family_key: 'finance',
+                capabilities: {
+                    status: 'ok',
+                    active: ['amount'],
+                    assigned: ['amount']
+                }
+            }
+        ], {
+            familyCapabilityOptions: {
+                finance: [
+                    { key: 'amount', label: 'Importe', is_default: true },
+                    { key: 'extra', label: 'Extra', is_default: false }
+                ]
+            },
+            editContainerCapabilities: { status: 'unavailable' }
+        });
+        ui.editBtns[0]._listeners.click[0]();
+        const inputs = ui.capabilitiesMount.querySelectorAll('input[data-aa-capability-key]');
+        assert.equal(inputs.length, 2);
+        assert.equal(inputs[0].getAttribute('data-aa-capability-key'), 'amount');
+        assert.equal(inputs[0].checked, true);
+        assert.equal(inputs[1].checked, false);
+        assert.equal(ui.capabilitiesStatus.classList.contains('hidden'), true);
     });
 });

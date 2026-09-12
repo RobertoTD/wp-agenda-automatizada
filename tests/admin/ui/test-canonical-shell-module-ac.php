@@ -594,6 +594,17 @@ ac_assert('Shell container form config present', strpos($shell_html, 'AA_CANONIC
     && strpos($shell_html, 'aa_update_canonical_container') !== false
     && strpos($shell_html, 'aa_delete_canonical_container') !== false);
 ac_assert('Shell container form script loaded', strpos($shell_html, 'canonical-shell-container-form.js') !== false);
+ac_assert(
+    'Shell container form boots capability selection keys',
+    strpos($shell_html, 'familyCapabilityOptions') !== false
+    && strpos($shell_html, 'shellView') !== false
+);
+ac_assert(
+    'Shell container modal includes Campos y funciones',
+    strpos($shell_html, 'Campos y funciones') !== false
+    && strpos($shell_html, 'id="aa-shell-container-capabilities"') !== false
+    && strpos($shell_html, 'id="aa-shell-container-capabilities-status"') !== false
+);
 ac_assert('Shell delete container modal present', strpos($shell_html, 'id="aa-shell-delete-container-modal"') !== false
     && strpos($shell_html, 'Eliminar lista') !== false
     && strpos($shell_html, 'Recargar listas') !== false);
@@ -608,6 +619,15 @@ ac_assert(
 ac_assert('Shell resolved root has no amount', stripos($shell_html, 'amount') === false);
 
 $module_src = file_get_contents($plugin_root . '/includes/admin/ui/modules/canonical_shell/index.php');
+ac_assert(
+    'Shell splits create FAB from container write UI',
+    strpos($module_src, '$show_container_write_ui = $show_create_ui || $show_edit_container_on_records') !== false
+);
+ac_assert(
+    'Shell records header can edit list',
+    strpos($module_src, 'Editar lista') !== false
+    && strpos($module_src, '$show_edit_container_on_records') !== false
+);
 $forbidden_tokens = [
     'modules/canonical/finance',
     'AA_FINANCE_DATA',

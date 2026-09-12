@@ -113,23 +113,23 @@ try {
         if ($fid === null) {
             continue;
         }
-        $config->insert_family_default_if_missing($fid, $seed['capability_key'], $seed['is_enabled']);
+        $config->insert_family_capability_if_missing($fid, $seed['capability_key'], $seed['is_default']);
     }
-    $row = $config->find_family_default($finance_id, 'amount');
-    ac_assert('Seed inserta finance/amount enabled', is_array($row) && $row['is_enabled'] === true);
+    $row = $config->find_family_capability($finance_id, 'amount');
+    ac_assert('Seed inserta finance/amount enabled', is_array($row) && $row['is_default'] === true);
 
-    $config->upsert_family_default($finance_id, 'amount', false);
+    $config->upsert_family_capability($finance_id, 'amount', false);
     foreach (AA_Canonical_Capability_Defaults_Lifecycle::declared_seeds() as $seed) {
         if ($seed['capability_key'] !== 'amount') {
             continue;
         }
-        $config->insert_family_default_if_missing($finance_id, 'amount', true);
+        $config->insert_family_capability_if_missing($finance_id, 'amount', true);
     }
-    $guarded = $config->find_family_default($finance_id, 'amount');
-    ac_assert('Re-ensure no sobrescribe desactivación guardada', is_array($guarded) && $guarded['is_enabled'] === false);
+    $guarded = $config->find_family_capability($finance_id, 'amount');
+    ac_assert('Re-ensure no sobrescribe desactivación guardada', is_array($guarded) && $guarded['is_default'] === false);
 
     // Re-habilitar para materializar.
-    $config->upsert_family_default($finance_id, 'amount', true);
+    $config->upsert_family_capability($finance_id, 'amount', true);
 
     $stack = AA_Canonical_Capability_Write_Bootstrap::build_stack($wpdb);
     $relational = new CanonicalRelationalRepository($wpdb);
@@ -156,7 +156,7 @@ try {
     ac_assert('Materializó amount en lista nueva', $active);
 
     // Listas existentes no reciben activación masiva: crear lista sin default enabled.
-    $config->upsert_family_default($finance_id, 'amount', false);
+    $config->upsert_family_capability($finance_id, 'amount', false);
     $created2 = $container_uc->create($manifest, new CanonicalCreateContainerCommand('Sin default', null));
     $cid2 = (int) $created2->receipt()->resource_id();
     ac_assert(
