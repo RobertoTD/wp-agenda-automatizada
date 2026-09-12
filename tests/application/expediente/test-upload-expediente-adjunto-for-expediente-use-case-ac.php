@@ -126,6 +126,24 @@ final class ExpedienteAdjuntosRepository {
     }
 }
 
+require_once $plugin_root . '/includes/application/storage/AA_Installation_Storage_Usage_Failed.php';
+require_once $plugin_root . '/includes/application/storage/AA_Installation_Storage_Usage.php';
+AA_Installation_Storage_Usage::set_default_for_tests(new AA_Installation_Storage_Usage(
+    static function (): ?int {
+        return ExpedienteAdjuntosRepository::$sum_bytes;
+    },
+    new class {
+        public function sum_byte_size_total(): int {
+            return 0;
+        }
+    },
+    new class {
+        public function sum_reserved_byte_size(int $now_ms, string $now_utc, ?string $exclude_operation_id = null): int {
+            return 0;
+        }
+    }
+));
+
 final class FakeV2Transfer {
     public $calls = [];
     public $fail = null;
@@ -248,6 +266,8 @@ $res = $uc->execute($input);
 ac_assert('registro ajeno → not_found', ($res['error']['code'] ?? '') === 'not_found');
 
 @unlink($tmp);
+
+AA_Installation_Storage_Usage::set_default_for_tests(null);
 
 echo "\nResultado: {$passed}/{$total} OK\n";
 if ($failed) {

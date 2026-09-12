@@ -1,11 +1,8 @@
 <?php
 /**
- * AC — GetExpedienteStorageUsageUseCase (MC5d2).
+ * AC — GetExpedienteStorageUsageUseCase (MC5d2 / IMG-3a).
  *
- * used_bytes = bytes contabilizados mediante metadata local finalizada
- * (SUM de byte_size en la tabla del blog actual), NO auditoría física en
- * vivo de Supabase. Una fila conservada por fallo parcial reintentable
- * (MC5c1/MC5c2) sigue contando hasta que el reintento la elimina.
+ * used_bytes = confirmed_bytes (legacy + canon). Fallo → ok:false.
  *
  * Ejecutar: php tests/application/expediente/test-get-expediente-storage-usage-use-case-ac.php
  */
@@ -32,107 +29,54 @@ if (!defined('ABSPATH')) {
     define('ABSPATH', $plugin_root . '/');
 }
 
-/**
- * Doble del repositorio: simula la tabla de adjuntos del blog actual como
- * lista de filas {byte_size}. El use case solo consume sum_byte_size_total.
- */
-final class ExpedienteAdjuntosRepository {
-    /** @var list<array{byte_size:int}> */
-    public static $rows = [];
-    /** @var bool */
-    public static $force_null = false;
+require_once $plugin_root . '/includes/application/storage/AA_Installation_Storage_Usage_Failed.php';
+require_once $plugin_root . '/includes/application/storage/AA_Installation_Storage_Usage.php';
+require_once $plugin_root . '/includes/application/expediente/GetExpedienteStorageUsageUseCase.php';
 
-    public static function sum_byte_size_total(): ?int {
-        if (self::$force_null) {
-            return null;
+final class FakeConfirmedUsage {
+    /** @var int|null null → throw */
+    public $confirmed = 0;
+
+    public function confirmed_bytes(): int {
+        if ($this->confirmed === null) {
+            throw new AA_Installation_Storage_Usage_Failed('unavailable');
         }
-        $sum = 0;
-        foreach (self::$rows as $row) {
-            $sum += (int) $row['byte_size'];
-        }
-        return $sum > 0 ? $sum : 0;
+        return (int) $this->confirmed;
     }
 }
 
-require_once $plugin_root . '/includes/application/expediente/GetExpedienteStorageUsageUseCase.php';
+$fake = new FakeConfirmedUsage();
+$uc = new GetExpedienteStorageUsageUseCase($fake);
 
-$uc = new GetExpedienteStorageUsageUseCase();
-
-// ── Tabla sin adjuntos → 0 ──
-ExpedienteAdjuntosRepository::$rows = [];
+$fake->confirmed = 0;
 $res = $uc->execute();
-ac_assert('sin adjuntos → used_bytes = 0', !empty($res['ok']) && ($res['used_bytes'] ?? null) === 0);
+ac_assert('sin consumo → used_bytes = 0', !empty($res['ok']) && ($res['used_bytes'] ?? null) === 0);
 ac_assert('used_bytes es entero', is_int($res['used_bytes']));
 
-// ── Suma de varios adjuntos, registros y clientes del mismo blog ──
-// (clientes 3 y 7, registros 10, 11 y 20: todos cuentan)
-ExpedienteAdjuntosRepository::$rows = [
-    ['byte_size' => 100000],  // cliente 3, registro 10
-    ['byte_size' => 250000],  // cliente 3, registro 11
-    ['byte_size' => 524288],  // cliente 7, registro 20
-    ['byte_size' => 1],       // cliente 7, registro 20
-];
+$fake->confirmed = 874289;
 $res2 = $uc->execute();
-ac_assert('suma varios clientes/registros', ($res2['used_bytes'] ?? -1) === 874289, 'got=' . var_export($res2['used_bytes'] ?? null, true));
-
-// ── Contrato cerrado: solo ok + used_bytes, sin metadata interna ──
+ac_assert('confirmed proxy', ($res2['used_bytes'] ?? -1) === 874289);
 ac_assert('contrato exacto {ok, used_bytes}', array_keys($res2) === ['ok', 'used_bytes']);
 $encoded = json_encode($res2);
 ac_assert('sin paths/bucket/desglose', strpos($encoded, 'storage_path') === false
     && strpos($encoded, 'bucket') === false
-    && strpos($encoded, 'installations/') === false
-    && strpos($encoded, 'adjuntos') === false
-    && strpos($encoded, 'limit') === false);
+    && strpos($encoded, 'upload_intent') === false);
 
-// ── Entero no negativo incluso ante repo anómalo ──
-ExpedienteAdjuntosRepository::$rows = [['byte_size' => -500]];
-$res3 = $uc->execute();
-ac_assert('nunca negativo', is_int($res3['used_bytes']) && $res3['used_bytes'] >= 0);
-
-// ── Fila conservada por fallo parcial (Storage ya borrado, fila local
-//    pendiente de reintento MC5c1/MC5c2) sigue contando ──
-ExpedienteAdjuntosRepository::$rows = [
-    ['byte_size' => 300000],  // adjunto vigente
-    ['byte_size' => 200000],  // objeto ya ausente en Storage; fila retenida por local_delete_failed
-];
-$res4 = $uc->execute();
-ac_assert('fila retenida por fallo parcial cuenta', ($res4['used_bytes'] ?? -1) === 500000);
-
-// Reintento exitoso elimina la fila → la suma disminuye automáticamente.
-ExpedienteAdjuntosRepository::$rows = [
-    ['byte_size' => 300000],
-];
-$res5 = $uc->execute();
-ac_assert('eliminación de la fila reduce la suma', ($res5['used_bytes'] ?? -1) === 300000);
-
-// Fallo de cálculo (null) → contrato informativo histórico used_bytes = 0.
-ExpedienteAdjuntosRepository::$force_null = true;
+$fake->confirmed = null;
 $res6 = $uc->execute();
-ac_assert('sum null → used_bytes 0 informativo', !empty($res6['ok']) && ($res6['used_bytes'] ?? -1) === 0);
-ExpedienteAdjuntosRepository::$force_null = false;
+ac_assert('fallo → ok false', empty($res6['ok']) && ($res6['code'] ?? '') === 'storage_usage_unavailable');
+ac_assert('fallo sin used_bytes falso', !array_key_exists('used_bytes', $res6));
 
-// ── Estructural: sin cuota/enforcement y sin scope del navegador ──
 $src = file_get_contents($plugin_root . '/includes/application/expediente/GetExpedienteStorageUsageUseCase.php');
+ac_assert('use case usa confirmed_bytes', strpos($src, 'confirmed_bytes') !== false);
 ac_assert('use case sin input externo', strpos($src, '$_POST') === false
-    && strpos($src, '$_REQUEST') === false
-    && strpos($src, '$_GET') === false
-    && strpos($src, 'installation_id') === false
-    && strpos($src, 'client_id') === false);
-ac_assert('sin limit_bytes/available/enforcement', strpos($src, 'limit_bytes') === false
-    && strpos($src, 'available_bytes') === false
-    && strpos($src, '12582912') === false
-    && stripos($src, 'quota') === false);
-ac_assert('solo lectura: no escribe ni borra', strpos($src, 'insert') === false
-    && strpos($src, 'delete') === false
-    && strpos($src, 'update') === false);
+    && strpos($src, 'installation_id') === false);
+ac_assert('sin fingir cero en fallo', strpos($src, "used_bytes' => 0") === false
+    || strpos($src, 'storage_usage_unavailable') !== false);
 
-$repo_src = file_get_contents($plugin_root . '/includes/repositories/ExpedienteAdjuntosRepository.php');
-ac_assert('repo usa COALESCE(SUM(byte_size), 0)', strpos($repo_src, 'COALESCE(SUM(byte_size), 0)') !== false);
-ac_assert('repo suma sin scope externo (tabla del prefijo)', preg_match(
-    '/function sum_byte_size_total\(\): \?int \{(?:(?!function ).)*?\}/s',
-    $repo_src,
-    $m
-) === 1 && strpos($m[0], 'WHERE') === false && strpos($m[0], 'table_name()') !== false);
+$helper_src = file_get_contents($plugin_root . '/includes/application/storage/AA_Installation_Storage_Usage.php');
+ac_assert('helper marca dependencia legacy temporal', strpos($helper_src, 'TEMPORARY') !== false
+    && strpos($helper_src, 'ExpedienteAdjuntosRepository') !== false);
 
 echo "\n";
 if (count($failed) === 0) {

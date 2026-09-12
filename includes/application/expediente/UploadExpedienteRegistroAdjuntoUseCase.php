@@ -45,6 +45,12 @@ if (!class_exists('AA_Expediente_Attachment_Signed_Uploader')) {
 if (!class_exists('AA_Expediente_Aggregate_Lock')) {
     require_once dirname(__DIR__, 2) . '/infrastructure/wp/class-aa-expediente-aggregate-lock.php';
 }
+if (!class_exists('AA_Installation_Storage_Usage')) {
+    require_once dirname(__DIR__) . '/storage/AA_Installation_Storage_Usage.php';
+}
+if (!class_exists('AA_Installation_Storage_Usage_Failed')) {
+    require_once dirname(__DIR__) . '/storage/AA_Installation_Storage_Usage_Failed.php';
+}
 
 final class UploadExpedienteRegistroAdjuntoUseCase {
 
@@ -69,19 +75,24 @@ final class UploadExpedienteRegistroAdjuntoUseCase {
     /** @var object|null Writer canónico (UploadExpedienteAdjuntoForExpedienteUseCase). */
     private $canonical_upload;
 
+    /** @var AA_Installation_Storage_Usage|object */
+    private $storage_usage;
+
     /**
      * @param ExpedienteAdjuntoJpegValidator|null $validator
      * @param object|null $transfer ExpedienteAdjuntoUploadTransfer o doble de prueba
      * @param AA_Expediente_Aggregate_Lock|null $lock
      * @param object|null $cleanup_client Cliente con delete_object() para compensación
      * @param object|null $canonical_upload Solo para tests / bridge v2
+     * @param AA_Installation_Storage_Usage|object|null $storage_usage
      */
     public function __construct(
         ?ExpedienteAdjuntoJpegValidator $validator = null,
         $transfer = null,
         ?AA_Expediente_Aggregate_Lock $lock = null,
         $cleanup_client = null,
-        $canonical_upload = null
+        $canonical_upload = null,
+        $storage_usage = null
     ) {
         $this->validator = $validator ?: new ExpedienteAdjuntoJpegValidator();
         $this->transfer = $transfer ?: new ExpedienteAdjuntoUploadTransfer(
@@ -92,6 +103,9 @@ final class UploadExpedienteRegistroAdjuntoUseCase {
         $this->lock = $lock ?: AA_Expediente_Aggregate_Lock::create_default();
         $this->cleanup_client = is_object($cleanup_client) ? $cleanup_client : null;
         $this->canonical_upload = is_object($canonical_upload) ? $canonical_upload : null;
+        $this->storage_usage = is_object($storage_usage)
+            ? $storage_usage
+            : AA_Installation_Storage_Usage::create_default();
     }
 
     /**
@@ -184,8 +198,9 @@ final class UploadExpedienteRegistroAdjuntoUseCase {
                     return $this->fail_from_lock($quota_lease);
                 }
 
-                $used_bytes = ExpedienteAdjuntosRepository::sum_byte_size_total();
-                if ($used_bytes === null) {
+                try {
+                    $used_bytes = $this->storage_usage->admission_used_bytes(null);
+                } catch (AA_Installation_Storage_Usage_Failed $e) {
                     return $this->fail(
                         'storage_usage_unavailable',
                         'No se pudo verificar el espacio disponible.'

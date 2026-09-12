@@ -76,6 +76,24 @@ final class ExpedienteAdjuntosRepository {
     }
 }
 
+require_once $plugin_root . '/includes/application/storage/AA_Installation_Storage_Usage_Failed.php';
+require_once $plugin_root . '/includes/application/storage/AA_Installation_Storage_Usage.php';
+AA_Installation_Storage_Usage::set_default_for_tests(new AA_Installation_Storage_Usage(
+    static function (): ?int {
+        return ExpedienteAdjuntosRepository::$sum_bytes;
+    },
+    new class {
+        public function sum_byte_size_total(): int {
+            return 0;
+        }
+    },
+    new class {
+        public function sum_reserved_byte_size(int $now_ms, string $now_utc, ?string $exclude_operation_id = null): int {
+            return 0;
+        }
+    }
+));
+
 final class ExpedienteAdjuntoJpegValidator {
     public function validate(array $file): array {
         return [
@@ -268,6 +286,8 @@ ac_assert('cleanup fail cero insert', count(ExpedienteAdjuntosRepository::$inser
 ac_assert('mensaje sin path', strpos((string) ($out['message'] ?? ''), 'installations/') === false);
 
 @unlink($tmp);
+
+AA_Installation_Storage_Usage::set_default_for_tests(null);
 
 echo "\nResultado: {$passed}/{$total}" . (count($failed) ? (' FAIL: ' . implode(', ', $failed)) : ' OK') . "\n";
 exit(count($failed) === 0 ? 0 : 1);

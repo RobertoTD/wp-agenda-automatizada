@@ -45,6 +45,12 @@ if (!class_exists('AA_Expediente_Aggregate_Lock')) {
 if (!class_exists('ExpedienteAdjuntoPublicDto')) {
     require_once dirname(__DIR__, 2) . '/domain/expediente/ExpedienteAdjuntoPublicDto.php';
 }
+if (!class_exists('AA_Installation_Storage_Usage')) {
+    require_once dirname(__DIR__) . '/storage/AA_Installation_Storage_Usage.php';
+}
+if (!class_exists('AA_Installation_Storage_Usage_Failed')) {
+    require_once dirname(__DIR__) . '/storage/AA_Installation_Storage_Usage_Failed.php';
+}
 
 final class UploadExpedienteAdjuntoForExpedienteUseCase {
 
@@ -62,17 +68,22 @@ final class UploadExpedienteAdjuntoForExpedienteUseCase {
     /** @var object|null */
     private $cleanup_client;
 
+    /** @var AA_Installation_Storage_Usage|object */
+    private $storage_usage;
+
     /**
      * @param ExpedienteAdjuntoJpegValidator|null $validator
      * @param object|null $transfer
      * @param AA_Expediente_Aggregate_Lock|null $lock
      * @param object|null $cleanup_client
+     * @param AA_Installation_Storage_Usage|object|null $storage_usage
      */
     public function __construct(
         ?ExpedienteAdjuntoJpegValidator $validator = null,
         $transfer = null,
         ?AA_Expediente_Aggregate_Lock $lock = null,
-        $cleanup_client = null
+        $cleanup_client = null,
+        $storage_usage = null
     ) {
         $this->validator = $validator ?: new ExpedienteAdjuntoJpegValidator();
         $this->transfer = $transfer ?: new ExpedienteAdjuntoUploadTransfer(
@@ -82,6 +93,9 @@ final class UploadExpedienteAdjuntoForExpedienteUseCase {
         );
         $this->lock = $lock ?: AA_Expediente_Aggregate_Lock::create_default();
         $this->cleanup_client = is_object($cleanup_client) ? $cleanup_client : null;
+        $this->storage_usage = is_object($storage_usage)
+            ? $storage_usage
+            : AA_Installation_Storage_Usage::create_default();
     }
 
     /**
@@ -211,8 +225,9 @@ final class UploadExpedienteAdjuntoForExpedienteUseCase {
                     return $this->fail_from_lock($quota_lease);
                 }
 
-                $used_bytes = ExpedienteAdjuntosRepository::sum_byte_size_total();
-                if ($used_bytes === null) {
+                try {
+                    $used_bytes = $this->storage_usage->admission_used_bytes(null);
+                } catch (AA_Installation_Storage_Usage_Failed $e) {
                     return $this->fail(
                         'storage_usage_unavailable',
                         'No se pudo verificar el espacio disponible.'

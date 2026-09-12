@@ -1,6 +1,6 @@
 <?php
 /**
- * AC Test — Persistencia Canónica Universal (PCU-2 / LEGACY-X DB 24 / repertorio DB 25 / images DB 26).
+ * AC Test — Persistencia Canónica Universal (PCU-2 / LEGACY-X DB 24 / repertorio DB 25 / images DB 26 / IMG-3a DB 27).
  *
  * Ejecutar:
  *   php tests/infrastructure/wp/test-canonical-schema-ac.php
@@ -55,7 +55,7 @@ $canonical_src = file_get_contents($canonical_schema_file);
 
 ac_assert('Schema.php es legible', is_string($schema_src) && $schema_src !== '');
 ac_assert('CanonicalSchema.php es legible', is_string($canonical_src) && $canonical_src !== '');
-ac_assert("AA_Schema::DB_VERSION es '26'", strpos($schema_src, "DB_VERSION = '26'") !== false);
+ac_assert("AA_Schema::DB_VERSION es '27'", strpos($schema_src, "DB_VERSION = '27'") !== false);
 ac_assert('Schema.php delega en AA_Canonical_Schema::install()', strpos($schema_src, 'AA_Canonical_Schema::install()') !== false);
 ac_assert(
     'Sin AA_Finance_Schema::install()',
@@ -120,6 +120,9 @@ ac_assert('TABLE_PURGE_RUNS', strpos($canonical_src, "TABLE_PURGE_RUNS = 'aa_can
 ac_assert('Images FK RESTRICT en ensure', strpos($canonical_src, 'record_images_foreign_key_name') !== false && preg_match("/record_images_table_name\(\)[\s\S]{0,200}'RESTRICT'/", $canonical_src) === 1);
 ac_assert('Ops upload FK RESTRICT en ensure', strpos($canonical_src, 'image_upload_operations_foreign_key_name') !== false);
 ac_assert('Sin status committed en ops schema', strpos($canonical_src, "IMAGE_UPLOAD_STATUS_ADMITTED = 'admitted'") !== false && strpos($canonical_src, "IMAGE_UPLOAD_STATUS_CLEANUP_NEEDED = 'cleanup_needed'") !== false);
+ac_assert('IMG-3a upload_intent en DDL', strpos($canonical_src, 'upload_intent mediumtext DEFAULT NULL') !== false);
+ac_assert('IMG-3a upload_objects_json en DDL', strpos($canonical_src, 'upload_objects_json mediumtext DEFAULT NULL') !== false);
+ac_assert('IMG-3a ensure credentials v27', strpos($canonical_src, 'ensure_image_upload_operations_credentials_v27') !== false);
 ac_assert('ensure_family_capabilities_v25 presente', strpos($canonical_src, 'ensure_family_capabilities_v25') !== false);
 ac_assert(
     'Legacy defaults solo en helpers privados de migración',
@@ -832,7 +835,7 @@ if ($has_real_wp) {
             update_option('aa_db_version', '20');
             AA_Schema::install();
             $stored = (string) get_option('aa_db_version', '0');
-            ac_assert("MySQL: AA_Schema::install deja aa_db_version=26", $stored === '26');
+            ac_assert("MySQL: AA_Schema::install deja aa_db_version=27", $stored === '27');
             $uf = $wpdb->prefix . AA_Canonical_Schema::TABLE_FAMILIES;
             $uc = $wpdb->prefix . AA_Canonical_Schema::TABLE_CONTAINERS;
             $ur = $wpdb->prefix . AA_Canonical_Schema::TABLE_RECORDS;

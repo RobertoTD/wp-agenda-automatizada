@@ -62,14 +62,14 @@ if (!function_exists('current_time')) {
 $src = file_get_contents($plugin_root . '/includes/application/expediente/UploadExpedienteRegistroAdjuntoUseCase.php');
 ac_assert('use case file exists', is_string($src) && $src !== '');
 ac_assert(
-    'orden validate → lock → used_bytes → transfer → finalize_matches → insert',
+    'orden validate → lock → admission_used_bytes → transfer → finalize_matches → insert',
     strpos($src, 'validator->validate') !== false
-    && strpos($src, 'sum_byte_size_total') !== false
+    && strpos($src, 'admission_used_bytes') !== false
     && strpos($src, 'transfer->transfer') !== false
     && strpos($src, 'finalize_matches_expectation') !== false
     && strpos($src, 'ExpedienteAdjuntosRepository::insert_finalized') !== false
-    && strpos($src, 'validator->validate') < strpos($src, 'sum_byte_size_total')
-    && strpos($src, 'sum_byte_size_total') < strpos($src, 'transfer->transfer')
+    && strpos($src, 'validator->validate') < strpos($src, 'admission_used_bytes')
+    && strpos($src, 'admission_used_bytes') < strpos($src, 'transfer->transfer')
     && strpos($src, 'transfer->transfer') < strpos($src, 'finalize_matches_expectation')
     && strpos($src, 'finalize_matches_expectation') < strpos($src, 'ExpedienteAdjuntosRepository::insert_finalized')
 );
@@ -148,6 +148,27 @@ final class ExpedienteAdjuntosRepository {
         ];
     }
 }
+
+require_once $plugin_root . '/includes/application/storage/AA_Installation_Storage_Usage_Failed.php';
+require_once $plugin_root . '/includes/application/storage/AA_Installation_Storage_Usage.php';
+
+$aa_test_images_repo = new class {
+    public function sum_byte_size_total(): int {
+        return 0;
+    }
+};
+$aa_test_ops_repo = new class {
+    public function sum_reserved_byte_size(int $now_ms, string $now_utc, ?string $exclude_operation_id = null): int {
+        return 0;
+    }
+};
+AA_Installation_Storage_Usage::set_default_for_tests(new AA_Installation_Storage_Usage(
+    static function (): ?int {
+        return ExpedienteAdjuntosRepository::$sum_bytes;
+    },
+    $aa_test_images_repo,
+    $aa_test_ops_repo
+));
 
 final class FakeAdjuntoUploadTransfer {
     public $calls = [];
@@ -419,6 +440,8 @@ ac_assert(
     empty($res['ok']) && ($res['code'] ?? '') === 'record_not_found' && $transfer->calls === []
 );
 @unlink($path);
+
+AA_Installation_Storage_Usage::set_default_for_tests(null);
 
 echo "\n";
 if (count($failed) === 0) {

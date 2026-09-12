@@ -17,7 +17,10 @@
  * - aa_canonical_image_upload_operations
  * - aa_canonical_purge_runs
  *
- * Patrón técnico: dbDelta → migración v25 repertorio → ALTER FK idempotente → verify() fail-closed.
+ * IMG-3a (DB 27): columnas operativas `upload_intent` / `upload_objects_json` en ops
+ * (credenciales de subida; nullable para filas históricas incompletas).
+ *
+ * Patrón técnico: dbDelta → ensure columnas v27 → migración v25 repertorio → ALTER FK → verify() fail-closed.
  * No escribe timestamps ni genera public_id (salvo copia de filas en migración v25).
  *
  * @package WP_Agenda_Automatizada
@@ -308,6 +311,8 @@ final class AA_Canonical_Schema {
             status varchar(32) NOT NULL,
             expires_at datetime NOT NULL,
             backend_intent_exp_ms bigint(20) unsigned DEFAULT NULL,
+            upload_intent mediumtext DEFAULT NULL,
+            upload_objects_json mediumtext DEFAULT NULL,
             created_at datetime NOT NULL,
             updated_at datetime NOT NULL,
             PRIMARY KEY  (upload_operation_id),
@@ -346,11 +351,58 @@ final class AA_Canonical_Schema {
         dbDelta($image_upload_operations_sql);
         dbDelta($purge_runs_sql);
 
+        self::ensure_image_upload_operations_credentials_v27();
         self::ensure_family_capabilities_v25();
         self::ensure_containers_family_scope_v22();
         self::ensure_named_indexes();
         self::ensure_foreign_keys();
         self::verify();
+    }
+
+    /**
+     * IMG-3a / DB 27: credenciales de admisión en ops (aditivo, reanudable).
+     * No inventa intent/URLs para filas históricas; columnas nullable.
+     *
+     * @throws \RuntimeException
+     */
+    public static function ensure_image_upload_operations_credentials_v27(): void {
+        $table = self::image_upload_operations_table_name();
+        if (!self::physical_table_exists($table)) {
+            return;
+        }
+
+        self::ensure_nullable_mediumtext_column($table, 'upload_intent');
+        self::ensure_nullable_mediumtext_column($table, 'upload_objects_json');
+    }
+
+    /**
+     * @throws \RuntimeException
+     */
+    private static function ensure_nullable_mediumtext_column(string $table, string $column): void {
+        global $wpdb;
+
+        $cols = self::columns_by_name($table);
+        if (isset($cols[$column])) {
+            return;
+        }
+
+        $safe_table = str_replace('`', '``', $table);
+        $safe_column = str_replace('`', '``', $column);
+        $wpdb->last_error = '';
+        $added = $wpdb->query(
+            "ALTER TABLE `{$safe_table}` ADD COLUMN `{$safe_column}` mediumtext DEFAULT NULL"
+        );
+        if ($added === false) {
+            $cols_after = self::columns_by_name($table);
+            if (!isset($cols_after[$column])) {
+                $error = is_string($wpdb->last_error) && $wpdb->last_error !== ''
+                    ? $wpdb->last_error
+                    : "ADD COLUMN {$column} falló";
+                throw new \RuntimeException(
+                    "[AA_Canonical_Schema] No se pudo añadir {$column} en {$table}: {$error}"
+                );
+            }
+        }
     }
 
     /**
@@ -1243,6 +1295,7 @@ final class AA_Canonical_Schema {
         $expected = [
             'upload_operation_id', 'record_id', 'storage_path', 'content_sha256', 'mime_type',
             'byte_size', 'width', 'height', 'status', 'expires_at', 'backend_intent_exp_ms',
+            'upload_intent', 'upload_objects_json',
             'created_at', 'updated_at',
         ];
         foreach ($expected as $field) {
@@ -1266,6 +1319,8 @@ final class AA_Canonical_Schema {
         self::assert_varchar_not_null_no_default($table, $cols['status'], 'status', 32);
         self::assert_datetime_not_null_no_default($table, $cols['expires_at'], 'expires_at');
         self::assert_bigint_unsigned_nullable($table, $cols['backend_intent_exp_ms'], 'backend_intent_exp_ms');
+        self::assert_mediumtext_nullable($table, $cols['upload_intent'], 'upload_intent');
+        self::assert_mediumtext_nullable($table, $cols['upload_objects_json'], 'upload_objects_json');
         self::assert_datetime_not_null_no_default($table, $cols['created_at'], 'created_at');
         self::assert_datetime_not_null_no_default($table, $cols['updated_at'], 'updated_at');
 
@@ -1401,6 +1456,19 @@ final class AA_Canonical_Schema {
         $type = (string) $col['Type'];
         if (
             stripos($type, 'bigint') === false
+            || strtoupper((string) $col['Null']) !== 'YES'
+        ) {
+            throw new \RuntimeException("[AA_Canonical_Schema] Definición inválida para {$name} en {$table}");
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $col
+     */
+    private static function assert_mediumtext_nullable(string $table, array $col, string $name): void {
+        $type = strtolower((string) $col['Type']);
+        if (
+            strpos($type, 'mediumtext') === false
             || strtoupper((string) $col['Null']) !== 'YES'
         ) {
             throw new \RuntimeException("[AA_Canonical_Schema] Definición inválida para {$name} en {$table}");

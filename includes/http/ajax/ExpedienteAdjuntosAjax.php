@@ -143,11 +143,10 @@ final class ExpedienteAdjuntosAjax {
     }
 
     /**
-     * MC5d2: consumo de almacenamiento de la instalación actual. Solo
+     * MC5d2 / IMG-3a: consumo confirmado de la instalación actual. Solo
      * lectura; el alcance es el blog actual — no acepta installation_id,
-     * client_id ni ningún otro scope del navegador. Contrato público
-     * cerrado: { used_bytes } (bytes contabilizados por metadata local
-     * finalizada, no auditoría física de Storage).
+     * client_id ni ningún otro scope del navegador. Éxito: { used_bytes }.
+     * Indisponibilidad: error storage_usage_unavailable (no cero falso).
      */
     public static function handle_storage_usage(): void {
         if (!self::authorize()) {
@@ -156,6 +155,13 @@ final class ExpedienteAdjuntosAjax {
 
         $use_case = new GetExpedienteStorageUsageUseCase();
         $result = $use_case->execute();
+
+        if (empty($result['ok'])) {
+            $code = (string) ($result['code'] ?? 'storage_usage_unavailable');
+            $message = (string) ($result['message'] ?? 'No se pudo verificar el espacio utilizado.');
+            $status = self::http_status_for_code($code);
+            wp_send_json_error(['message' => $message, 'code' => $code], $status);
+        }
 
         wp_send_json_success([
             'used_bytes' => (int) $result['used_bytes'],

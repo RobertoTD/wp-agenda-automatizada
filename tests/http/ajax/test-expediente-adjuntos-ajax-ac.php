@@ -91,6 +91,10 @@ ac_assert('usage contrato limitado a used_bytes', $usage_handler !== ''
     && strpos($usage_handler, 'available_bytes') === false);
 ac_assert('usage responde solo la clave used_bytes',
     preg_match('/wp_send_json_success\(\[\s*\'used_bytes\' => \(int\) \$result\[\'used_bytes\'\],\s*\]\);/s', $ajax_src) === 1);
+ac_assert('usage error canal storage_usage_unavailable',
+    strpos($usage_handler, "empty(\$result['ok'])") !== false
+    && strpos($usage_handler, 'wp_send_json_error') !== false
+    && strpos($usage_handler, 'storage_usage_unavailable') !== false);
 ac_assert('index emite deleteAdjunto', strpos($index, 'deleteAdjunto') !== false);
 ac_assert('js usa deleteAdjunto', strpos($js, 'deleteAdjunto') !== false);
 ac_assert('attach responde DTO público', strpos($ajax_src, "'adjunto' => ExpedienteAdjuntoPublicDto::from(") !== false);
