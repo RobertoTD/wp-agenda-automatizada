@@ -104,6 +104,8 @@ try {
 
     $wpdb->update($families, ['is_enabled' => 1], ['family_key' => 'finance']);
     $wpdb->update($families, ['is_enabled' => 1], ['family_key' => 'archive']);
+    $wpdb->update($families, ['is_enabled' => 1], ['family_key' => 'catalog']);
+    $wpdb->update($families, ['is_enabled' => 1], ['family_key' => 'contact']);
 
     $finance_id = (int) $wpdb->get_var($wpdb->prepare(
         "SELECT id FROM `{$families}` WHERE family_key = %s",
@@ -113,7 +115,16 @@ try {
         "SELECT id FROM `{$families}` WHERE family_key = %s",
         'archive'
     ));
-
+    $catalog_id = (int) $wpdb->get_var($wpdb->prepare(
+        "SELECT id FROM `{$families}` WHERE family_key = %s",
+        'catalog'
+    ));
+    $contact_id = (int) $wpdb->get_var($wpdb->prepare(
+        "SELECT id FROM `{$families}` WHERE family_key = %s",
+        'contact'
+    ));
+    ac_assert('Catalog provisionada', $catalog_id >= 1);
+    ac_assert('Contact provisionada', $contact_id >= 1);
     // Legacy tables present but must stay untouched by create.
     $wpdb->query(
         "CREATE TABLE `{$temp_prefix}aa_finance_containers` (
@@ -168,6 +179,35 @@ try {
     ), ARRAY_A);
     ac_assert('Archive family_id', (int) ($arch_row['family_id'] ?? 0) === $archive_id);
     ac_assert('Archive details conservados', ($arch_row['details'] ?? '') === "nota\nsegunda");
+
+    $cat = $create_for('catalog', 'Lista Catalog SB1', null);
+    ac_assert('Catalog create confirmed', $cat->state() === CanonicalShellMutationResult::STATE_CONFIRMED);
+    $cat_row = $wpdb->get_row($wpdb->prepare(
+        "SELECT * FROM `{$containers}` WHERE id = %d",
+        (int) $cat->receipt()->resource_id()
+    ), ARRAY_A);
+    ac_assert('Catalog family_id', (int) ($cat_row['family_id'] ?? 0) === $catalog_id);
+
+    $con = $create_for('contact', 'Lista Contact SB1', 'persona');
+    ac_assert('Contact create confirmed', $con->state() === CanonicalShellMutationResult::STATE_CONFIRMED);
+    $con_row = $wpdb->get_row($wpdb->prepare(
+        "SELECT * FROM `{$containers}` WHERE id = %d",
+        (int) $con->receipt()->resource_id()
+    ), ARRAY_A);
+    ac_assert('Contact family_id', (int) ($con_row['family_id'] ?? 0) === $contact_id);
+    ac_assert('Contact details conservados', ($con_row['details'] ?? '') === 'persona');
+
+    $fam_caps = $temp_prefix . 'aa_canonical_family_capabilities';
+    if ($wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $fam_caps)) === $fam_caps) {
+        $cap_count = (int) $wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(*) FROM `{$fam_caps}` WHERE family_id IN (%d, %d)",
+            $catalog_id,
+            $contact_id
+        ));
+        ac_assert('Catalog/Contact sin capabilities de familia', $cap_count === 0);
+    } else {
+        ac_assert('Catalog/Contact sin tabla capabilities (schema mínimo)', true);
+    }
 
     $records_count = (int) $wpdb->get_var("SELECT COUNT(*) FROM `{$records}`");
     ac_assert('Cero records', $records_count === 0);

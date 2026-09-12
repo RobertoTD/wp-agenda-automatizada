@@ -5,7 +5,8 @@
  * Expects: $card_title, $card_details (?string), $card_iso, $card_display,
  * optional $card_records_url (string),
  * optional $show_edit_container (bool), $card_container_id (int),
- * optional $card_family_key (string), $card_family_label (string).
+ * optional $card_family_key (string), $card_family_label (string),
+ * optional $card_family_icon_key (string) — solo «Todas las listas».
  *
  * @package WP_Agenda_Automatizada
  */
@@ -17,6 +18,7 @@ $show_edit_container = !empty($show_edit_container);
 $card_container_id = isset($card_container_id) ? (int) $card_container_id : 0;
 $card_family_key = isset($card_family_key) && is_string($card_family_key) ? $card_family_key : '';
 $card_family_label = isset($card_family_label) && is_string($card_family_label) ? $card_family_label : '';
+$card_family_icon_key = isset($card_family_icon_key) && is_string($card_family_icon_key) ? $card_family_icon_key : '';
 $card_capabilities = (isset($card_capabilities) && is_array($card_capabilities))
     ? $card_capabilities
     : null;
@@ -39,25 +41,62 @@ if ($show_edit_container && $card_container_id >= 1 && $card_family_key !== '') 
         $edit_payload_attr = esc_attr($edit_payload);
     }
 }
+
+$show_family_icon = ($card_family_label !== '' && $card_family_icon_key !== '');
+$family_icon_svg = '';
+if ($show_family_icon) {
+    if (!class_exists('AA_Canonical_Family_Icon_Markup')) {
+        require_once dirname(__DIR__) . '/class-aa-canonical-family-icon-markup.php';
+    }
+    $family_icon_svg = AA_Canonical_Family_Icon_Markup::svg($card_family_icon_key);
+    if ($family_icon_svg === '') {
+        $show_family_icon = false;
+    }
+}
+
+$family_sr_once = '';
+if ($show_family_icon) {
+    $family_sr_once = '<span class="sr-only">' . esc_html($card_family_label) . ': </span>';
+}
 ?>
 <li>
     <article class="bg-white rounded-xl shadow-sm border border-gray-200 p-5 h-full flex flex-col">
-        <?php if ($card_family_label !== '') : ?>
-            <p class="text-xs text-gray-500 mb-1"><?php echo esc_html($card_family_label); ?></p>
-        <?php endif; ?>
-        <h4 class="text-base font-semibold text-gray-900 leading-snug">
-            <?php if ($card_records_url !== '') : ?>
-                <a
-                    href="<?php echo esc_url($card_records_url); ?>"
-                    class="text-indigo-700 hover:underline focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 rounded"
-                >
+        <?php if ($show_family_icon) : ?>
+            <div class="flex items-start gap-2 min-w-0">
+                <span class="inline-flex items-center justify-center flex-shrink-0 mt-0.5 text-gray-500" aria-hidden="true">
+                    <?php echo $family_icon_svg; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- markup fijo interno ?>
+                </span>
+                <h4 class="text-base font-semibold text-gray-900 leading-snug min-w-0 break-words">
+                    <?php if ($card_records_url !== '') : ?>
+                        <a
+                            href="<?php echo esc_url($card_records_url); ?>"
+                            class="text-indigo-700 hover:underline focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 rounded"
+                        >
+                            <?php echo $family_sr_once; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- ya escapado ?>
+                            <?php echo esc_html($card_title); ?>
+                            <span class="sr-only"> — ver registros</span>
+                        </a>
+                    <?php else : ?>
+                        <?php echo $family_sr_once; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- ya escapado ?>
+                        <?php echo esc_html($card_title); ?>
+                    <?php endif; ?>
+                </h4>
+            </div>
+        <?php else : ?>
+            <h4 class="text-base font-semibold text-gray-900 leading-snug">
+                <?php if ($card_records_url !== '') : ?>
+                    <a
+                        href="<?php echo esc_url($card_records_url); ?>"
+                        class="text-indigo-700 hover:underline focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 rounded"
+                    >
+                        <?php echo esc_html($card_title); ?>
+                        <span class="sr-only"> — ver registros</span>
+                    </a>
+                <?php else : ?>
                     <?php echo esc_html($card_title); ?>
-                    <span class="sr-only"> — ver registros</span>
-                </a>
-            <?php else : ?>
-                <?php echo esc_html($card_title); ?>
-            <?php endif; ?>
-        </h4>
+                <?php endif; ?>
+            </h4>
+        <?php endif; ?>
         <?php if (is_string($card_details) && $card_details !== '') : ?>
             <p class="mt-2 text-sm text-gray-600 whitespace-pre-wrap"><?php echo esc_html($card_details); ?></p>
         <?php endif; ?>

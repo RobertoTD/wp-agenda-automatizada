@@ -205,12 +205,14 @@ final class AA_Canonical_Shell_View_Composer {
         }
 
         $available_families = [];
+        $icons_by_key = [];
         foreach ($enabled_families as $family) {
             if ($family instanceof AA_Canonical_Family_Definition) {
                 $available_families[] = [
                     'family_key' => $family->key(),
                     'label' => $family->label(),
                 ];
+                $icons_by_key[$family->key()] = $family->icon_key();
             }
         }
 
@@ -237,16 +239,18 @@ final class AA_Canonical_Shell_View_Composer {
             foreach ($page->items() as $item) {
                 $container = $item->container();
                 $iso = $container->updated_at_canonical();
+                $fk = $item->family_key();
                 $items_view[] = [
                     'id' => $container->id(),
                     'title' => $container->title(),
                     'details' => $container->details(),
                     'updated_at_iso' => $iso,
                     'updated_at_display' => self::format_display_datetime($container->updated_at(), $tz),
-                    'family_key' => $item->family_key(),
+                    'family_key' => $fk,
                     'family_label' => $item->family_label(),
+                    'family_icon_key' => isset($icons_by_key[$fk]) ? (string) $icons_by_key[$fk] : '',
                     'records_url' => AA_Canonical_Shell_Base_Url_Policy::build_records_url(
-                        $item->family_key(),
+                        $fk,
                         $container->id(),
                         null,
                         $effective_containers_page > 1 ? $effective_containers_page : null,

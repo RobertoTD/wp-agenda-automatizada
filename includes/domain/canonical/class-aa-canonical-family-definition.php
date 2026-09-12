@@ -18,7 +18,13 @@ final class AA_Canonical_Family_Definition {
     /** @var string */
     private $label;
 
-    public function __construct(string $key, string $label) {
+    /** @var string */
+    private $icon_key;
+
+    /**
+     * @param string $icon_key Clave estable de icono de presentación; vacía = sin icono.
+     */
+    public function __construct(string $key, string $label, string $icon_key = '') {
         $this->key = AA_Canonical_Key::assert_valid($key, 'family_key');
 
         $trimmed_label = trim($label);
@@ -26,6 +32,13 @@ final class AA_Canonical_Family_Definition {
             throw new \InvalidArgumentException('[invalid_label] Family label cannot be empty.');
         }
         $this->label = $trimmed_label;
+
+        $trimmed_icon = trim($icon_key);
+        if ($trimmed_icon !== '') {
+            $this->icon_key = AA_Canonical_Key::assert_valid($trimmed_icon, 'icon_key');
+        } else {
+            $this->icon_key = '';
+        }
     }
 
     public function key(): string {
@@ -34,5 +47,9 @@ final class AA_Canonical_Family_Definition {
 
     public function label(): string {
         return $this->label;
+    }
+
+    public function icon_key(): string {
+        return $this->icon_key;
     }
 }

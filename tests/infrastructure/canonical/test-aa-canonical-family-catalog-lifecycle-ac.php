@@ -37,7 +37,7 @@ $main_src = (string) file_get_contents($main_file);
 $schema_src = (string) file_get_contents($schema_file);
 $bind_src = (string) file_get_contents($binding_boot);
 
-ac_assert('CATALOG_VERSION = 1', strpos($lc_src, 'CATALOG_VERSION = 1') !== false);
+ac_assert('CATALOG_VERSION = 2', strpos($lc_src, 'CATALOG_VERSION = 2') !== false);
 ac_assert('OPTION_VERSION correcta', strpos($lc_src, "OPTION_VERSION = 'aa_canonical_family_catalog_version'") !== false);
 ac_assert('Prioridad admin_init 25', strpos($lc_src, 'ADMIN_INIT_PRIORITY = 25') !== false);
 ac_assert('MIN_DB_VERSION 21', strpos($lc_src, "MIN_DB_VERSION = '21'") !== false);
@@ -45,7 +45,7 @@ ac_assert('Plugin registra lifecycle', strpos($main_src, 'AA_Canonical_Family_Ca
 ac_assert('Plugin require lifecycle', strpos($main_src, 'class-aa-canonical-family-catalog-lifecycle.php') !== false);
 ac_assert('Schema no invoca provisioner', strpos($schema_src, 'Family_Provisioner') === false
     && strpos($schema_src, 'Family_Catalog_Lifecycle') === false);
-ac_assert('DB_VERSION es 22', strpos($schema_src, "DB_VERSION = '22'") !== false);
+ac_assert('DB_VERSION es 27', strpos($schema_src, "DB_VERSION = '27'") !== false);
 ac_assert('Binding productivo es Relational (PCU-5B)', strpos($bind_src, 'AA_Canonical_Relational_Read_Adapter') !== false
     && strpos($bind_src, 'AA_Finance_Canonical_Read_Adapter') === false);
 ac_assert('Lifecycle no carga adapters PCU-3', strpos($lc_src, 'Relational_Read_Adapter') === false
@@ -136,20 +136,27 @@ try {
     );
 
     update_option('aa_db_version', '22');
+    update_option($option_key, '2');
+    $calls = 0;
+    AA_Canonical_Family_Catalog_Lifecycle::maybe_provision();
+    ac_assert('Catálogo versión 2 → skip', $calls === 0);
+
+    // Bump path: stored v1 < CATALOG_VERSION 2 → re-provisiona
     update_option($option_key, '1');
     $calls = 0;
     AA_Canonical_Family_Catalog_Lifecycle::maybe_provision();
-    ac_assert('Catálogo versión 1 → skip', $calls === 0);
+    ac_assert('Catálogo versión 1 → re-provisiona a v2', $calls === 1);
+    ac_assert('Tras bump desde v1 option = 2', (string) get_option($option_key, '0') === '2');
 
     delete_option($option_key);
     $calls = 0;
     AA_Canonical_Family_Catalog_Lifecycle::maybe_provision();
     ac_assert('Versión ausente → provisiona', $calls === 1);
-    ac_assert('Éxito → option = 1', (string) get_option($option_key, '0') === '1');
+    ac_assert('Éxito → option = 2', (string) get_option($option_key, '0') === '2');
 
     $calls = 0;
     AA_Canonical_Family_Catalog_Lifecycle::maybe_provision();
-    ac_assert('Segundo request con v1 no re-provisiona', $calls === 0);
+    ac_assert('Segundo request con v2 no re-provisiona', $calls === 0);
 
     // Fallo no avanza option
     delete_option($option_key);
@@ -171,7 +178,7 @@ try {
     $calls = 0;
     // stored still absent
     AA_Canonical_Family_Catalog_Lifecycle::maybe_provision();
-    ac_assert('Tras fallo, reintento exitoso marca v1', $calls === 1 && (string) get_option($option_key, '0') === '1');
+    ac_assert('Tras fallo, reintento exitoso marca v2', $calls === 1 && (string) get_option($option_key, '0') === '2');
 
     // Provisioner real: filas creadas, cero containers
     delete_option($option_key);
@@ -180,7 +187,7 @@ try {
     $f = AA_Canonical_Schema::families_table_name();
     $c = AA_Canonical_Schema::containers_table_name();
     $r = AA_Canonical_Schema::records_table_name();
-    ac_assert('Lifecycle real crea 2 familias', (int) $wpdb->get_var("SELECT COUNT(*) FROM `{$f}`") === 2);
+    ac_assert('Lifecycle real crea 4 familias', (int) $wpdb->get_var("SELECT COUNT(*) FROM `{$f}`") === 4);
     ac_assert('Lifecycle real cero containers', (int) $wpdb->get_var("SELECT COUNT(*) FROM `{$c}`") === 0);
     ac_assert('Lifecycle real cero records', (int) $wpdb->get_var("SELECT COUNT(*) FROM `{$r}`") === 0);
     ac_assert('aa_db_version intacto en 22', (string) get_option('aa_db_version') === '22');

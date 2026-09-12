@@ -91,21 +91,36 @@ try {
     $provisioner->ensure_declared_families($registry);
 
     $rows = $wpdb->get_results("SELECT family_key, is_enabled, seed_version, created_at, updated_at FROM `{$f_table}` ORDER BY family_key ASC", ARRAY_A);
-    ac_assert('MySQL: exactamente 2 familias', is_array($rows) && count($rows) === 2);
-    ac_assert('MySQL: claves archive+finance', ($rows[0]['family_key'] ?? '') === 'archive' && ($rows[1]['family_key'] ?? '') === 'finance');
-    ac_assert('MySQL: is_enabled=0 ambas', (int) $rows[0]['is_enabled'] === 0 && (int) $rows[1]['is_enabled'] === 0);
-    ac_assert('MySQL: seed_version=0 ambas', (int) $rows[0]['seed_version'] === 0 && (int) $rows[1]['seed_version'] === 0);
-    ac_assert(
-        'MySQL: timestamps iguales por fila',
-        $rows[0]['created_at'] === $rows[0]['updated_at'] && $rows[1]['created_at'] === $rows[1]['updated_at']
-    );
+    $expected_keys = ['archive', 'catalog', 'contact', 'finance'];
+    ac_assert('MySQL: exactamente 4 familias', is_array($rows) && count($rows) === 4);
+    $got_keys = array_map(static function ($r) {
+        return (string) ($r['family_key'] ?? '');
+    }, is_array($rows) ? $rows : []);
+    ac_assert('MySQL: claves archive+catalog+contact+finance', $got_keys === $expected_keys);
+    $all_disabled = true;
+    $all_seed0 = true;
+    $timestamps_ok = true;
+    foreach ((array) $rows as $row) {
+        if ((int) ($row['is_enabled'] ?? 1) !== 0) {
+            $all_disabled = false;
+        }
+        if ((int) ($row['seed_version'] ?? 1) !== 0) {
+            $all_seed0 = false;
+        }
+        if (($row['created_at'] ?? '') !== ($row['updated_at'] ?? null)) {
+            $timestamps_ok = false;
+        }
+    }
+    ac_assert('MySQL: is_enabled=0 todas', $all_disabled);
+    ac_assert('MySQL: seed_version=0 todas', $all_seed0);
+    ac_assert('MySQL: timestamps iguales por fila', $timestamps_ok);
     ac_assert('MySQL: cero containers', (int) $wpdb->get_var("SELECT COUNT(*) FROM `{$c_table}`") === 0);
     ac_assert('MySQL: cero records', (int) $wpdb->get_var("SELECT COUNT(*) FROM `{$r_table}`") === 0);
 
     $snap = $rows;
     $provisioner->ensure_declared_families($registry);
     $rows2 = $wpdb->get_results("SELECT family_key, is_enabled, seed_version, created_at, updated_at FROM `{$f_table}` ORDER BY family_key ASC", ARRAY_A);
-    ac_assert('MySQL: 2ª ejecución sigue con 2 filas', is_array($rows2) && count($rows2) === 2);
+    ac_assert('MySQL: 2ª ejecución sigue con 4 filas', is_array($rows2) && count($rows2) === 4);
     ac_assert('MySQL: 2ª ejecución preserva timestamps', $rows2 === $snap);
 
     $wpdb->update($f_table, ['is_enabled' => 1, 'seed_version' => 3], ['family_key' => 'finance'], ['%d', '%d'], ['%s']);
@@ -121,7 +136,7 @@ try {
     $provisioner->ensure_declared_families($registry);
     $count_after_partial = (int) $wpdb->get_var("SELECT COUNT(*) FROM `{$f_table}`");
     $archive_row = $wpdb->get_row("SELECT is_enabled, seed_version FROM `{$f_table}` WHERE family_key = 'archive'", ARRAY_A);
-    ac_assert('MySQL: reinserta solo archive faltante', $count_after_partial === 2 && is_array($archive_row));
+    ac_assert('MySQL: reinserta solo archive faltante', $count_after_partial === 4 && is_array($archive_row));
     ac_assert('MySQL: archive reinsertada disabled/seed0', (int) $archive_row['is_enabled'] === 0 && (int) $archive_row['seed_version'] === 0);
     $finance_still = $wpdb->get_row("SELECT is_enabled, seed_version FROM `{$f_table}` WHERE family_key = 'finance'", ARRAY_A);
     ac_assert('MySQL: finance modificada intacta tras reinsert archive', (int) $finance_still['is_enabled'] === 1 && (int) $finance_still['seed_version'] === 3);
@@ -142,7 +157,7 @@ try {
     $provisioner->ensure_declared_families($registry);
     $orphan = $wpdb->get_row("SELECT is_enabled, seed_version FROM `{$f_table}` WHERE family_key = 'legacy_orphan'", ARRAY_A);
     ac_assert('MySQL: fila desconocida conservada', is_array($orphan) && (int) $orphan['is_enabled'] === 1 && (int) $orphan['seed_version'] === 9);
-    ac_assert('MySQL: total 3 filas con huérfana', (int) $wpdb->get_var("SELECT COUNT(*) FROM `{$f_table}`") === 3);
+    ac_assert('MySQL: total 5 filas con huérfana', (int) $wpdb->get_var("SELECT COUNT(*) FROM `{$f_table}`") === 5);
 
     // Fallo parcial simulado: borrar archive, fallar primer insert, segundo intento OK
     $wpdb->query("DELETE FROM `{$f_table}` WHERE family_key = 'archive'");
@@ -298,7 +313,7 @@ try {
     $count_p2 = (int) $wpdb->get_var('SELECT COUNT(*) FROM `' . AA_Canonical_Schema::families_table_name() . '`');
     $wpdb->prefix = $temp_prefix;
     $count_p1 = (int) $wpdb->get_var("SELECT COUNT(*) FROM `{$f_table}`");
-    ac_assert('MySQL: prefijos aislados', $count_p2 === 2 && $count_p1 >= 2);
+    ac_assert('MySQL: prefijos aislados', $count_p2 === 4 && $count_p1 >= 4);
 
     // Legacy finance tables no tocadas en este prefijo (no existen)
     $fin_like = $wpdb->esc_like($temp_prefix . 'aa_finance_') . '%';

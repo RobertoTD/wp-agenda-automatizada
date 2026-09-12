@@ -34,9 +34,14 @@ function ac_assert(string $label, bool $ok, string $detail = ''): void {
 $family = new AA_Canonical_Family_Definition('finance', 'Finanzas');
 ac_assert('Family key getter', $family->key() === 'finance');
 ac_assert('Family label getter', $family->label() === 'Finanzas');
+ac_assert('Default icon_key is empty', $family->icon_key() === '');
 
-$family_trimmed = new AA_Canonical_Family_Definition('finance', '  Finanzas  ');
+$family_with_icon = new AA_Canonical_Family_Definition('finance', 'Finanzas', 'currency');
+ac_assert('Family icon_key getter', $family_with_icon->icon_key() === 'currency');
+
+$family_trimmed = new AA_Canonical_Family_Definition('finance', '  Finanzas  ', '  currency  ');
 ac_assert('Family label is trimmed', $family_trimmed->label() === 'Finanzas');
+ac_assert('Family icon_key is trimmed', $family_trimmed->icon_key() === 'currency');
 
 $threw_invalid_key = false;
 $msg_invalid_key = '';
@@ -59,6 +64,17 @@ try {
 }
 ac_assert('Empty family label throws InvalidArgumentException', $threw_invalid_label);
 ac_assert('Empty family label message has [invalid_label]', strpos($msg_invalid_label, '[invalid_label]') !== false);
+
+$threw_invalid_icon = false;
+$msg_invalid_icon = '';
+try {
+    new AA_Canonical_Family_Definition('finance', 'Finanzas', 'Bad Icon');
+} catch (\InvalidArgumentException $e) {
+    $threw_invalid_icon = true;
+    $msg_invalid_icon = $e->getMessage();
+}
+ac_assert('Invalid icon_key throws InvalidArgumentException', $threw_invalid_icon);
+ac_assert('Invalid icon_key message has [invalid_key]', strpos($msg_invalid_icon, '[invalid_key]') !== false);
 
 echo "\n--- Resumen: {$passed}/{$total} ---\n";
 

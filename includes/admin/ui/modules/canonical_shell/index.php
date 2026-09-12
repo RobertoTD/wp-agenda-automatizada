@@ -599,6 +599,9 @@ $is_records_fill = $show_read_ui
                         $card_family_label = ($is_all_lists_scope && isset($item['family_label']))
                             ? (string) $item['family_label']
                             : '';
+                        $card_family_icon_key = ($is_all_lists_scope && isset($item['family_icon_key']))
+                            ? (string) $item['family_icon_key']
+                            : '';
                         $show_edit_container = $show_container_write_ui && $card_family_key !== '';
                         $card_capabilities = ['status' => 'unavailable'];
                         if (

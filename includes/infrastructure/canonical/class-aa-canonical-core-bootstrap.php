@@ -3,7 +3,7 @@
  * Canonical Core Bootstrap — Composición e instancia compartida del núcleo canónico.
  *
  * Capa de infraestructura responsable de inicializar el registro canónico y
- * componer las definiciones del producto (familias finance y archive).
+ * componer las definiciones del producto (familias productivas).
  *
  * @package WP_Agenda_Automatizada
  * @subpackage Infrastructure\Canonical
@@ -27,10 +27,16 @@ final class AA_Canonical_Core_Bootstrap {
         $registry = new AA_Canonical_Registry();
 
         $registry->register_family(
-            new AA_Canonical_Family_Definition('finance', 'Finanzas')
+            new AA_Canonical_Family_Definition('finance', 'Finanzas', 'currency')
         );
         $registry->register_family(
-            new AA_Canonical_Family_Definition('archive', 'Archivo')
+            new AA_Canonical_Family_Definition('archive', 'Archivo', 'folder')
+        );
+        $registry->register_family(
+            new AA_Canonical_Family_Definition('catalog', 'Catálogos', 'grid')
+        );
+        $registry->register_family(
+            new AA_Canonical_Family_Definition('contact', 'Contactos', 'contact_card')
         );
 
         $registry->freeze();
