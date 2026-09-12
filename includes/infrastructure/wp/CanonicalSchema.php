@@ -1,6 +1,6 @@
 <?php
 /**
- * Canonical Schema — Persistencia Canónica Universal (PCU-2 + C1a + DB 25).
+ * Canonical Schema — Persistencia Canónica Universal (PCU-2 + C1a + DB 25 + images DB 26).
  *
  * Tablas base (sin seeds de filas en el instalador):
  * - aa_canonical_families
@@ -11,6 +11,11 @@
  * - aa_canonical_family_capabilities (antes aa_canonical_family_capability_defaults)
  * - aa_canonical_container_capabilities
  * - aa_canonical_record_amount (tabla de valores; uso en A1a+)
+ *
+ * Images Ciclo 1 (DB 26; sin semántica de producto todavía):
+ * - aa_canonical_record_images
+ * - aa_canonical_image_upload_operations
+ * - aa_canonical_purge_runs
  *
  * Patrón técnico: dbDelta → migración v25 repertorio → ALTER FK idempotente → verify() fail-closed.
  * No escribe timestamps ni genera public_id (salvo copia de filas en migración v25).
@@ -29,6 +34,13 @@ final class AA_Canonical_Schema {
     public const TABLE_FAMILY_CAPABILITIES = 'aa_canonical_family_capabilities';
     public const TABLE_CONTAINER_CAPABILITIES = 'aa_canonical_container_capabilities';
     public const TABLE_RECORD_AMOUNT = 'aa_canonical_record_amount';
+    public const TABLE_RECORD_IMAGES = 'aa_canonical_record_images';
+    public const TABLE_IMAGE_UPLOAD_OPERATIONS = 'aa_canonical_image_upload_operations';
+    public const TABLE_PURGE_RUNS = 'aa_canonical_purge_runs';
+
+    /** Status estables de aa_canonical_image_upload_operations (sin fila committed). */
+    public const IMAGE_UPLOAD_STATUS_ADMITTED = 'admitted';
+    public const IMAGE_UPLOAD_STATUS_CLEANUP_NEEDED = 'cleanup_needed';
 
     public static function families_table_name(): string {
         global $wpdb;
@@ -58,6 +70,21 @@ final class AA_Canonical_Schema {
     public static function record_amount_table_name(): string {
         global $wpdb;
         return $wpdb->prefix . self::TABLE_RECORD_AMOUNT;
+    }
+
+    public static function record_images_table_name(): string {
+        global $wpdb;
+        return $wpdb->prefix . self::TABLE_RECORD_IMAGES;
+    }
+
+    public static function image_upload_operations_table_name(): string {
+        global $wpdb;
+        return $wpdb->prefix . self::TABLE_IMAGE_UPLOAD_OPERATIONS;
+    }
+
+    public static function purge_runs_table_name(): string {
+        global $wpdb;
+        return $wpdb->prefix . self::TABLE_PURGE_RUNS;
     }
 
     /**
@@ -135,6 +162,28 @@ final class AA_Canonical_Schema {
         );
     }
 
+    /**
+     * FK record_images.record_id → records.id (RESTRICT).
+     */
+    public static function record_images_foreign_key_name(?string $prefix = null): string {
+        return self::build_foreign_key_name(
+            $prefix,
+            'aa_canonical_record_images:record_id',
+            'aa_can_img_'
+        );
+    }
+
+    /**
+     * FK image_upload_operations.record_id → records.id (RESTRICT).
+     */
+    public static function image_upload_operations_foreign_key_name(?string $prefix = null): string {
+        return self::build_foreign_key_name(
+            $prefix,
+            'aa_canonical_image_upload_operations:record_id',
+            'aa_can_iup_'
+        );
+    }
+
     private static function build_foreign_key_name(
         ?string $prefix,
         string $relation_identity,
@@ -167,6 +216,9 @@ final class AA_Canonical_Schema {
         $records_table = self::records_table_name();
         $container_capabilities_table = self::container_capabilities_table_name();
         $record_amount_table = self::record_amount_table_name();
+        $record_images_table = self::record_images_table_name();
+        $image_upload_operations_table = self::image_upload_operations_table_name();
+        $purge_runs_table = self::purge_runs_table_name();
         $charset = $wpdb->get_charset_collate();
 
         $families_sql = "CREATE TABLE {$families_table} (
@@ -227,6 +279,60 @@ final class AA_Canonical_Schema {
             PRIMARY KEY  (record_id)
         ) ENGINE=InnoDB {$charset};";
 
+        $record_images_sql = "CREATE TABLE {$record_images_table} (
+            id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+            record_id bigint(20) unsigned NOT NULL,
+            upload_operation_id char(36) NOT NULL,
+            storage_path varchar(191) NOT NULL,
+            content_sha256 char(64) NOT NULL,
+            mime_type varchar(64) NOT NULL,
+            byte_size int unsigned NOT NULL,
+            width int unsigned NOT NULL,
+            height int unsigned NOT NULL,
+            created_at datetime NOT NULL,
+            PRIMARY KEY  (id),
+            UNIQUE KEY uq_record_image_operation (upload_operation_id),
+            UNIQUE KEY uq_record_image_storage_path (storage_path),
+            KEY idx_record_image_record_id (record_id, id)
+        ) ENGINE=InnoDB {$charset};";
+
+        $image_upload_operations_sql = "CREATE TABLE {$image_upload_operations_table} (
+            upload_operation_id char(36) NOT NULL,
+            record_id bigint(20) unsigned NOT NULL,
+            storage_path varchar(191) NOT NULL,
+            content_sha256 char(64) NOT NULL,
+            mime_type varchar(64) NOT NULL,
+            byte_size int unsigned NOT NULL,
+            width int unsigned NOT NULL,
+            height int unsigned NOT NULL,
+            status varchar(32) NOT NULL,
+            expires_at datetime NOT NULL,
+            backend_intent_exp_ms bigint(20) unsigned DEFAULT NULL,
+            created_at datetime NOT NULL,
+            updated_at datetime NOT NULL,
+            PRIMARY KEY  (upload_operation_id),
+            KEY idx_image_op_status_expires (status, expires_at),
+            KEY idx_image_op_record_status (record_id, status),
+            KEY idx_image_op_storage_path (storage_path)
+        ) ENGINE=InnoDB {$charset};";
+
+        $purge_runs_sql = "CREATE TABLE {$purge_runs_table} (
+            id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+            scope varchar(32) NOT NULL,
+            target_id bigint(20) unsigned NOT NULL,
+            family_key varchar(64) NOT NULL,
+            status varchar(32) NOT NULL,
+            cursor_kind varchar(32) NOT NULL,
+            cursor_id bigint(20) unsigned NOT NULL DEFAULT 0,
+            cursor_operation_id char(36) DEFAULT NULL,
+            deleted_ok int unsigned NOT NULL DEFAULT 0,
+            failed_count int unsigned NOT NULL DEFAULT 0,
+            created_at datetime NOT NULL,
+            updated_at datetime NOT NULL,
+            PRIMARY KEY  (id),
+            KEY idx_purge_scope_target_status (scope, target_id, status)
+        ) ENGINE=InnoDB {$charset};";
+
         if (!function_exists('dbDelta')) {
             require_once ABSPATH . 'wp-admin/includes/upgrade.php';
         }
@@ -236,6 +342,9 @@ final class AA_Canonical_Schema {
         dbDelta($records_sql);
         dbDelta($container_capabilities_sql);
         dbDelta($record_amount_sql);
+        dbDelta($record_images_sql);
+        dbDelta($image_upload_operations_sql);
+        dbDelta($purge_runs_sql);
 
         self::ensure_family_capabilities_v25();
         self::ensure_containers_family_scope_v22();
@@ -743,6 +852,20 @@ final class AA_Canonical_Schema {
             self::records_table_name(),
             'CASCADE'
         );
+        self::ensure_foreign_key(
+            self::record_images_table_name(),
+            self::record_images_foreign_key_name(),
+            'record_id',
+            self::records_table_name(),
+            'RESTRICT'
+        );
+        self::ensure_foreign_key(
+            self::image_upload_operations_table_name(),
+            self::image_upload_operations_foreign_key_name(),
+            'record_id',
+            self::records_table_name(),
+            'RESTRICT'
+        );
     }
 
     private static function ensure_foreign_key(
@@ -753,6 +876,10 @@ final class AA_Canonical_Schema {
         string $delete_rule
     ): void {
         global $wpdb;
+
+        if (!self::physical_table_exists($table) || !self::physical_table_exists($referenced_table)) {
+            return;
+        }
 
         if (self::foreign_key_exists($table, $fk_name)) {
             return;
@@ -782,6 +909,9 @@ final class AA_Canonical_Schema {
         $family_capabilities = self::family_capabilities_table_name();
         $container_capabilities = self::container_capabilities_table_name();
         $record_amount = self::record_amount_table_name();
+        $record_images = self::record_images_table_name();
+        $image_upload_operations = self::image_upload_operations_table_name();
+        $purge_runs = self::purge_runs_table_name();
 
         self::verify_table_existence_and_engine($families);
         self::verify_table_existence_and_engine($containers);
@@ -789,6 +919,9 @@ final class AA_Canonical_Schema {
         self::verify_table_existence_and_engine($family_capabilities);
         self::verify_table_existence_and_engine($container_capabilities);
         self::verify_table_existence_and_engine($record_amount);
+        self::verify_table_existence_and_engine($record_images);
+        self::verify_table_existence_and_engine($image_upload_operations);
+        self::verify_table_existence_and_engine($purge_runs);
 
         self::verify_families_structure($families);
         self::verify_containers_structure($containers);
@@ -796,6 +929,9 @@ final class AA_Canonical_Schema {
         self::verify_family_capabilities_structure($family_capabilities);
         self::verify_container_capabilities_structure($container_capabilities);
         self::verify_record_amount_structure($record_amount);
+        self::verify_record_images_structure($record_images);
+        self::verify_image_upload_operations_structure($image_upload_operations);
+        self::verify_purge_runs_structure($purge_runs);
 
         self::verify_foreign_key(
             $containers,
@@ -831,6 +967,20 @@ final class AA_Canonical_Schema {
             self::record_amount_foreign_key_name(),
             'record_id',
             'CASCADE'
+        );
+        self::verify_foreign_key(
+            $record_images,
+            $records,
+            self::record_images_foreign_key_name(),
+            'record_id',
+            'RESTRICT'
+        );
+        self::verify_foreign_key(
+            $image_upload_operations,
+            $records,
+            self::image_upload_operations_foreign_key_name(),
+            'record_id',
+            'RESTRICT'
         );
     }
 
@@ -1053,6 +1203,108 @@ final class AA_Canonical_Schema {
         self::verify_index($table, 'PRIMARY', ['record_id']);
     }
 
+    private static function verify_record_images_structure(string $table): void {
+        $cols = self::columns_by_name($table);
+
+        $expected = [
+            'id', 'record_id', 'upload_operation_id', 'storage_path', 'content_sha256',
+            'mime_type', 'byte_size', 'width', 'height', 'created_at',
+        ];
+        foreach ($expected as $field) {
+            if (!isset($cols[$field])) {
+                throw new \RuntimeException("[AA_Canonical_Schema] Columna requerida ausente en {$table}: {$field}");
+            }
+        }
+
+        self::assert_forbidden_columns($table, $cols, [
+            'client_id', 'family_key', 'amount', 'status',
+        ]);
+
+        self::assert_id_column($table, $cols['id']);
+        self::assert_bigint_unsigned_not_null($table, $cols['record_id'], 'record_id');
+        self::assert_char_not_null_no_default($table, $cols['upload_operation_id'], 'upload_operation_id', 36);
+        self::assert_varchar_not_null_no_default($table, $cols['storage_path'], 'storage_path', 191);
+        self::assert_char_not_null_no_default($table, $cols['content_sha256'], 'content_sha256', 64);
+        self::assert_varchar_not_null_no_default($table, $cols['mime_type'], 'mime_type', 64);
+        self::assert_int_unsigned_not_null($table, $cols['byte_size'], 'byte_size');
+        self::assert_int_unsigned_not_null($table, $cols['width'], 'width');
+        self::assert_int_unsigned_not_null($table, $cols['height'], 'height');
+        self::assert_datetime_not_null_no_default($table, $cols['created_at'], 'created_at');
+
+        self::verify_index($table, 'PRIMARY', ['id']);
+        self::verify_index($table, 'uq_record_image_operation', ['upload_operation_id']);
+        self::verify_index($table, 'uq_record_image_storage_path', ['storage_path']);
+        self::verify_composite_index($table, ['record_id', 'id']);
+    }
+
+    private static function verify_image_upload_operations_structure(string $table): void {
+        $cols = self::columns_by_name($table);
+
+        $expected = [
+            'upload_operation_id', 'record_id', 'storage_path', 'content_sha256', 'mime_type',
+            'byte_size', 'width', 'height', 'status', 'expires_at', 'backend_intent_exp_ms',
+            'created_at', 'updated_at',
+        ];
+        foreach ($expected as $field) {
+            if (!isset($cols[$field])) {
+                throw new \RuntimeException("[AA_Canonical_Schema] Columna requerida ausente en {$table}: {$field}");
+            }
+        }
+
+        self::assert_forbidden_columns($table, $cols, [
+            'id', 'client_id', 'committed',
+        ]);
+
+        self::assert_char_not_null_no_default($table, $cols['upload_operation_id'], 'upload_operation_id', 36);
+        self::assert_bigint_unsigned_not_null($table, $cols['record_id'], 'record_id');
+        self::assert_varchar_not_null_no_default($table, $cols['storage_path'], 'storage_path', 191);
+        self::assert_char_not_null_no_default($table, $cols['content_sha256'], 'content_sha256', 64);
+        self::assert_varchar_not_null_no_default($table, $cols['mime_type'], 'mime_type', 64);
+        self::assert_int_unsigned_not_null($table, $cols['byte_size'], 'byte_size');
+        self::assert_int_unsigned_not_null($table, $cols['width'], 'width');
+        self::assert_int_unsigned_not_null($table, $cols['height'], 'height');
+        self::assert_varchar_not_null_no_default($table, $cols['status'], 'status', 32);
+        self::assert_datetime_not_null_no_default($table, $cols['expires_at'], 'expires_at');
+        self::assert_bigint_unsigned_nullable($table, $cols['backend_intent_exp_ms'], 'backend_intent_exp_ms');
+        self::assert_datetime_not_null_no_default($table, $cols['created_at'], 'created_at');
+        self::assert_datetime_not_null_no_default($table, $cols['updated_at'], 'updated_at');
+
+        self::verify_index($table, 'PRIMARY', ['upload_operation_id']);
+        self::verify_composite_index($table, ['status', 'expires_at']);
+        self::verify_composite_index($table, ['record_id', 'status']);
+        self::verify_index($table, 'idx_image_op_storage_path', ['storage_path']);
+    }
+
+    private static function verify_purge_runs_structure(string $table): void {
+        $cols = self::columns_by_name($table);
+
+        $expected = [
+            'id', 'scope', 'target_id', 'family_key', 'status', 'cursor_kind', 'cursor_id',
+            'cursor_operation_id', 'deleted_ok', 'failed_count', 'created_at', 'updated_at',
+        ];
+        foreach ($expected as $field) {
+            if (!isset($cols[$field])) {
+                throw new \RuntimeException("[AA_Canonical_Schema] Columna requerida ausente en {$table}: {$field}");
+            }
+        }
+
+        self::assert_id_column($table, $cols['id']);
+        self::assert_varchar_not_null_no_default($table, $cols['scope'], 'scope', 32);
+        self::assert_bigint_unsigned_not_null($table, $cols['target_id'], 'target_id');
+        self::assert_varchar_not_null_no_default($table, $cols['family_key'], 'family_key', 64);
+        self::assert_varchar_not_null_no_default($table, $cols['status'], 'status', 32);
+        self::assert_varchar_not_null_no_default($table, $cols['cursor_kind'], 'cursor_kind', 32);
+        self::assert_bigint_unsigned_not_null($table, $cols['cursor_id'], 'cursor_id');
+        self::assert_char_nullable($table, $cols['cursor_operation_id'], 'cursor_operation_id', 36);
+        self::assert_int_unsigned_not_null($table, $cols['deleted_ok'], 'deleted_ok');
+        self::assert_int_unsigned_not_null($table, $cols['failed_count'], 'failed_count');
+        self::assert_datetime_not_null_no_default($table, $cols['created_at'], 'created_at');
+        self::assert_datetime_not_null_no_default($table, $cols['updated_at'], 'updated_at');
+
+        self::verify_index($table, 'PRIMARY', ['id']);
+        self::verify_composite_index($table, ['scope', 'target_id', 'status']);
+    }
+
     /**
      * @param array<string, mixed> $col
      */
@@ -1137,6 +1389,72 @@ final class AA_Canonical_Schema {
         if (
             stripos($type, 'bigint') === false
             || strtoupper((string) $col['Null']) !== 'NO'
+        ) {
+            throw new \RuntimeException("[AA_Canonical_Schema] Definición inválida para {$name} en {$table}");
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $col
+     */
+    private static function assert_bigint_unsigned_nullable(string $table, array $col, string $name): void {
+        $type = (string) $col['Type'];
+        if (
+            stripos($type, 'bigint') === false
+            || strtoupper((string) $col['Null']) !== 'YES'
+        ) {
+            throw new \RuntimeException("[AA_Canonical_Schema] Definición inválida para {$name} en {$table}");
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $col
+     */
+    private static function assert_int_unsigned_not_null(string $table, array $col, string $name): void {
+        $type = strtolower((string) $col['Type']);
+        if (
+            strpos($type, 'bigint') !== false
+            || !preg_match('/int(\(\d+\))?\s+unsigned/', $type)
+            || strtoupper((string) $col['Null']) !== 'NO'
+        ) {
+            throw new \RuntimeException("[AA_Canonical_Schema] Definición inválida para {$name} en {$table}");
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $col
+     */
+    private static function assert_char_not_null_no_default(
+        string $table,
+        array $col,
+        string $name,
+        int $length
+    ): void {
+        $needle = 'char(' . $length . ')';
+        if (
+            stripos((string) $col['Type'], $needle) === false
+            || strtoupper((string) $col['Null']) !== 'NO'
+        ) {
+            throw new \RuntimeException("[AA_Canonical_Schema] Definición inválida para {$name} en {$table}");
+        }
+        if ($col['Default'] !== null) {
+            throw new \RuntimeException("[AA_Canonical_Schema] {$name} en {$table} no debe tener DEFAULT");
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $col
+     */
+    private static function assert_char_nullable(
+        string $table,
+        array $col,
+        string $name,
+        int $length
+    ): void {
+        $needle = 'char(' . $length . ')';
+        if (
+            stripos((string) $col['Type'], $needle) === false
+            || strtoupper((string) $col['Null']) !== 'YES'
         ) {
             throw new \RuntimeException("[AA_Canonical_Schema] Definición inválida para {$name} en {$table}");
         }

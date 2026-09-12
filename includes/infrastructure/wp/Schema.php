@@ -67,7 +67,7 @@ final class AA_Schema {
      * de las tablas/columnas/índices.
      */
     /** DB 25 renombra la tabla de repertorio de capabilities por familia. */
-    public const DB_VERSION = '25';
+    public const DB_VERSION = '26';
 
     public const OPTION_INSTALLATION_INITIALIZED_AT = 'aa_installation_initialized_at';
 

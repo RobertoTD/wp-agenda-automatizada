@@ -1,6 +1,6 @@
 <?php
 /**
- * AC Test — Persistencia Canónica Universal (PCU-2 / LEGACY-X DB_VERSION 24 / repertorio DB 25).
+ * AC Test — Persistencia Canónica Universal (PCU-2 / LEGACY-X DB 24 / repertorio DB 25 / images DB 26).
  *
  * Ejecutar:
  *   php tests/infrastructure/wp/test-canonical-schema-ac.php
@@ -55,7 +55,7 @@ $canonical_src = file_get_contents($canonical_schema_file);
 
 ac_assert('Schema.php es legible', is_string($schema_src) && $schema_src !== '');
 ac_assert('CanonicalSchema.php es legible', is_string($canonical_src) && $canonical_src !== '');
-ac_assert("AA_Schema::DB_VERSION es '25'", strpos($schema_src, "DB_VERSION = '25'") !== false);
+ac_assert("AA_Schema::DB_VERSION es '26'", strpos($schema_src, "DB_VERSION = '26'") !== false);
 ac_assert('Schema.php delega en AA_Canonical_Schema::install()', strpos($schema_src, 'AA_Canonical_Schema::install()') !== false);
 ac_assert(
     'Sin AA_Finance_Schema::install()',
@@ -114,6 +114,12 @@ ac_assert('TABLE_RECORDS constante', strpos($canonical_src, "TABLE_RECORDS = 'aa
 ac_assert('TABLE_FAMILY_CAPABILITIES', strpos($canonical_src, "TABLE_FAMILY_CAPABILITIES = 'aa_canonical_family_capabilities'") !== false);
 ac_assert('TABLE_CONTAINER_CAPABILITIES', strpos($canonical_src, "TABLE_CONTAINER_CAPABILITIES = 'aa_canonical_container_capabilities'") !== false);
 ac_assert('TABLE_RECORD_AMOUNT', strpos($canonical_src, "TABLE_RECORD_AMOUNT = 'aa_canonical_record_amount'") !== false);
+ac_assert('TABLE_RECORD_IMAGES', strpos($canonical_src, "TABLE_RECORD_IMAGES = 'aa_canonical_record_images'") !== false);
+ac_assert('TABLE_IMAGE_UPLOAD_OPERATIONS', strpos($canonical_src, "TABLE_IMAGE_UPLOAD_OPERATIONS = 'aa_canonical_image_upload_operations'") !== false);
+ac_assert('TABLE_PURGE_RUNS', strpos($canonical_src, "TABLE_PURGE_RUNS = 'aa_canonical_purge_runs'") !== false);
+ac_assert('Images FK RESTRICT en ensure', strpos($canonical_src, 'record_images_foreign_key_name') !== false && preg_match("/record_images_table_name\(\)[\s\S]{0,200}'RESTRICT'/", $canonical_src) === 1);
+ac_assert('Ops upload FK RESTRICT en ensure', strpos($canonical_src, 'image_upload_operations_foreign_key_name') !== false);
+ac_assert('Sin status committed en ops schema', strpos($canonical_src, "IMAGE_UPLOAD_STATUS_ADMITTED = 'admitted'") !== false && strpos($canonical_src, "IMAGE_UPLOAD_STATUS_CLEANUP_NEEDED = 'cleanup_needed'") !== false);
 ac_assert('ensure_family_capabilities_v25 presente', strpos($canonical_src, 'ensure_family_capabilities_v25') !== false);
 ac_assert(
     'Legacy defaults solo en helpers privados de migración',
@@ -236,6 +242,9 @@ if ($has_real_wp) {
             return;
         }
         $tables = [
+            $p . AA_Canonical_Schema::TABLE_PURGE_RUNS,
+            $p . AA_Canonical_Schema::TABLE_IMAGE_UPLOAD_OPERATIONS,
+            $p . AA_Canonical_Schema::TABLE_RECORD_IMAGES,
             $p . AA_Canonical_Schema::TABLE_RECORD_AMOUNT,
             $p . AA_Canonical_Schema::TABLE_CONTAINER_CAPABILITIES,
             $p . AA_Canonical_Schema::TABLE_FAMILY_CAPABILITIES,
@@ -270,13 +279,19 @@ if ($has_real_wp) {
         $fd1 = AA_Canonical_Schema::family_capabilities_table_name();
         $cc1 = AA_Canonical_Schema::container_capabilities_table_name();
         $ra1 = AA_Canonical_Schema::record_amount_table_name();
+        $ri1 = AA_Canonical_Schema::record_images_table_name();
+        $iuo1 = AA_Canonical_Schema::image_upload_operations_table_name();
+        $pr1 = AA_Canonical_Schema::purge_runs_table_name();
 
-        ac_assert('MySQL: seis tablas canónicas existen', $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $f1)) === $f1
+        ac_assert('MySQL: nueve tablas canónicas existen', $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $f1)) === $f1
             && $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $c1)) === $c1
             && $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $r1)) === $r1
             && $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $fd1)) === $fd1
             && $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $cc1)) === $cc1
-            && $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $ra1)) === $ra1);
+            && $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $ra1)) === $ra1
+            && $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $ri1)) === $ri1
+            && $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $iuo1)) === $iuo1
+            && $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $pr1)) === $pr1);
 
         $legacy_fd = $wpdb->prefix . 'aa_canonical_family_capability_defaults';
         ac_assert(
@@ -300,10 +315,14 @@ if ($has_real_wp) {
         $count_fd = (int) $wpdb->get_var("SELECT COUNT(*) FROM `{$fd1}`");
         $count_cc = (int) $wpdb->get_var("SELECT COUNT(*) FROM `{$cc1}`");
         $count_ra = (int) $wpdb->get_var("SELECT COUNT(*) FROM `{$ra1}`");
+        $count_ri = (int) $wpdb->get_var("SELECT COUNT(*) FROM `{$ri1}`");
+        $count_iuo = (int) $wpdb->get_var("SELECT COUNT(*) FROM `{$iuo1}`");
+        $count_pr = (int) $wpdb->get_var("SELECT COUNT(*) FROM `{$pr1}`");
         ac_assert(
             'MySQL: tablas vacías tras install normal',
             $count_f === 0 && $count_c === 0 && $count_r === 0
             && $count_fd === 0 && $count_cc === 0 && $count_ra === 0
+            && $count_ri === 0 && $count_iuo === 0 && $count_pr === 0
         );
 
         $amt_col = $wpdb->get_row($wpdb->prepare("SHOW COLUMNS FROM `{$ra1}` LIKE %s", 'amount'), ARRAY_A);
@@ -486,6 +505,98 @@ if ($has_real_wp) {
             (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM `{$ra1}` WHERE record_id = %d", $record_id_cap)) === 0
         );
 
+        // Images Ciclo 1: RESTRICT conserva inventario al intentar borrar registro/lista
+        $wpdb->insert(
+            $c1,
+            [
+                'public_id' => '55555555-5555-4555-8555-555555555555',
+                'family_id' => $family_id_cap,
+                'title' => 'Lista images',
+                'details' => null,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ],
+            ['%s', '%d', '%s', '%s', '%s', '%s']
+        );
+        $container_id_img = (int) $wpdb->insert_id;
+        $wpdb->insert(
+            $r1,
+            [
+                'public_id' => '66666666-6666-4666-8666-666666666666',
+                'container_id' => $container_id_img,
+                'title' => 'Registro images',
+                'details' => null,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ],
+            ['%s', '%d', '%s', '%s', '%s', '%s']
+        );
+        $record_id_img = (int) $wpdb->insert_id;
+        $op_id = 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee';
+        $wpdb->insert(
+            $ri1,
+            [
+                'record_id' => $record_id_img,
+                'upload_operation_id' => $op_id,
+                'storage_path' => 'installations/00000000-0000-4000-8000-000000000001/canonical/records/' . $record_id_img . '/' . $op_id . '.jpg',
+                'content_sha256' => str_repeat('ab', 32),
+                'mime_type' => 'image/jpeg',
+                'byte_size' => 1024,
+                'width' => 100,
+                'height' => 100,
+                'created_at' => $now,
+            ],
+            ['%d', '%s', '%s', '%s', '%s', '%d', '%d', '%d', '%s']
+        );
+        $wpdb->insert(
+            $iuo1,
+            [
+                'upload_operation_id' => 'ffffffff-eeee-4ddd-8ccc-bbbbbbbbbbbb',
+                'record_id' => $record_id_img,
+                'storage_path' => 'installations/00000000-0000-4000-8000-000000000001/canonical/records/' . $record_id_img . '/ffffffff-eeee-4ddd-8ccc-bbbbbbbbbbbb.jpg',
+                'content_sha256' => str_repeat('cd', 32),
+                'mime_type' => 'image/jpeg',
+                'byte_size' => 2048,
+                'width' => 200,
+                'height' => 200,
+                'status' => AA_Canonical_Schema::IMAGE_UPLOAD_STATUS_ADMITTED,
+                'expires_at' => $now,
+                'backend_intent_exp_ms' => null,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ],
+            ['%s', '%d', '%s', '%s', '%s', '%d', '%d', '%d', '%s', '%s', '%s', '%s', '%s']
+        );
+        ac_assert(
+            'MySQL: fixtures images/ops creados',
+            (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM `{$ri1}` WHERE record_id = %d", $record_id_img)) === 1
+            && (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM `{$iuo1}` WHERE record_id = %d", $record_id_img)) === 1
+        );
+
+        $wpdb->last_error = '';
+        $wpdb->query($wpdb->prepare("DELETE FROM `{$r1}` WHERE id = %d", $record_id_img));
+        $record_img_remains = (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM `{$r1}` WHERE id = %d", $record_id_img));
+        $images_remain = (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM `{$ri1}` WHERE record_id = %d", $record_id_img));
+        $ops_remain = (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM `{$iuo1}` WHERE record_id = %d", $record_id_img));
+        ac_assert(
+            'MySQL: RESTRICT impide borrar registro con images/ops',
+            $record_img_remains === 1 && $images_remain === 1 && $ops_remain === 1
+        );
+
+        $wpdb->last_error = '';
+        $wpdb->query($wpdb->prepare("DELETE FROM `{$c1}` WHERE id = %d", $container_id_img));
+        $container_img_remains = (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM `{$c1}` WHERE id = %d", $container_id_img));
+        ac_assert(
+            'MySQL: RESTRICT (vía records) impide borrar lista con inventario images',
+            $container_img_remains === 1
+            && (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM `{$ri1}` WHERE record_id = %d", $record_id_img)) === 1
+        );
+
+        $wpdb->query($wpdb->prepare("DELETE FROM `{$ri1}` WHERE record_id = %d", $record_id_img));
+        $wpdb->query($wpdb->prepare("DELETE FROM `{$iuo1}` WHERE record_id = %d", $record_id_img));
+        $wpdb->query($wpdb->prepare("DELETE FROM `{$r1}` WHERE id = %d", $record_id_img));
+        $wpdb->query($wpdb->prepare("DELETE FROM `{$c1}` WHERE id = %d", $container_id_img));
+
         $wpdb->query($wpdb->prepare("DELETE FROM `{$c1}` WHERE id = %d", $container_id_cap));
         ac_assert(
             'MySQL: CASCADE borra container_capabilities al borrar lista',
@@ -508,6 +619,9 @@ if ($has_real_wp) {
         $wpdb->query($wpdb->prepare("DELETE FROM `{$f1}` WHERE id = %d", $family_id_cap));
 
         // Limpiar fixtures del prefijo 1
+        $wpdb->query("DELETE FROM `{$pr1}`");
+        $wpdb->query("DELETE FROM `{$iuo1}`");
+        $wpdb->query("DELETE FROM `{$ri1}`");
         $wpdb->query("DELETE FROM `{$fd1}`");
         $wpdb->query("DELETE FROM `{$cc1}`");
         $wpdb->query("DELETE FROM `{$ra1}`");
@@ -718,13 +832,16 @@ if ($has_real_wp) {
             update_option('aa_db_version', '20');
             AA_Schema::install();
             $stored = (string) get_option('aa_db_version', '0');
-            ac_assert("MySQL: AA_Schema::install deja aa_db_version=25", $stored === '25');
+            ac_assert("MySQL: AA_Schema::install deja aa_db_version=26", $stored === '26');
             $uf = $wpdb->prefix . AA_Canonical_Schema::TABLE_FAMILIES;
             $uc = $wpdb->prefix . AA_Canonical_Schema::TABLE_CONTAINERS;
             $ur = $wpdb->prefix . AA_Canonical_Schema::TABLE_RECORDS;
             $ufd = $wpdb->prefix . AA_Canonical_Schema::TABLE_FAMILY_CAPABILITIES;
             $ucc = $wpdb->prefix . AA_Canonical_Schema::TABLE_CONTAINER_CAPABILITIES;
             $ura = $wpdb->prefix . AA_Canonical_Schema::TABLE_RECORD_AMOUNT;
+            $uri = $wpdb->prefix . AA_Canonical_Schema::TABLE_RECORD_IMAGES;
+            $uio = $wpdb->prefix . AA_Canonical_Schema::TABLE_IMAGE_UPLOAD_OPERATIONS;
+            $upr = $wpdb->prefix . AA_Canonical_Schema::TABLE_PURGE_RUNS;
             ac_assert(
                 'MySQL: upgrade Schema crea tablas canónicas base + capabilities',
                 $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $uf)) === $uf
@@ -733,6 +850,9 @@ if ($has_real_wp) {
                 && $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $ufd)) === $ufd
                 && $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $ucc)) === $ucc
                 && $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $ura)) === $ura
+                && $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $uri)) === $uri
+                && $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $uio)) === $uio
+                && $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $upr)) === $upr
             );
             ac_assert(
                 'MySQL: upgrade Schema deja canónicas vacías',

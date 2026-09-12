@@ -26,7 +26,7 @@ function ac_assert(string $label, bool $ok, string $detail = ''): void {
 
 echo "=== 1. Contención estática Schema DB25 ===\n";
 $schema_src = (string) file_get_contents($plugin_root . '/includes/infrastructure/wp/Schema.php');
-ac_assert('DB_VERSION = 25', strpos($schema_src, "DB_VERSION = '25'") !== false);
+ac_assert('DB_VERSION = 26', strpos($schema_src, "DB_VERSION = '26'") !== false);
 ac_assert('Sin AA_Finance_Schema::install', strpos($schema_src, 'AA_Finance_Schema::install') === false);
 ac_assert('Sin require FinanceSchema', strpos($schema_src, 'FinanceSchema.php') === false);
 ac_assert('Retira records antes que containers', strpos($schema_src, 'LEGACY_FINANCE_TABLE_RECORDS') !== false
@@ -127,7 +127,7 @@ try {
         'Canónico record_amount presente',
         $table_exists($temp_prefix . AA_Canonical_Schema::TABLE_RECORD_AMOUNT)
     );
-    ac_assert('aa_db_version consolidada a 25', (string) get_option('aa_db_version', '0') === '25');
+    ac_assert('aa_db_version consolidada a 26', (string) get_option('aa_db_version', '0') === '26');
 
     // Idempotencia: re-ejecutar sin recrear finance.
     AA_Schema::install();

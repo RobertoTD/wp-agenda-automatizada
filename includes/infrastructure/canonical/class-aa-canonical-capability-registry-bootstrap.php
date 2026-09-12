@@ -3,6 +3,7 @@
  * Canonical Capability Registry Bootstrap — Catálogo sellado de capacidades.
  *
  * `amount` queda ready tras A1b (lectura/UI + escritura).
+ * `images` registrada en Ciclo 1 con is_ready=false (sin seeds ni activación de producto).
  *
  * @package WP_Agenda_Automatizada
  * @subpackage Infrastructure\Canonical
@@ -23,6 +24,14 @@ final class AA_Canonical_Capability_Registry_Bootstrap {
                 'amount',
                 AA_Canonical_Capability_Definition::SCOPE_RECORD,
                 true
+            )
+        );
+
+        $registry->register(
+            new AA_Canonical_Capability_Definition(
+                'images',
+                AA_Canonical_Capability_Definition::SCOPE_RECORD,
+                false
             )
         );
 

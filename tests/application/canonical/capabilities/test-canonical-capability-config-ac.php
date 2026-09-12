@@ -45,6 +45,8 @@ $life_src = (string) file_get_contents(
 ac_assert('Ops no menciona FinanceSchema/aa_finance', stripos($ops_src, 'aa_finance') === false && stripos($ops_src, 'FinanceSchema') === false);
 ac_assert('Repo config no menciona finance', stripos($repo_src, 'finance') === false);
 ac_assert('Bootstrap registra amount is_ready true', strpos($boot_src, "'amount'") !== false && preg_match("/new AA_Canonical_Capability_Definition\(\s*'amount'\s*,\s*AA_Canonical_Capability_Definition::SCOPE_RECORD\s*,\s*true\s*\)/", $boot_src) === 1);
+ac_assert('Bootstrap registra images is_ready false', preg_match("/new AA_Canonical_Capability_Definition\(\s*'images'\s*,\s*AA_Canonical_Capability_Definition::SCOPE_RECORD\s*,\s*false\s*\)/", $boot_src) === 1);
+ac_assert('Lifecycle declared_seeds sin images', strpos($life_src, "'images'") === false);
 ac_assert('Lifecycle DEFAULTS_VERSION=2', strpos($life_src, 'DEFAULTS_VERSION = 2') !== false);
 ac_assert('Lifecycle usa insert_family_capability_if_missing', strpos($life_src, 'insert_family_capability_if_missing') !== false);
 ac_assert('Lifecycle filtra !is_ready', strpos($life_src, 'is_ready()') !== false);
@@ -124,12 +126,28 @@ try {
     ac_assert('amount registrado', $amount->key() === 'amount');
     ac_assert('amount ready en producto', $amount->is_ready() === true);
 
+    $images = $capability_registry->get('images');
+    ac_assert('images registrado', $images->key() === 'images');
+    ac_assert('images scope record', $images->scope() === AA_Canonical_Capability_Definition::SCOPE_RECORD);
+    ac_assert('images not ready en Ciclo 1', $images->is_ready() === false);
+
     $set_default = new SetFamilyCapabilityDefaultUseCase($repo, $family_registry, $capability_registry);
     $set_container = new SetContainerCapabilityActivationUseCase($repo, $family_registry, $capability_registry);
     $read_container = new ReadContainerCapabilityConfigUseCase($repo, $family_registry, $capability_registry);
 
     $enabled_default = $set_default->execute(new SetFamilyCapabilityDefaultCommand('finance', 'amount', true));
     ac_assert('Habilitar default amount ready', is_array($enabled_default) && $enabled_default['is_default'] === true);
+
+    $images_default_blocked = false;
+    try {
+        $set_default->execute(new SetFamilyCapabilityDefaultCommand('finance', 'images', true));
+    } catch (CanonicalCapabilityNotReady $e) {
+        $images_default_blocked = ($e->error_code() === 'capability_not_ready');
+    }
+    ac_assert('images !ready → capability_not_ready al set default', $images_default_blocked);
+
+    $images_seed = $repo->find_family_capability((int) $finance_id, 'images');
+    ac_assert('Sin seed images en finance', $images_seed === null);
 
     // Fixture not-ready conserva cobertura de rechazo.
     $not_ready_registry = new AA_Canonical_Capability_Registry();
