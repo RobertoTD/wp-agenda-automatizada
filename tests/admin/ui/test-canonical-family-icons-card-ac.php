@@ -111,7 +111,7 @@ $html_all = $render_card([
 ]);
 
 ac_assert('All-lists card has SVG', strpos($html_all, '<svg') !== false);
-ac_assert('All-lists card centers icon to h4 block', strpos($html_all, 'flex items-center gap-2') !== false);
+ac_assert('All-lists card centers icon to h4 block', strpos($html_all, 'flex items-center gap-1') !== false);
 ac_assert('All-lists card omits items-start', strpos($html_all, 'items-start') === false);
 ac_assert('All-lists card indigo wrapper', strpos($html_all, 'w-6 h-6 flex-shrink-0 text-indigo-600') !== false);
 ac_assert('All-lists card icon box w-6 h-6', strpos($html_all, 'w-6 h-6') !== false);
@@ -141,13 +141,13 @@ $html_mono = $render_card([
     'card_family_icon_key' => '',
 ]);
 
-ac_assert('Monofamily card has no family SVG row', strpos($html_mono, 'flex items-center gap-2') === false);
+ac_assert('Monofamily card has no family SVG row', strpos($html_mono, 'flex items-center gap-1') === false);
 ac_assert('Monofamily card has no family sr-only label', strpos($html_mono, 'sr-only">Finanzas') === false);
 ac_assert('Monofamily card keeps title link', strpos($html_mono, 'Solo familia') !== false);
 
 $card_src = (string) file_get_contents($card_partial);
 ac_assert('Card no longer renders family name paragraph class', strpos($card_src, 'text-xs text-gray-500 mb-1') === false);
-ac_assert('Card uses items-center', strpos($card_src, 'flex items-center gap-2') !== false);
+ac_assert('Card uses items-center', strpos($card_src, 'flex items-center gap-1') !== false);
 ac_assert('Card uses indigo icon color', strpos($card_src, 'text-indigo-600') !== false);
 
 echo "\n--- Resumen: {$passed}/{$total} ---\n";

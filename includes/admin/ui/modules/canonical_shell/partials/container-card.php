@@ -62,7 +62,7 @@ if ($show_family_icon) {
 <li>
     <article class="bg-white rounded-xl shadow-sm border border-gray-200 p-5 h-full flex flex-col">
         <?php if ($show_family_icon) : ?>
-            <div class="flex items-center gap-2 min-w-0">
+            <div class="flex items-center gap-1 min-w-0">
                 <span class="flex items-center justify-center w-6 h-6 flex-shrink-0 text-indigo-600" aria-hidden="true">
                     <?php echo $family_icon_svg; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- markup fijo interno ?>
                 </span>
