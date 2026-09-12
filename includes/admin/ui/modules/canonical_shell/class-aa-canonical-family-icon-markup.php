@@ -2,6 +2,9 @@
 /**
  * Markup SVG reutilizable de iconos de familia canónica (presentación).
  *
+ * Geometrías alineadas con iconos existentes del admin (sidebar/dashboard),
+ * sin depender de esos módulos.
+ *
  * @package WP_Agenda_Automatizada
  */
 
@@ -20,39 +23,37 @@ final class AA_Canonical_Family_Icon_Markup {
 
         switch ($key) {
             case 'folder':
-                // Carpeta con hoja.
-                return '<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" aria-hidden="true">'
-                    . '<path stroke-linecap="round" stroke-linejoin="round" d="M3 7.5A2.5 2.5 0 015.5 5H9l1.5 2H18.5A2.5 2.5 0 0121 9.5v7A2.5 2.5 0 0118.5 19h-13A2.5 2.5 0 013 16.5v-9z"/>'
-                    . '<path stroke-linecap="round" stroke-linejoin="round" d="M10 11.5h4.5v6H10v-6z"/>'
-                    . '</svg>';
+                // Carpeta sencilla (misma geometría que Expedientes).
+                return self::wrap(
+                    '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>'
+                );
 
             case 'currency':
-                // Moneda.
-                return '<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" aria-hidden="true">'
-                    . '<circle cx="12" cy="12" r="8.25"/>'
-                    . '<path stroke-linecap="round" stroke-linejoin="round" d="M12 7.5v9M9.75 9.5c.5-.75 1.35-1.15 2.25-1.15 1.35 0 2.4.8 2.4 2.05 0 1.1-.7 1.75-2.15 2.15l-1.5.4c-1.55.4-2.35 1.15-2.35 2.4 0 1.35 1.15 2.3 2.7 2.3.95 0 1.85-.4 2.4-1.15"/>'
-                    . '</svg>';
+                // Moneda (misma geometría que dashboard Ingresos).
+                return self::wrap(
+                    '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>'
+                );
 
             case 'grid':
-                // Cuadrícula de artículos.
-                return '<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" aria-hidden="true">'
-                    . '<rect x="3.75" y="3.75" width="6.5" height="6.5" rx="1.25"/>'
-                    . '<rect x="13.75" y="3.75" width="6.5" height="6.5" rx="1.25"/>'
-                    . '<rect x="3.75" y="13.75" width="6.5" height="6.5" rx="1.25"/>'
-                    . '<rect x="13.75" y="13.75" width="6.5" height="6.5" rx="1.25"/>'
-                    . '</svg>';
+                // Cuadrícula (misma geometría que Listas en sidebar).
+                return self::wrap(
+                    '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1V5zm10 0a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1V5zM4 15a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1v-4zm10 0a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z"/>'
+                );
 
             case 'contact_card':
-                // Silueta con tarjeta.
-                return '<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" aria-hidden="true">'
-                    . '<rect x="3.5" y="5.5" width="17" height="13" rx="2"/>'
-                    . '<circle cx="9" cy="11" r="2.25"/>'
-                    . '<path stroke-linecap="round" stroke-linejoin="round" d="M6.75 15.25c.55-1.1 1.55-1.75 2.25-1.75s1.7.65 2.25 1.75"/>'
-                    . '<path stroke-linecap="round" stroke-linejoin="round" d="M14 10.25h4M14 13.25h4"/>'
-                    . '</svg>';
+                // Grupo de personas (misma geometría que Clientes).
+                return self::wrap(
+                    '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>'
+                );
 
             default:
                 return '';
         }
+    }
+
+    private static function wrap(string $inner): string {
+        return '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">'
+            . $inner
+            . '</svg>';
     }
 }
