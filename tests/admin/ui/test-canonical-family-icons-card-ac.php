@@ -124,8 +124,9 @@ ac_assert('All-lists accessible family inside link', (bool) preg_match(
 ac_assert('All-lists keeps records sr-only once', substr_count($html_all, ' — ver registros') === 1);
 ac_assert('All-lists keeps edit button', strpos($html_all, 'aa-shell-edit-container-btn') !== false);
 ac_assert('All-lists keeps delete button', strpos($html_all, 'aa-shell-delete-container-btn') !== false);
-ac_assert('All-lists keeps details', strpos($html_all, 'Detalle') !== false);
-ac_assert('All-lists keeps time', strpos($html_all, 'datetime="2026-09-12T15:00:00Z"') !== false);
+ac_assert('All-lists omits visible details paragraph', strpos($html_all, 'whitespace-pre-wrap') === false);
+ac_assert('All-lists omits visible time', strpos($html_all, '<time') === false);
+ac_assert('All-lists keeps details in edit payload', strpos($html_all, 'Detalle') !== false);
 ac_assert('Icon wrapper is decorative', strpos($html_all, 'aria-hidden="true"') !== false);
 ac_assert('Title uses break-words', strpos($html_all, 'break-words') !== false);
 ac_assert('SVG uses w-5 h-5', strpos($html_all, 'class="w-5 h-5"') !== false);

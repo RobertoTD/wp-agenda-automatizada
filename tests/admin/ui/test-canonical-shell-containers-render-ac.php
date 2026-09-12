@@ -286,13 +286,9 @@ ac_assert('Preview banner rendered', strpos($html_prev, 'Demostración del shell
     && strpos($html_prev, 'datos temporales') !== false);
 ac_assert('Title escaped', strpos($html_prev, '<script>alert(1)</script>') === false
     && strpos($html_prev, '&lt;script&gt;alert(1)&lt;/script&gt;') !== false);
-ac_assert('Details escaped', strpos($html_prev, '<b>x</b>') === false
-    && strpos($html_prev, '&lt;b&gt;x&lt;/b&gt;') !== false);
-ac_assert('Null details omits empty paragraph block', preg_match(
-    '/Sin detalle<\/h4>\s*<p class="mt-2/',
-    $html_prev
-) !== 1);
-ac_assert('time datetime uses Z', strpos($html_prev, 'datetime="2026-03-01T15:00:00Z"') !== false);
+ac_assert('Container card omits details paragraph', strpos($html_prev, 'whitespace-pre-wrap') === false
+    && strpos($html_prev, '<b>x</b>') === false);
+ac_assert('Container card omits time element', strpos($html_prev, '<time') === false);
 ac_assert('Semantic list and article', strpos($html_prev, '<ul') !== false && strpos($html_prev, '<article') !== false);
 ac_assert('Pagination nav label', strpos($html_prev, 'aria-label="Paginación de contenedores"') !== false);
 ac_assert('Next link present', strpos($html_prev, '>Siguiente</a>') !== false);

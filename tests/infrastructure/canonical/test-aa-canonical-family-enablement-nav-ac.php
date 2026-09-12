@@ -86,8 +86,8 @@ require_once $plugin_root . '/includes/infrastructure/wp/class-aa-canonical-shel
 require_once $plugin_root . '/includes/infrastructure/canonical/class-aa-canonical-family-enablement-nav.php';
 
 $registry = new AA_Canonical_Registry();
-$registry->register_family(new AA_Canonical_Family_Definition('finance', 'Finanzas'));
-$registry->register_family(new AA_Canonical_Family_Definition('archive', 'Archivo'));
+$registry->register_family(new AA_Canonical_Family_Definition('finance', 'Finanzas', 'currency'));
+$registry->register_family(new AA_Canonical_Family_Definition('archive', 'Archivo', 'folder'));
 $registry->freeze();
 
 $snapshot = new CanonicalFamilyEnablementSnapshot([
@@ -122,6 +122,10 @@ $build_no_admin = AA_Canonical_Family_Enablement_Nav::build($registry, $snapshot
 ac_assert(
     'build sin manage_options solo finance',
     count($build_no_admin) === 1 && ($build_no_admin[0]['family_key'] ?? '') === 'finance'
+);
+ac_assert(
+    'build expone icon_key de la familia',
+    ($build_no_admin[0]['icon_key'] ?? null) === 'currency'
 );
 
 $current_caps = ['manage_options' => true];

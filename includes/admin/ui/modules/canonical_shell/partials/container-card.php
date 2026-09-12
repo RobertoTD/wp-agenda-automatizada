@@ -2,7 +2,7 @@
 /**
  * Card de contenedor canónico (shell).
  *
- * Expects: $card_title, $card_details (?string), $card_iso, $card_display,
+ * Expects: $card_title, $card_details (?string; solo payload de edición),
  * optional $card_records_url (string),
  * optional $show_edit_container (bool), $card_container_id (int),
  * optional $card_family_key (string), $card_family_label (string),
@@ -96,14 +96,6 @@ if ($show_family_icon) {
                     <?php echo esc_html($card_title); ?>
                 <?php endif; ?>
             </h4>
-        <?php endif; ?>
-        <?php if (is_string($card_details) && $card_details !== '') : ?>
-            <p class="mt-2 text-sm text-gray-600 whitespace-pre-wrap"><?php echo esc_html($card_details); ?></p>
-        <?php endif; ?>
-        <?php if ($card_iso !== '' && $card_display !== '') : ?>
-            <p class="mt-3 text-xs text-gray-500">
-                <time datetime="<?php echo esc_attr($card_iso); ?>"><?php echo esc_html($card_display); ?></time>
-            </p>
         <?php endif; ?>
         <?php if ($edit_payload_attr !== '') : ?>
             <div class="mt-4 pt-3 border-t border-gray-100 flex flex-wrap items-center gap-2">

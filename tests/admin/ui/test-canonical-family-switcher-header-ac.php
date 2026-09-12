@@ -107,6 +107,13 @@ ac_assert(
 );
 
 ac_assert(
+    'Header resuelve iconos de familia vía markup canónico (no Todas)',
+    strpos($header, 'AA_Canonical_Family_Icon_Markup') !== false
+    && strpos($header, '$aa_switcher_all_key') !== false
+    && strpos($header, 'icon_key') !== false
+);
+
+ac_assert(
     'Nav builder usa Shell Base URL Policy',
     strpos($nav_src, 'AA_Canonical_Shell_Base_Url_Policy::build_url') !== false
     && strpos($nav_src, 'variant') === false
@@ -171,6 +178,7 @@ if (!function_exists('add_query_arg')) {
 require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-key.php';
 require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-family-definition.php';
 require_once $plugin_root . '/includes/infrastructure/wp/class-aa-canonical-shell-base-url-policy.php';
+require_once $plugin_root . '/includes/admin/ui/modules/canonical_shell/class-aa-canonical-family-icon-markup.php';
 
 function aa_render_header_fixture(array $vars): string {
     extract($vars, EXTR_SKIP);
@@ -179,17 +187,19 @@ function aa_render_header_fixture(array $vars): string {
     return (string) ob_get_clean();
 }
 
-$family_archive = new AA_Canonical_Family_Definition('archive', 'Archivo');
+$family_archive = new AA_Canonical_Family_Definition('archive', 'Archivo', 'folder');
 $nav_two = [
     [
         'family_key' => 'finance',
         'label' => 'Finanzas',
         'url' => 'https://example.com/wp-admin/admin-post.php?action=aa_iframe_content&module=canonical_shell&family=finance',
+        'icon_key' => 'currency',
     ],
     [
         'family_key' => 'archive',
         'label' => 'Archivo',
         'url' => 'https://example.com/wp-admin/admin-post.php?action=aa_iframe_content&module=canonical_shell&family=archive',
+        'icon_key' => 'folder',
     ],
 ];
 $nav_one = [
@@ -197,6 +207,7 @@ $nav_one = [
         'family_key' => 'archive',
         'label' => 'Archivo',
         'url' => 'https://example.com/wp-admin/admin-post.php?action=aa_iframe_content&module=canonical_shell&family=archive',
+        'icon_key' => 'folder',
     ],
 ];
 
@@ -211,12 +222,26 @@ ac_assert(
     strpos($html_switcher, 'data-aa-title-mode="family-switcher"') !== false
     && strpos($html_switcher, 'id="aa-family-switcher-panel"') !== false
     && strpos($html_switcher, '>Archivo</button>') !== false
-    && strpos($html_switcher, '>Todas las listas<') !== false
+    && strpos($html_switcher, '>Todas las listas</span>') !== false
     && strpos($html_switcher, 'family=finance') !== false
     && strpos($html_switcher, 'family=archive') !== false
     && strpos($html_switcher, 'variant=') === false
     && strpos($html_switcher, 'aria-label="Filtrar listas"') !== false
-    && preg_match('/aria-current="page"[^>]*>Archivo</', $html_switcher) === 1
+    && preg_match('/aria-current="page"[^>]*>[\s\S]*?Archivo</', $html_switcher) === 1
+);
+
+$currency_path = 'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2';
+$folder_path = 'M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z';
+ac_assert(
+    'Runtime switcher: familias llevan SVG; Todas no',
+    strpos($html_switcher, $currency_path) !== false
+    && strpos($html_switcher, $folder_path) !== false
+    && preg_match(
+        '/aa-family-switcher-link[^>]*>[\s\S]*?Todas las listas<\/span>/',
+        $html_switcher,
+        $todas_link
+    ) === 1
+    && strpos($todas_link[0], '<svg') === false
 );
 
 $html_one = aa_render_header_fixture([
@@ -243,7 +268,7 @@ ac_assert(
     'Runtime alcance Todas → current Todas las listas',
     strpos($html_all_scope, 'data-aa-title-mode="family-switcher"') !== false
     && strpos($html_all_scope, '>Todas las listas</button>') !== false
-    && preg_match('/aria-current="page"[^>]*>Todas las listas</', $html_all_scope) === 1
+    && preg_match('/aria-current="page"[^>]*>[\s\S]*?Todas las listas</', $html_all_scope) === 1
 );
 
 $html_records_return = aa_render_header_fixture([
@@ -256,8 +281,8 @@ $html_records_return = aa_render_header_fixture([
 ac_assert(
     'Runtime records con lists_scope=all → current familia (no Todas)',
     strpos($html_records_return, '>Archivo</button>') !== false
-    && preg_match('/aria-current="page"[^>]*>Archivo</', $html_records_return) === 1
-    && preg_match('/aria-current="page"[^>]*>Todas las listas</', $html_records_return) !== 1
+    && preg_match('/aria-current="page"[^>]*>[\s\S]*?Archivo</', $html_records_return) === 1
+    && preg_match('/aria-current="page"[^>]*>[\s\S]*?Todas las listas</', $html_records_return) !== 1
 );
 
 $html_preview = aa_render_header_fixture([

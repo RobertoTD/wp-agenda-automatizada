@@ -62,6 +62,7 @@ defined('ABSPATH') or die('¡Sin acceso directo!');
                             'family_key' => $aa_nav_key,
                             'label' => $aa_nav_label,
                             'url' => $aa_nav_url,
+                            'icon_key' => (string) ($aa_nav_item['icon_key'] ?? ''),
                         ];
                     }
                     $aa_family_nav_count = count($aa_family_nav_items);
@@ -132,15 +133,33 @@ defined('ABSPATH') or die('¡Sin acceso directo!');
                         hidden
                     >
                         <ul class="py-0" aria-label="Filtrar listas">
-                            <?php foreach ($aa_family_switcher_items as $aa_switch_item) :
+                            <?php
+                            $aa_switcher_icon_markup_ready = false;
+                            foreach ($aa_family_switcher_items as $aa_switch_item) :
                                 $aa_is_current = ($aa_switch_item['family_key'] === $aa_family_current_key);
+                                $aa_switch_icon_svg = '';
+                                if ($aa_switch_item['family_key'] !== $aa_switcher_all_key) {
+                                    $aa_switch_icon_key = (string) ($aa_switch_item['icon_key'] ?? '');
+                                    if ($aa_switch_icon_key !== '') {
+                                        if (!$aa_switcher_icon_markup_ready) {
+                                            if (!class_exists('AA_Canonical_Family_Icon_Markup')) {
+                                                require_once dirname(__DIR__) . '/modules/canonical_shell/class-aa-canonical-family-icon-markup.php';
+                                            }
+                                            $aa_switcher_icon_markup_ready = true;
+                                        }
+                                        $aa_switch_icon_svg = AA_Canonical_Family_Icon_Markup::svg($aa_switch_icon_key);
+                                    }
+                                }
                                 ?>
                             <li>
                                 <a
                                     href="<?php echo esc_url($aa_switch_item['url']); ?>"
-                                    class="aa-family-switcher-link block truncate px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 <?php echo $aa_is_current ? 'aa-family-switcher-link--current font-semibold text-gray-900 bg-gray-50' : ''; ?>"
+                                    class="aa-family-switcher-link flex items-center gap-1 min-w-0 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 <?php echo $aa_is_current ? 'aa-family-switcher-link--current font-semibold text-gray-900 bg-gray-50' : ''; ?>"
                                     <?php echo $aa_is_current ? 'aria-current="page"' : ''; ?>
-                                ><?php echo esc_html($aa_switch_item['label']); ?></a>
+                                ><?php if ($aa_switch_icon_svg !== '') : ?>
+                                    <span class="flex items-center justify-center w-5 h-5 flex-shrink-0 text-gray-500" aria-hidden="true"><?php echo $aa_switch_icon_svg; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- markup fijo interno ?></span>
+                                <?php endif; ?>
+                                    <span class="truncate"><?php echo esc_html($aa_switch_item['label']); ?></span></a>
                             </li>
                             <?php endforeach; ?>
                         </ul>

@@ -56,7 +56,7 @@ final class AA_Canonical_Family_Enablement_Nav {
     }
 
     /**
-     * @return list<array{family_key:string,label:string,url:string}>
+     * @return list<array{family_key:string,label:string,url:string,icon_key:string}>
      */
     public static function build(
         AA_Canonical_Registry $registry,
@@ -69,6 +69,7 @@ final class AA_Canonical_Family_Enablement_Nav {
                 'family_key' => $family->key(),
                 'label' => $family->label(),
                 'url' => AA_Canonical_Shell_Base_Url_Policy::build_url($family->key()),
+                'icon_key' => $family->icon_key(),
             ];
         }
 
