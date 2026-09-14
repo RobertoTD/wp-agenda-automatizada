@@ -95,8 +95,25 @@ function boot(fetchImpl, payloads, options) {
     const deleteStatusEl = createEl('aa-shell-delete-record-status');
     deleteStatusEl.classList.add('hidden');
 
+    const deleteImageModal = createEl('aa-shell-delete-image-modal');
+    const deleteImageBackdrop = createEl('aa-shell-delete-image-modal-backdrop');
+    const deleteImageCloseBtn = createEl('aa-shell-delete-image-modal-close-btn');
+    const deleteImageCancelBtn = createEl('aa-shell-delete-image-modal-cancel-btn');
+    const deleteImageConfirmBtn = createEl('aa-shell-delete-image-confirm-btn');
+    deleteImageConfirmBtn.textContent = 'Eliminar imagen';
+    const deleteImageAbortBtn = createEl('aa-shell-delete-image-abort-btn');
+    deleteImageAbortBtn.classList.add('hidden');
+    const deleteImageReloadBtn = createEl('aa-shell-delete-image-reload-btn');
+    deleteImageReloadBtn.classList.add('hidden');
+    const deleteImageIdLabel = createEl('aa-shell-delete-image-id-label');
+    const deleteImageStatusEl = createEl('aa-shell-delete-image-status');
+    deleteImageStatusEl.classList.add('hidden');
+
     const editBtns = [];
     const deleteBtns = [];
+    const deleteImageBtns = [];
+    const imageNodes = [];
+    const imagePayloads = options.imagePayloads || [{ id: 77, record_id: 9 }];
     (payloads || []).forEach((payload, idx) => {
         const editBtn = createEl('aa-shell-edit-record-btn-' + idx);
         editBtn.className = 'aa-shell-edit-record-btn';
@@ -107,6 +124,27 @@ function boot(fetchImpl, payloads, options) {
         delBtn.className = 'aa-shell-delete-record-btn';
         delBtn.setAttribute('data-aa-record', JSON.stringify(payload));
         deleteBtns.push(delBtn);
+    });
+    imagePayloads.forEach((payload, idx) => {
+        const imgBtn = createEl('aa-shell-delete-image-btn-' + idx);
+        imgBtn.className = 'aa-shell-delete-image-btn';
+        imgBtn.setAttribute('data-aa-image', JSON.stringify(payload));
+        deleteImageBtns.push(imgBtn);
+
+        const node = createEl('aa-shell-record-image-' + idx);
+        node.setAttribute('data-aa-image-id', String(payload.id));
+        const parent = {
+            children: [node],
+            removeChild(child) {
+                const i = this.children.indexOf(child);
+                if (i >= 0) {
+                    this.children.splice(i, 1);
+                }
+                child._removed = true;
+            }
+        };
+        node.parentNode = parent;
+        imageNodes.push(node);
     });
 
     const amountWrap = createEl('aa-shell-record-amount-field');
@@ -143,7 +181,16 @@ function boot(fetchImpl, payloads, options) {
         'aa-shell-delete-record-abort-btn': deleteAbortBtn,
         'aa-shell-delete-record-reload-btn': deleteReloadBtn,
         'aa-shell-delete-record-title': deleteTitleEl,
-        'aa-shell-delete-record-status': deleteStatusEl
+        'aa-shell-delete-record-status': deleteStatusEl,
+        'aa-shell-delete-image-modal': deleteImageModal,
+        'aa-shell-delete-image-modal-backdrop': deleteImageBackdrop,
+        'aa-shell-delete-image-modal-close-btn': deleteImageCloseBtn,
+        'aa-shell-delete-image-modal-cancel-btn': deleteImageCancelBtn,
+        'aa-shell-delete-image-confirm-btn': deleteImageConfirmBtn,
+        'aa-shell-delete-image-abort-btn': deleteImageAbortBtn,
+        'aa-shell-delete-image-reload-btn': deleteImageReloadBtn,
+        'aa-shell-delete-image-id-label': deleteImageIdLabel,
+        'aa-shell-delete-image-status': deleteImageStatusEl
     };
 
     const documentListeners = {};
@@ -163,6 +210,16 @@ function boot(fetchImpl, payloads, options) {
             if (selector === '.aa-shell-delete-record-btn') {
                 return deleteBtns;
             }
+            if (selector === '.aa-shell-delete-image-btn, .aa-shell-resume-image-delete-btn') {
+                return deleteImageBtns;
+            }
+            if (typeof selector === 'string' && selector.indexOf('[data-aa-image-id=') === 0) {
+                const match = selector.match(/data-aa-image-id="(\d+)"/);
+                if (!match) {
+                    return [];
+                }
+                return imageNodes.filter((n) => n.getAttribute('data-aa-image-id') === match[1] && !n._removed);
+            }
             return [];
         },
         addEventListener(type, fn) {
@@ -181,6 +238,8 @@ function boot(fetchImpl, payloads, options) {
                 updateNonce: 'update-nonce',
                 deleteAction: 'aa_delete_canonical_record',
                 deleteNonce: 'delete-nonce',
+                deleteImageAction: 'aa_delete_canonical_record_image',
+                deleteImageNonce: 'delete-image-nonce',
                 familyKey: 'finance',
                 containerId: 42,
                 maxTitleLength: 200,
@@ -231,8 +290,11 @@ function boot(fetchImpl, payloads, options) {
         openBtn,
         editBtns,
         deleteBtns,
+        deleteImageBtns,
+        imageNodes,
         modal,
         deleteModal,
+        deleteImageModal,
         modalTitle,
         form,
         titleInput,
@@ -250,6 +312,10 @@ function boot(fetchImpl, payloads, options) {
         deleteAbortBtn,
         deleteCancelBtn,
         deleteReloadBtn,
+        deleteImageConfirmBtn,
+        deleteImageCancelBtn,
+        deleteImageStatusEl,
+        deleteImageIdLabel,
         documentListeners,
         getAssignedUrl: () => assignedUrl,
         getFetchCalls: () => fetchCalls,
@@ -729,6 +795,81 @@ describe('canonical-shell-record-form', () => {
         const ui = boot(async () => ({ status: 200, text: async () => '{}' }));
         ui.openBtn._listeners.click[0]();
         assert.equal(ui.amountWrap.classList.contains('hidden'), true);
+    });
+
+    it('image delete: un clic un request y remueve del DOM', async () => {
+        const ui = boot(
+            async () => ({
+                status: 200,
+                text: async () => JSON.stringify({
+                    success: true,
+                    data: { status: 'confirmed', image_id: 77, record_id: 9, container_id: 42 }
+                })
+            }),
+            [{ id: 9, title: 'R', details: '' }],
+            { imagePayloads: [{ id: 77, record_id: 9 }] }
+        );
+        assert.ok(ui.deleteImageBtns[0]._listeners.click);
+        ui.deleteImageBtns[0]._listeners.click[0]({});
+        assert.equal(ui.deleteImageModal.classList.contains('hidden'), false);
+        ui.deleteImageConfirmBtn._listeners.click[0]({});
+        ui.deleteImageConfirmBtn._listeners.click[0]({});
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        assert.equal(ui.getFetchCalls(), 1);
+        assert.equal(ui.getLastFormData().action, 'aa_delete_canonical_record_image');
+        assert.equal(ui.getLastFormData().image_id, '77');
+        assert.equal(ui.imageNodes[0]._removed, true);
+        assert.equal(ui.deleteImageModal.classList.contains('hidden'), true);
+    });
+
+    it('image delete: incomplete deja Continuar sin auto-reintento', async () => {
+        let calls = 0;
+        const ui = boot(
+            async () => {
+                calls += 1;
+                return {
+                    status: 409,
+                    text: async () => JSON.stringify({
+                        success: false,
+                        data: {
+                            code: 'incomplete',
+                            message: 'La eliminación no terminó. Pulsa Continuar para seguir.',
+                            can_continue: true
+                        }
+                    })
+                };
+            },
+            [{ id: 9, title: 'R', details: '' }],
+            { imagePayloads: [{ id: 77, record_id: 9 }] }
+        );
+        ui.deleteImageBtns[0]._listeners.click[0]({});
+        ui.deleteImageConfirmBtn._listeners.click[0]({});
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        assert.equal(calls, 1);
+        assert.equal(ui.deleteImageConfirmBtn.textContent, 'Continuar');
+        assert.equal(ui.deleteImageModal.classList.contains('hidden'), false);
+        assert.equal(ui.imageNodes[0]._removed, undefined);
+    });
+
+    it('image delete: Cerrar cierra solo el modal', async () => {
+        const ui = boot(
+            async () => ({
+                status: 409,
+                text: async () => JSON.stringify({
+                    success: false,
+                    data: { code: 'incomplete', message: 'incompleto', can_continue: true }
+                })
+            }),
+            [{ id: 9, title: 'R', details: '' }],
+            { imagePayloads: [{ id: 77, record_id: 9 }] }
+        );
+        ui.deleteImageBtns[0]._listeners.click[0]({});
+        ui.deleteImageConfirmBtn._listeners.click[0]({});
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        ui.deleteImageCancelBtn._listeners.click[0]();
+        assert.equal(ui.deleteImageModal.classList.contains('hidden'), true);
+        assert.equal(ui.getAssignedUrl(), null);
+        assert.equal(ui.getReloaded(), false);
     });
 
     it('error invalid_amount en módulo amount', async () => {

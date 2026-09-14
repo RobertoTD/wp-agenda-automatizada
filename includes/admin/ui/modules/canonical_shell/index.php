@@ -158,6 +158,8 @@ $show_container_write_ui = $show_create_ui || $show_edit_container_on_records;
 
 $list_retire_in_progress = false;
 $orphan_container_purges = [];
+$records_page_images_by_record = [];
+$open_image_purges_on_records = [];
 try {
     if (!class_exists('CanonicalPurgeRunsRepository')) {
         require_once dirname(__DIR__, 4) . '/repositories/CanonicalPurgeRunsRepository.php';
@@ -169,6 +171,53 @@ try {
             $create_container_id
         );
         $list_retire_in_progress = is_array($open_list_purge);
+
+        if ($show_read_ui && !$is_preview && $route_state === 'resolved'
+            && in_array($read_state, ['empty', 'resolved_page'], true)
+        ) {
+            $record_ids_for_images = [];
+            if (is_array($items_view)) {
+                foreach ($items_view as $item_for_img) {
+                    if (!is_array($item_for_img)) {
+                        continue;
+                    }
+                    $rid = isset($item_for_img['id']) ? (int) $item_for_img['id'] : 0;
+                    if ($rid >= 1) {
+                        $record_ids_for_images[] = $rid;
+                    }
+                }
+            }
+            if ($record_ids_for_images !== []) {
+                if (!class_exists('CanonicalRecordImagesRepository')) {
+                    require_once dirname(__DIR__, 4) . '/repositories/CanonicalRecordImagesRepository.php';
+                }
+                try {
+                    $images_repo_ui = new CanonicalRecordImagesRepository();
+                    $records_page_images_by_record = $images_repo_ui->find_public_rows_by_record_ids_for_container(
+                        $create_container_id,
+                        $record_ids_for_images
+                    );
+                } catch (\Throwable $e) {
+                    $records_page_images_by_record = [];
+                }
+            }
+
+            $record_id_set = array_fill_keys($record_ids_for_images, true);
+            foreach ($purge_runs_ui->list_open_by_scope(CanonicalPurgeRunsRepository::SCOPE_IMAGE) as $open_img_run) {
+                if ((int) ($open_img_run['container_id'] ?? 0) !== $create_container_id) {
+                    continue;
+                }
+                if ((string) ($open_img_run['family_key'] ?? '') !== $create_family_key) {
+                    continue;
+                }
+                $run_record_id = (int) ($open_img_run['record_id'] ?? 0);
+                if ($run_record_id >= 1 && !isset($record_id_set[$run_record_id])) {
+                    // Aún mostrar Continuar si el registro sigue en la página o no:
+                    // si el registro no está en la vista, igual recuperamos por banner.
+                }
+                $open_image_purges_on_records[] = $open_img_run;
+            }
+        }
     }
     if (!$is_records && $show_read_ui && !$is_preview && $route_state === 'resolved'
         && in_array($read_state, ['empty', 'resolved_page'], true)
@@ -199,6 +248,8 @@ try {
 } catch (\Throwable $e) {
     $list_retire_in_progress = false;
     $orphan_container_purges = [];
+    $records_page_images_by_record = [];
+    $open_image_purges_on_records = [];
 }
 
 $show_record_fab = $show_create_record_ui && !$list_retire_in_progress;
@@ -394,6 +445,40 @@ $is_records_fill = $show_read_ui
                                     Esta lista se está eliminando. Los registros que aún ves no están listos; no se puede añadir contenido. Pulsa Eliminar lista y Continuar para terminar. No está borrada del todo.
                                 </div>
                             <?php endif; ?>
+                            <?php if (!empty($open_image_purges_on_records)) : ?>
+                                <div class="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900" role="status">
+                                    <p class="m-0 mb-2">Hay eliminaciones de imagen incompletas. Pulsa Continuar para recuperar el protocolo.</p>
+                                    <ul class="m-0 p-0 list-none space-y-2">
+                                        <?php foreach ($open_image_purges_on_records as $open_img_run) : ?>
+                                            <?php
+                                            $resume_image_id = (int) ($open_img_run['target_id'] ?? 0);
+                                            if ($resume_image_id < 1) {
+                                                continue;
+                                            }
+                                            $resume_record_id = (int) ($open_img_run['record_id'] ?? 0);
+                                            $resume_payload = wp_json_encode(
+                                                [
+                                                    'id' => $resume_image_id,
+                                                    'record_id' => $resume_record_id,
+                                                ],
+                                                JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT
+                                            );
+                                            if (!is_string($resume_payload) || $resume_payload === '') {
+                                                continue;
+                                            }
+                                            ?>
+                                            <li class="flex flex-wrap items-center gap-2">
+                                                <span>Imagen #<?php echo esc_html((string) $resume_image_id); ?></span>
+                                                <button
+                                                    type="button"
+                                                    class="aa-shell-resume-image-delete-btn inline-flex items-center px-3 py-1.5 text-xs font-semibold text-amber-950 bg-amber-100 border border-amber-300 rounded-lg hover:bg-amber-200 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                                                    data-aa-image="<?php echo esc_attr($resume_payload); ?>"
+                                                >Continuar</button>
+                                            </li>
+                                        <?php endforeach; ?>
+                                    </ul>
+                                </div>
+                            <?php endif; ?>
                             <?php if ($parent_has_details_block) : ?>
                                 <div
                                     id="aa-shell-list-details"
@@ -435,6 +520,11 @@ $is_records_fill = $show_read_ui
                                             : null;
                                         $show_edit_record = $show_record_fab;
                                         $shell_record_presentation = 'compact';
+                                        $card_images = isset($records_page_images_by_record[$card_record_id])
+                                            && is_array($records_page_images_by_record[$card_record_id])
+                                            ? $records_page_images_by_record[$card_record_id]
+                                            : [];
+                                        $show_image_delete = $show_create_record_ui && !$list_retire_in_progress;
                                         require __DIR__ . '/partials/record-card.php';
                                         ?>
                                     <?php endforeach; ?>
@@ -540,6 +630,40 @@ $is_records_fill = $show_read_ui
                             Esta lista se está eliminando. Los registros que aún ves no están listos; no se puede añadir contenido. Pulsa Eliminar lista y Continuar para terminar. No está borrada del todo.
                         </div>
                     <?php endif; ?>
+                    <?php if (!empty($open_image_purges_on_records)) : ?>
+                        <div class="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900" role="status">
+                            <p class="m-0 mb-2">Hay eliminaciones de imagen incompletas. Pulsa Continuar para recuperar el protocolo.</p>
+                            <ul class="m-0 p-0 list-none space-y-2">
+                                <?php foreach ($open_image_purges_on_records as $open_img_run) : ?>
+                                    <?php
+                                    $resume_image_id = (int) ($open_img_run['target_id'] ?? 0);
+                                    if ($resume_image_id < 1) {
+                                        continue;
+                                    }
+                                    $resume_record_id = (int) ($open_img_run['record_id'] ?? 0);
+                                    $resume_payload = wp_json_encode(
+                                        [
+                                            'id' => $resume_image_id,
+                                            'record_id' => $resume_record_id,
+                                        ],
+                                        JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT
+                                    );
+                                    if (!is_string($resume_payload) || $resume_payload === '') {
+                                        continue;
+                                    }
+                                    ?>
+                                    <li class="flex flex-wrap items-center gap-2">
+                                        <span>Imagen #<?php echo esc_html((string) $resume_image_id); ?></span>
+                                        <button
+                                            type="button"
+                                            class="aa-shell-resume-image-delete-btn inline-flex items-center px-3 py-1.5 text-xs font-semibold text-amber-950 bg-amber-100 border border-amber-300 rounded-lg hover:bg-amber-200 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                                            data-aa-image="<?php echo esc_attr($resume_payload); ?>"
+                                        >Continuar</button>
+                                    </li>
+                                <?php endforeach; ?>
+                            </ul>
+                        </div>
+                    <?php endif; ?>
 
                     <?php if ($read_state === 'empty') : ?>
                         <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-8 text-center" role="status">
@@ -561,6 +685,11 @@ $is_records_fill = $show_read_ui
                                     : null;
                                 $show_edit_record = $show_record_fab;
                                 $shell_record_presentation = 'card';
+                                $card_images = isset($records_page_images_by_record[$card_record_id])
+                                    && is_array($records_page_images_by_record[$card_record_id])
+                                    ? $records_page_images_by_record[$card_record_id]
+                                    : [];
+                                $show_image_delete = $show_create_record_ui && !$list_retire_in_progress;
                                 require __DIR__ . '/partials/record-card.php';
                                 ?>
                             <?php endforeach; ?>
@@ -1210,6 +1339,9 @@ $is_records_fill = $show_read_ui
     if (!class_exists('CanonicalDeleteRecordAjax')) {
         require_once dirname(__DIR__, 4) . '/http/ajax/CanonicalDeleteRecordAjax.php';
     }
+    if (!class_exists('CanonicalDeleteRecordImageAjax')) {
+        require_once dirname(__DIR__, 4) . '/http/ajax/CanonicalDeleteRecordImageAjax.php';
+    }
     if (!class_exists('CanonicalCreateRecordCommand')) {
         require_once dirname(__DIR__, 4) . '/application/canonical/CanonicalCreateRecordCommand.php';
     }
@@ -1403,6 +1535,77 @@ $is_records_fill = $show_read_ui
         </div>
     </div>
 
+    <div
+        id="aa-shell-delete-image-modal"
+        class="fixed inset-0 z-[60] hidden"
+        aria-hidden="true"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="aa-shell-delete-image-modal-title"
+    >
+        <div id="aa-shell-delete-image-modal-backdrop" class="fixed inset-0 bg-black/50 transition-opacity" aria-hidden="true"></div>
+        <div class="fixed inset-0 z-10 overflow-y-auto">
+            <div class="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
+                <div class="relative transform overflow-hidden rounded-xl bg-white px-4 pb-4 pt-5 text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg sm:p-6">
+                    <div class="flex items-start justify-between gap-3 mb-2">
+                        <h3 id="aa-shell-delete-image-modal-title" class="text-lg font-bold text-gray-900 leading-tight">
+                            Eliminar imagen
+                        </h3>
+                        <button
+                            type="button"
+                            id="aa-shell-delete-image-modal-close-btn"
+                            class="text-gray-400 hover:text-gray-600 p-1 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
+                            aria-label="Cerrar confirmación de eliminación de imagen"
+                        >
+                            ✕
+                        </button>
+                    </div>
+                    <p id="aa-shell-delete-image-message" class="text-sm text-gray-600 mb-4">
+                        Se eliminará la imagen #<span id="aa-shell-delete-image-id-label"></span> del registro. El registro y el resto de imágenes se conservan. La limpieza remota de objetos asociados continúa en segundo plano.
+                    </p>
+
+                    <div
+                        id="aa-shell-delete-image-status"
+                        class="hidden mb-4 p-3 rounded-lg text-xs font-medium"
+                        role="status"
+                        aria-live="polite"
+                    ></div>
+
+                    <div class="flex flex-wrap items-center justify-end gap-3">
+                        <button
+                            type="button"
+                            id="aa-shell-delete-image-reload-btn"
+                            class="hidden px-4 py-2 text-xs font-semibold text-amber-900 bg-amber-50 border border-amber-200 rounded-lg hover:bg-amber-100 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                        >
+                            Recargar lista
+                        </button>
+                        <button
+                            type="button"
+                            id="aa-shell-delete-image-modal-cancel-btn"
+                            class="px-4 py-2 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        >
+                            Cerrar
+                        </button>
+                        <button
+                            type="button"
+                            id="aa-shell-delete-image-abort-btn"
+                            class="hidden px-4 py-2 text-xs font-medium text-amber-900 bg-amber-50 border border-amber-200 rounded-lg hover:bg-amber-100 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                        >
+                            Cancelar eliminación
+                        </button>
+                        <button
+                            type="button"
+                            id="aa-shell-delete-image-confirm-btn"
+                            class="px-4 py-2 text-xs font-semibold text-white bg-red-600 rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            Eliminar imagen
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
     window.AA_CANONICAL_SHELL_RECORD_FORM = {
         ajaxUrl: <?php echo wp_json_encode(admin_url('admin-ajax.php')); ?>,
@@ -1412,6 +1615,8 @@ $is_records_fill = $show_read_ui
         updateNonce: <?php echo wp_json_encode(wp_create_nonce(CanonicalUpdateRecordAjax::NONCE_ACTION)); ?>,
         deleteAction: <?php echo wp_json_encode(CanonicalDeleteRecordAjax::ACTION); ?>,
         deleteNonce: <?php echo wp_json_encode(wp_create_nonce(CanonicalDeleteRecordAjax::NONCE_ACTION)); ?>,
+        deleteImageAction: <?php echo wp_json_encode(CanonicalDeleteRecordImageAjax::ACTION); ?>,
+        deleteImageNonce: <?php echo wp_json_encode(wp_create_nonce(CanonicalDeleteRecordImageAjax::NONCE_ACTION)); ?>,
         familyKey: <?php echo wp_json_encode($create_family_key); ?>,
         containerId: <?php echo (int) $create_container_id; ?>,
         listsScope: <?php echo wp_json_encode($is_all_lists_scope ? 'all' : ''); ?>,

@@ -1,11 +1,11 @@
 <?php
 /**
- * TX local de retiro canónico tras autorización remota (IMG-5 inc. 3–4).
+ * TX local de retiro canónico tras autorización remota (IMG-5 inc. 3–5).
  *
  * Registro: una TX DELETE images/ops del inventario, fail-closed, DELETE registro.
  * Contenedor: chunks keyset (inventario luego registros) + DELETE contenedor;
  * CASCADE de records nunca ilimitado en una petición. Conserva corrida e inventario.
- * Sin HTTP. Sin BEGIN alrededor de HMAC.
+ * Imagen: DELETE solo image+op inventariadas; conserva registro y demás.
  *
  * @package WP_Agenda_Automatizada
  * @subpackage Infrastructure\Canonical\Images
@@ -198,6 +198,117 @@ class AA_Canonical_Purge_Local_Retire_Store {
                 $this->best_effort_rollback();
             }
             throw new CanonicalImageUploadPersistenceFailed('Local retire transaction failed.');
+        }
+    }
+
+    /**
+     * TX local: retira solo la imagen+op inventariadas. Conserva registro y demás.
+     *
+     * @throws CanonicalImageUploadPersistenceFailed
+     * @throws CanonicalRelationalAmbiguousOutcome
+     */
+    public function retire_image(
+        int $family_id,
+        int $container_id,
+        int $record_id,
+        int $image_id,
+        int $purge_run_id
+    ): CanonicalPurgeLocalRetireResult {
+        $now = gmdate('Y-m-d H:i:s');
+        $mutation_possible = false;
+
+        try {
+            if ($this->wpdb->query('START TRANSACTION') === false) {
+                throw new CanonicalImageUploadPersistenceFailed('Failed to start image local retire transaction.');
+            }
+
+            $items = $this->inventory->list_ordered_for_run($purge_run_id);
+            if (count($items) > 1) {
+                $this->rollback_confirmed();
+                return CanonicalPurgeLocalRetireResult::failed('inventory_too_large_for_image_scope');
+            }
+
+            foreach ($items as $item) {
+                $op = (string) ($item['upload_operation_id'] ?? '');
+                if ($op === '') {
+                    $this->rollback_confirmed();
+                    return CanonicalPurgeLocalRetireResult::failed('inventory_identity_missing');
+                }
+                if ((int) ($item['wp_record_id'] ?? 0) !== $record_id) {
+                    $this->rollback_confirmed();
+                    return CanonicalPurgeLocalRetireResult::failed('inventory_identity_mismatch');
+                }
+
+                $live_image = $this->images->find_by_upload_operation_id($op);
+                if ($live_image !== null) {
+                    if ((int) ($live_image['id'] ?? 0) !== $image_id
+                        || (int) ($live_image['record_id'] ?? 0) !== $record_id
+                    ) {
+                        $this->rollback_confirmed();
+                        return CanonicalPurgeLocalRetireResult::failed('inventory_identity_mismatch');
+                    }
+                }
+
+                $this->images->delete_by_upload_operation_id($op);
+                $this->operations->delete_by_operation_id($op);
+                $mutation_possible = true;
+            }
+
+            $still = $this->images->find_by_id($image_id);
+            if ($still !== null) {
+                $this->rollback_confirmed();
+                return CanonicalPurgeLocalRetireResult::failed('image_still_present');
+            }
+
+            $this->touch_container($family_id, $container_id, $now);
+            $this->runs->mark_completed($purge_run_id, $now);
+            $mutation_possible = true;
+
+            $this->wpdb->last_error = '';
+            if (!$this->commit_transaction()) {
+                $this->best_effort_rollback();
+                throw new CanonicalRelationalAmbiguousOutcome(
+                    'delete',
+                    'image',
+                    $image_id,
+                    $container_id,
+                    'COMMIT failed after image local retire.'
+                );
+            }
+
+            return CanonicalPurgeLocalRetireResult::confirmed();
+        } catch (CanonicalRelationalAmbiguousOutcome $e) {
+            throw $e;
+        } catch (CanonicalImageUploadPersistenceFailed $e) {
+            if ($mutation_possible) {
+                if (!$this->best_effort_rollback()) {
+                    throw new CanonicalRelationalAmbiguousOutcome(
+                        'delete',
+                        'image',
+                        $image_id,
+                        $container_id,
+                        'ROLLBACK failed after possible image local retire mutation.'
+                    );
+                }
+            } else {
+                $this->best_effort_rollback();
+            }
+            throw $e;
+        } catch (\Throwable $e) {
+            if ($mutation_possible) {
+                if (!$this->best_effort_rollback()) {
+                    throw new CanonicalRelationalAmbiguousOutcome(
+                        'delete',
+                        'image',
+                        $image_id,
+                        $container_id,
+                        'ROLLBACK failed after possible image local retire mutation.'
+                    );
+                }
+            } else {
+                $this->best_effort_rollback();
+            }
+            throw new CanonicalImageUploadPersistenceFailed('Image local retire transaction failed.');
         }
     }
 

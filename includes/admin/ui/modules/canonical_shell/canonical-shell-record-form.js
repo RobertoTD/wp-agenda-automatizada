@@ -16,6 +16,8 @@
     var updateNonce = typeof cfg.updateNonce === 'string' ? cfg.updateNonce : '';
     var deleteAction = typeof cfg.deleteAction === 'string' ? cfg.deleteAction : '';
     var deleteNonce = typeof cfg.deleteNonce === 'string' ? cfg.deleteNonce : '';
+    var deleteImageAction = typeof cfg.deleteImageAction === 'string' ? cfg.deleteImageAction : '';
+    var deleteImageNonce = typeof cfg.deleteImageNonce === 'string' ? cfg.deleteImageNonce : '';
     var familyKey = typeof cfg.familyKey === 'string' ? cfg.familyKey : '';
     var containerId = typeof cfg.containerId === 'number' ? cfg.containerId : parseInt(cfg.containerId, 10);
     var listsScope = typeof cfg.listsScope === 'string' ? cfg.listsScope : '';
@@ -164,6 +166,28 @@
     var deletePreviousFocus = null;
     var deleteRedirectUrl = null;
     var deleteConfirmDefaultLabel = deleteConfirmBtn ? deleteConfirmBtn.textContent : 'Eliminar registro';
+
+    var IMAGE_DELETE_RESUME_COOLDOWN_MS = 400;
+    var deleteImageModal = document.getElementById('aa-shell-delete-image-modal');
+    var deleteImageBackdrop = document.getElementById('aa-shell-delete-image-modal-backdrop');
+    var deleteImageCloseBtn = document.getElementById('aa-shell-delete-image-modal-close-btn');
+    var deleteImageCancelBtn = document.getElementById('aa-shell-delete-image-modal-cancel-btn');
+    var deleteImageConfirmBtn = document.getElementById('aa-shell-delete-image-confirm-btn');
+    var deleteImageAbortBtn = document.getElementById('aa-shell-delete-image-abort-btn');
+    var deleteImageReloadBtn = document.getElementById('aa-shell-delete-image-reload-btn');
+    var deleteImageIdLabel = document.getElementById('aa-shell-delete-image-id-label');
+    var deleteImageStatusEl = document.getElementById('aa-shell-delete-image-status');
+    var deleteImageId = null;
+    var deleteImageRecordId = null;
+    var deleteImageInFlight = false;
+    var deleteImageBlocked = false;
+    var deleteImagePreviousFocus = null;
+    var deleteImageRedirectUrl = null;
+    var deleteImageResumeAt = 0;
+    var deleteImageConfirmDefaultLabel = deleteImageConfirmBtn
+        ? deleteImageConfirmBtn.textContent
+        : 'Eliminar imagen';
+    var imageDeleteBound = false;
 
     function appendReturnContext(body) {
         if (listsScope === 'all') {
@@ -846,11 +870,403 @@
         });
     }
 
+    function parseImagePayload(raw) {
+        if (typeof raw !== 'string' || raw === '') {
+            return null;
+        }
+        var data = parseJsonSafe(raw);
+        if (!data || typeof data !== 'object') {
+            return null;
+        }
+        var id = typeof data.id === 'number' ? data.id : parseInt(data.id, 10);
+        if (!(id >= 1)) {
+            return null;
+        }
+        var recordId = typeof data.record_id === 'number' ? data.record_id : parseInt(data.record_id, 10);
+        return {
+            id: id,
+            record_id: (recordId >= 1) ? recordId : null
+        };
+    }
+
+    function setDeleteImageStatus(message, isError) {
+        if (!deleteImageStatusEl) {
+            return;
+        }
+        if (!message) {
+            deleteImageStatusEl.textContent = '';
+            deleteImageStatusEl.className = 'hidden mb-4 p-3 rounded-lg text-xs font-medium';
+            return;
+        }
+        deleteImageStatusEl.textContent = message;
+        deleteImageStatusEl.className = isError
+            ? 'mb-4 p-3 rounded-lg text-xs font-medium bg-red-50 text-red-800 border border-red-200'
+            : 'mb-4 p-3 rounded-lg text-xs font-medium bg-amber-50 text-amber-900 border border-amber-200';
+    }
+
+    function setDeleteImageBusy(busy) {
+        deleteImageInFlight = !!busy;
+        if (deleteImageConfirmBtn) {
+            deleteImageConfirmBtn.disabled = !!busy || deleteImageBlocked;
+        }
+        if (deleteImageAbortBtn) {
+            deleteImageAbortBtn.disabled = !!busy;
+        }
+        if (deleteImageCancelBtn) {
+            deleteImageCancelBtn.disabled = !!busy;
+        }
+        if (deleteImageCloseBtn) {
+            deleteImageCloseBtn.disabled = !!busy;
+        }
+    }
+
+    function showDeleteImageReload(show) {
+        if (!deleteImageReloadBtn) {
+            return;
+        }
+        if (show) {
+            deleteImageReloadBtn.classList.remove('hidden');
+        } else {
+            deleteImageReloadBtn.classList.add('hidden');
+        }
+    }
+
+    function showDeleteImageAbort(show) {
+        if (!deleteImageAbortBtn) {
+            return;
+        }
+        if (show) {
+            deleteImageAbortBtn.classList.remove('hidden');
+        } else {
+            deleteImageAbortBtn.classList.add('hidden');
+        }
+    }
+
+    function setDeleteImageConfirmLabel(label) {
+        if (!deleteImageConfirmBtn) {
+            return;
+        }
+        deleteImageConfirmBtn.textContent = label || deleteImageConfirmDefaultLabel;
+    }
+
+    function armDeleteImageResumeCooldown() {
+        deleteImageResumeAt = Date.now() + IMAGE_DELETE_RESUME_COOLDOWN_MS;
+    }
+
+    function openDeleteImageModal(imageId, recordId, triggerEl, autoContinue) {
+        if (!deleteImageModal || !deleteImageConfirmBtn || !deleteImageAction || !deleteImageNonce) {
+            return;
+        }
+        if (inFlight || deleteInFlight || deleteImageInFlight || deleteImageBlocked) {
+            return;
+        }
+        if (deleteModal && !deleteModal.classList.contains('hidden')) {
+            return;
+        }
+        if (!modal.classList.contains('hidden')) {
+            return;
+        }
+        if (!(imageId >= 1)) {
+            return;
+        }
+
+        deleteImageId = imageId;
+        deleteImageRecordId = (recordId >= 1) ? recordId : null;
+        deleteImagePreviousFocus = triggerEl || document.activeElement;
+        deleteImageRedirectUrl = null;
+        deleteImageBlocked = false;
+        deleteImageResumeAt = 0;
+        setDeleteImageStatus('', false);
+        showDeleteImageReload(false);
+        showDeleteImageAbort(false);
+        setDeleteImageConfirmLabel(autoContinue ? 'Continuar' : deleteImageConfirmDefaultLabel);
+        if (deleteImageIdLabel) {
+            deleteImageIdLabel.textContent = String(imageId);
+        }
+        if (deleteImageConfirmBtn) {
+            deleteImageConfirmBtn.disabled = false;
+        }
+        deleteImageModal.classList.remove('hidden');
+        deleteImageModal.setAttribute('aria-hidden', 'false');
+        if (autoContinue) {
+            submitDeleteImage();
+            return;
+        }
+        if (deleteImageCancelBtn) {
+            deleteImageCancelBtn.focus();
+        }
+    }
+
+    function closeDeleteImageModal(restoreFocus) {
+        if (!deleteImageModal) {
+            return;
+        }
+        if (deleteImageInFlight) {
+            return;
+        }
+        if (deleteImageBlocked) {
+            return;
+        }
+        deleteImageModal.classList.add('hidden');
+        deleteImageModal.setAttribute('aria-hidden', 'true');
+        setDeleteImageStatus('', false);
+        showDeleteImageReload(false);
+        showDeleteImageAbort(false);
+        setDeleteImageConfirmLabel(deleteImageConfirmDefaultLabel);
+        deleteImageId = null;
+        deleteImageRecordId = null;
+        deleteImageRedirectUrl = null;
+        deleteImageResumeAt = 0;
+        if (deleteImageIdLabel) {
+            deleteImageIdLabel.textContent = '';
+        }
+        if (restoreFocus) {
+            restoreFocusToVisible(deleteImagePreviousFocus);
+        }
+        deleteImagePreviousFocus = null;
+    }
+
+    function removeImageFromDom(imageId) {
+        var nodes = document.querySelectorAll('[data-aa-image-id="' + String(imageId) + '"]');
+        for (var i = 0; i < nodes.length; i++) {
+            var node = nodes[i];
+            if (node && node.parentNode) {
+                node.parentNode.removeChild(node);
+            }
+        }
+    }
+
+    function submitDeleteImage(retireAction) {
+        if (!deleteImageModal || deleteImageInFlight || deleteImageBlocked) {
+            return;
+        }
+        if (retireAction !== 'cancel' && deleteImageResumeAt > 0 && Date.now() < deleteImageResumeAt) {
+            return;
+        }
+        if (!(deleteImageId >= 1)) {
+            setDeleteImageStatus('No se pudo eliminar la imagen. Inténtalo de nuevo.', true);
+            return;
+        }
+
+        setDeleteImageStatus('', false);
+        showDeleteImageReload(false);
+        setDeleteImageBusy(true);
+
+        var body = new FormData();
+        body.append('action', deleteImageAction);
+        body.append('nonce', deleteImageNonce);
+        body.append('family_key', familyKey);
+        body.append('image_id', String(deleteImageId));
+        if (retireAction === 'cancel') {
+            body.append('retire_action', 'cancel');
+        }
+        appendReturnContext(body);
+
+        fetch(ajaxUrl, {
+            method: 'POST',
+            credentials: 'same-origin',
+            body: body
+        }).then(function (response) {
+            return response.text().then(function (text) {
+                return { httpStatus: response.status, payload: parseJsonSafe(text) };
+            });
+        }).then(function (result) {
+            var payload = result.payload;
+            if (!payload || typeof payload !== 'object') {
+                setDeleteImageBusy(false);
+                setDeleteImageStatus('No se pudo eliminar la imagen. Inténtalo de nuevo.', true);
+                return;
+            }
+
+            if (payload.success === true && payload.data && payload.data.status === 'confirmed') {
+                var confirmedId = deleteImageId;
+                setDeleteImageBusy(false);
+                closeDeleteImageModal(false);
+                removeImageFromDom(confirmedId);
+                return;
+            }
+
+            if (payload.success === true && payload.data && payload.data.status === 'cancelled') {
+                setDeleteImageBusy(false);
+                closeDeleteImageModal(true);
+                return;
+            }
+
+            var err = payload.data || {};
+            var code = typeof err.code === 'string' ? err.code : '';
+            var message = typeof err.message === 'string' ? err.message : '';
+            var errRedirect = typeof err.redirect_url === 'string' ? err.redirect_url : '';
+
+            if (code === 'uncertain') {
+                deleteImageBlocked = true;
+                deleteImageRedirectUrl = errRedirect !== '' ? errRedirect : null;
+                setDeleteImageBusy(false);
+                if (deleteImageConfirmBtn) {
+                    deleteImageConfirmBtn.disabled = true;
+                }
+                showDeleteImageAbort(false);
+                setDeleteImageStatus(
+                    message || 'No fue posible confirmar si la imagen se eliminó. Recarga la lista para verificarlo antes de intentarlo nuevamente.',
+                    false
+                );
+                showDeleteImageReload(true);
+                return;
+            }
+
+            if (code === 'incomplete') {
+                setDeleteImageBusy(false);
+                setDeleteImageConfirmLabel('Continuar');
+                showDeleteImageAbort(false);
+                armDeleteImageResumeCooldown();
+                setDeleteImageStatus(
+                    message || 'La eliminación no terminó. Pulsa Continuar para seguir.',
+                    false
+                );
+                return;
+            }
+
+            if (code === 'conflict') {
+                setDeleteImageBusy(false);
+                setDeleteImageConfirmLabel('Reintentar');
+                showDeleteImageAbort(err.can_cancel !== false);
+                setDeleteImageStatus(
+                    message || 'No se pudo preparar la eliminación. Puedes cancelarla para desbloquear el registro, o reintentar.',
+                    false
+                );
+                return;
+            }
+
+            if (code === 'cancel_rejected') {
+                setDeleteImageBusy(false);
+                setDeleteImageConfirmLabel('Continuar');
+                showDeleteImageAbort(false);
+                armDeleteImageResumeCooldown();
+                setDeleteImageStatus(
+                    message || 'Ya hubo comunicación remota. No se puede cancelar. Pulsa Continuar para recuperar el protocolo.',
+                    false
+                );
+                return;
+            }
+
+            if (code === 'intervention_required') {
+                deleteImageRedirectUrl = errRedirect !== '' ? errRedirect : null;
+                setDeleteImageBusy(false);
+                setDeleteImageConfirmLabel(deleteImageConfirmDefaultLabel);
+                showDeleteImageAbort(false);
+                if (deleteImageConfirmBtn) {
+                    deleteImageConfirmBtn.disabled = true;
+                }
+                setDeleteImageStatus(
+                    message || 'Esta eliminación no puede continuar sola. Recarga la lista. Si el problema persiste, hace falta una revisión.',
+                    false
+                );
+                showDeleteImageReload(true);
+                return;
+            }
+
+            if (code === 'image_not_found') {
+                var missingId = deleteImageId;
+                setDeleteImageBusy(false);
+                closeDeleteImageModal(false);
+                removeImageFromDom(missingId);
+                return;
+            }
+
+            setDeleteImageBusy(false);
+            setDeleteImageStatus(message || 'No se pudo eliminar la imagen. Inténtalo de nuevo.', true);
+        }).catch(function () {
+            setDeleteImageBusy(false);
+            setDeleteImageStatus('No se pudo eliminar la imagen. Inténtalo de nuevo.', true);
+        });
+    }
+
+    function reloadAfterImageUncertain() {
+        if (typeof deleteImageRedirectUrl === 'string' && deleteImageRedirectUrl !== '') {
+            window.location.assign(deleteImageRedirectUrl);
+            return;
+        }
+        window.location.reload();
+    }
+
+    function bindImageDeleteOnce() {
+        if (imageDeleteBound || !deleteImageAction || !deleteImageNonce || !deleteImageModal) {
+            return;
+        }
+        imageDeleteBound = true;
+
+        var imageButtons = document.querySelectorAll('.aa-shell-delete-image-btn, .aa-shell-resume-image-delete-btn');
+        for (var ib = 0; ib < imageButtons.length; ib++) {
+            (function (btn) {
+                btn.addEventListener('click', function (e) {
+                    if (e && e.repeat) {
+                        return;
+                    }
+                    var image = parseImagePayload(btn.getAttribute('data-aa-image'));
+                    if (!image) {
+                        return;
+                    }
+                    var isResume = btn.classList.contains('aa-shell-resume-image-delete-btn');
+                    openDeleteImageModal(image.id, image.record_id, btn, isResume);
+                });
+            })(imageButtons[ib]);
+        }
+
+        if (deleteImageCloseBtn) {
+            deleteImageCloseBtn.addEventListener('click', function () {
+                closeDeleteImageModal(true);
+            });
+        }
+        if (deleteImageCancelBtn) {
+            deleteImageCancelBtn.addEventListener('click', function () {
+                closeDeleteImageModal(true);
+            });
+        }
+        if (deleteImageBackdrop) {
+            deleteImageBackdrop.addEventListener('click', function () {
+                closeDeleteImageModal(true);
+            });
+        }
+        if (deleteImageConfirmBtn) {
+            deleteImageConfirmBtn.addEventListener('keydown', function (e) {
+                if ((e.key === 'Enter' || e.key === ' ') && e.repeat) {
+                    e.preventDefault();
+                }
+            });
+            deleteImageConfirmBtn.addEventListener('click', function (e) {
+                if (e && e.repeat) {
+                    return;
+                }
+                submitDeleteImage();
+            });
+        }
+        if (deleteImageAbortBtn) {
+            deleteImageAbortBtn.addEventListener('click', function () {
+                submitDeleteImage('cancel');
+            });
+        }
+        if (deleteImageReloadBtn) {
+            deleteImageReloadBtn.addEventListener('click', function () {
+                reloadAfterImageUncertain();
+            });
+        }
+    }
+
+    bindImageDeleteOnce();
+
     document.addEventListener('keydown', function (e) {
         if (e.key !== 'Escape') {
             return;
         }
         if (e.defaultPrevented) {
+            return;
+        }
+        if (deleteImageModal && !deleteImageModal.classList.contains('hidden')) {
+            if (!deleteImageBlocked) {
+                closeDeleteImageModal(true);
+            }
+            if (typeof e.preventDefault === 'function') {
+                e.preventDefault();
+            }
             return;
         }
         if (deleteModal && !deleteModal.classList.contains('hidden')) {

@@ -1,6 +1,6 @@
 # Exploración: retiro canónico WP, mandatos de limpieza y cuota
 
-**Estado:** incrementos 1–4 implementados en `dev/canonical-images-retire`. Incremento 3: AJAX/HTTP PASS; Continuar UI registro y C de red pendientes. Incremento 4: AJAX A/B/C PASS; Continuar visual desde listado lista 22 PASS (§7.12); Cerrar/recargar/banner/altas **no** PASS. **Incremento 5 (una imagen, registro vivo): diseño documentado en §8 — no implementado.** `images` sigue `is_ready=false`. Sin cron/workers.
+**Estado:** incrementos 1–5 implementados en `dev/canonical-images-retire`. Incremento 3: AJAX/HTTP PASS; Continuar UI registro y C de red pendientes. Incremento 4: AJAX A/B/C PASS; Continuar visual desde listado lista 22 PASS (§7.12); Cerrar/recargar/banner/altas **no** PASS. **Incremento 5 (una imagen, registro vivo): implementado (§8)** — AC MySQL/Ajax/JS PASS; `images` sigue `is_ready=false`. Sin cron/workers.
 **Fecha:** 2026-09-14.
 **Ámbito:** integración WordPress del retiro de registros/adjuntos canónicos y liberación de cuota, reutilizando `accept` / `seal` / `status` del backend.
 
@@ -10,7 +10,7 @@ No modifica el state de la prueba Backend 3 (worker local Storage, `docs/ops/att
 
 | Repo | Rama | HEAD |
 |------|------|------|
-| `wp-agenda-automatizada` | `dev/canonical-images-retire` | `287fb50bbc75b8c8d299f2d65b2dcc624827d6f5` (docs Continuar lista 22); este commit: diseño incremento 5 §8 |
+| `wp-agenda-automatizada` | `dev/canonical-images-retire` | (este commit: IMG-5 inc. 5 retiro de una imagen) |
 | `deoia-oauth-backend` (solo contratos) | `dev/backend-recovered` | `26452b3ba4ceb24b7bf46271fd30a0c58318ceed` (sin cambios; untracked ajeno: `scripts/runner-from-pack.sh`) |
 
 **Backend Storage fixture (no reejecutada aquí):** immediate / later / reappear **PASS**. El caso reappear fue **sintético** (no un PUT tardío real del proveedor).
@@ -325,9 +325,9 @@ El detalle del flujo, numeración, cancelación segura y procedimiento manual es
 
 `aa_delete_canonical_container` orquesta mandatos `scope=container` (`RetireCanonicalContainerUseCase`). Seal obligatorio (incl. `expected_batch_count=0`). Chunks locales post-sello. AJAX integrado policyytest A/B/C **PASS** (§7.10). Continuar visual desde listado **PASS** (lista 22, §7.12). Cerrar/recargar/banner **pendientes**. Primer intento lista 21 **no PASS** (§7.11). Detalle: **§7**.
 
-### Incremento 5 — retiro de **una imagen** (registro vivo) — **diseñado (§8), no implementado**
+### Incremento 5 — retiro de **una imagen** (registro vivo) — **implementado (§8)**
 
-Norma §12.4. Diseño único, componentes, schema mínimo, matriz de pruebas y veredicto de preparación: **§8**. No forma parte del entregable del 4.
+Norma §12.4. Diseño único, componentes, schema mínimo, matriz de pruebas: **§8**. Código en Application/Ajax/UI; `DB_VERSION=31`. Capability `images` sigue `is_ready=false` (no cierra la capability).
 
 ### Incremento 6 (opcional, aparte)
 
@@ -909,9 +909,9 @@ Dos POSTs secuenciales (~47 s). Una sola corrida / un solo mandato. Chunk 50 int
 
 Las demás limitaciones ya registradas (Continuar UI inc. 3; C integrado inc. 3; `is_ready`; worker; retiro de una imagen §8) **permanecen**.
 
-## 8. Incremento 5 — retiro de una imagen (registro vivo) — **diseño**
+## 8. Incremento 5 — retiro de una imagen (registro vivo) — **implementado**
 
-**Estado de este turno:** exploración y documentación únicamente. **No implementado.** No se ejecutaron pruebas con efectos, ni HTTP remoto, ni fixtures nuevas.
+**Estado:** implementado en `dev/canonical-images-retire`. AC MySQL aislado + Ajax estructural + JS modal PASS. Sin HTTP remoto real ni Storage en este turno. Cerrar/banner/altas del **incremento 4** siguen **no** PASS.
 
 **Norma:** `docs/05-canonical-capabilities.md` §12.4 — eliminar una imagen elimina sus objetos asociados; aplica aunque `images` esté inactiva en la lista; fallo a medias → incompleto + Continuar.
 
@@ -1074,11 +1074,20 @@ No contadores de cuota. No Storage. No DELETE de `aa_canonical_records`.
 | `is_ready=false` | No bloquea el diseño del delete (§12.4); sí limita galería de producto |
 | Worker / Render / tombstones | Fuera; no bloquean el diseño WP |
 
-**Veredicto:** **preparado para implementar** el incremento 5 según §8.2–8.7. No reabrir subida ni limpieza física del backend. No implementar en este turno.
+**Veredicto:** **implementado** según §8.2–8.7. No reabrir subida ni limpieza física del backend. Capability `images` no cerrada (`is_ready=false`).
 
 ### 8.10 Relación con pendientes visuales del 4
 
-Cerrar/recargar en incomplete, banner interior y bloqueo de altas del retiro de **lista** siguen **no PASS** (§7.12). Esta exploración **no** los acredita ni los reabre.
+Cerrar/recargar en incomplete, banner interior y bloqueo de altas del retiro de **lista** siguen **no PASS** (§7.12). Este incremento **no** los acredita ni los reabre.
+
+### 8.11 Procedimiento manual policyytest (posterior; **no ejecutar aquí**)
+
+1. Blog policyytest; Node local; worker Storage **apagado**.
+2. Crear **nueva** imagen sintética en un registro vivo (camino de desarrollo acotado; **no** reutilizar fixtures de lista 17 / registro 33 / Backend 3).
+3. SSR: comprobar botón «Eliminar imagen» y, tras incomplete forzado, banner Continuar.
+4. AJAX/UI: Eliminar imagen → `confirmed`; registro visible; cuota SUM baja; residuo Storage esperado.
+5. Incomplete/Continuar solo si se fuerza fallo de protocolo.
+6. No marcar PASS de Cerrar/banner/altas del incremento 4.
 
 ---
 
@@ -1086,9 +1095,9 @@ Cerrar/recargar en incomplete, banner interior y bloqueo de altas del retiro de 
 
 | Capa | Pendiente |
 |------|-----------|
-| **Implementación** | **Inc. 5** una imagen (§8 diseño → código) |
 | **Validación visual 4** | Cerrar/recargar incomplete; banner interior; bloqueo de altas (lista 22 Continuar listado ya PASS) |
 | **Validación 3** | Continuar UI de registro; C integrado (interrupción de red) |
+| **Validación 5** | Manual policyytest con imagen sintética nueva (§8.11) |
 | **Activación producto** | `is_ready` / seeds / UI galería — **después** de recorridos de borrado acordados |
 | **Ops** | Activación operativa del **worker** periódico de Storage (no WP ledger físico); Render/ops aparte de este diseño |
 
@@ -1096,7 +1105,6 @@ Cerrar/recargar en incomplete, banner interior y bloqueo de altas del retiro de 
 
 ## Fuera de alcance restante
 
-- **Implementar** incremento 5 (este documento solo diseña).
 - Cerrar/recargar/banner/altas del 4; Continuar UI y C de red del 3.
 - Activar polling del worker, cron WP o `is_ready`.
 - Cambiar TTL, tombstones o identidades Storage Backend 3.

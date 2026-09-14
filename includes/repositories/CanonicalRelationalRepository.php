@@ -363,6 +363,37 @@ final class CanonicalRelationalRepository {
     }
 
     /**
+     * Resolución por id de registro (p. ej. image_id → record_id → container).
+     *
+     * @return array{id:int,public_id:string,container_id:int,title:string,details:?string,created_at:string,updated_at:string}|null
+     * @throws CanonicalRelationalQueryFailed
+     */
+    public function find_record_by_id(int $record_id): ?array {
+        if ($record_id < 1) {
+            return null;
+        }
+
+        $table = $this->records_table();
+        $this->clear_error_state();
+        $row = $this->wpdb->get_row(
+            $this->wpdb->prepare(
+                "SELECT id, public_id, container_id, title, details, created_at, updated_at
+                 FROM `{$table}`
+                 WHERE id = %d
+                 LIMIT 1",
+                $record_id
+            ),
+            ARRAY_A
+        );
+
+        if ($row === false || $this->wpdb->last_error !== '') {
+            throw new CanonicalRelationalQueryFailed('find_record_by_id query failed.');
+        }
+
+        return $this->map_record_row(is_array($row) ? $row : null);
+    }
+
+    /**
      * Ids de registro del contenedor posteriores a $after_id (keyset). No usa OFFSET.
      *
      * @return list<int>

@@ -6,6 +6,7 @@
  * Optional actions: $show_edit_record (bool), $card_record_id (int).
  * Optional presentation: $shell_record_presentation ('card'|'compact').
  * Optional capabilities: $card_capabilities (array|null) — mapa por clave del item.
+ * Optional images: $card_images (list of public rows) — delete mínimo sin galería.
  *
  * @package WP_Agenda_Automatizada
  */
@@ -21,6 +22,8 @@ $is_compact = ($shell_record_presentation === 'compact');
 $card_capabilities = isset($card_capabilities) && is_array($card_capabilities)
     ? $card_capabilities
     : null;
+$card_images = isset($card_images) && is_array($card_images) ? $card_images : [];
+$show_image_delete = !empty($show_image_delete);
 
 $amount_card = AA_Canonical_Amount_Shell_Presenter::card_view($card_capabilities);
 $amount_edit = AA_Canonical_Amount_Shell_Presenter::edit_payload_fragment($card_capabilities);
@@ -128,6 +131,45 @@ $panel_id = $card_record_id >= 1
                     <time datetime="<?php echo esc_attr($card_iso); ?>"><?php echo esc_html($card_display); ?></time>
                 </p>
             <?php endif; ?>
+            <?php if ($show_image_delete && $card_images !== []) : ?>
+                <ul class="aa-shell-record-images mt-2 space-y-1 m-0 p-0 list-none" aria-label="Imágenes del registro">
+                    <?php foreach ($card_images as $img_row) : ?>
+                        <?php
+                        if (!is_array($img_row)) {
+                            continue;
+                        }
+                        $img_id = isset($img_row['id']) ? (int) $img_row['id'] : 0;
+                        if ($img_id < 1) {
+                            continue;
+                        }
+                        $img_payload = wp_json_encode(
+                            [
+                                'id' => $img_id,
+                                'record_id' => $card_record_id,
+                            ],
+                            JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT
+                        );
+                        if (!is_string($img_payload) || $img_payload === '') {
+                            continue;
+                        }
+                        ?>
+                        <li
+                            class="aa-shell-record-image flex items-center justify-between gap-2 text-xs text-gray-700"
+                            data-aa-image-id="<?php echo esc_attr((string) $img_id); ?>"
+                        >
+                            <span>Imagen #<?php echo esc_html((string) $img_id); ?></span>
+                            <button
+                                type="button"
+                                class="aa-shell-delete-image-btn inline-flex items-center px-2 py-1 text-xs font-semibold text-red-700 bg-red-50 border border-red-200 rounded hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-500"
+                                data-aa-image="<?php echo esc_attr($img_payload); ?>"
+                                aria-label="<?php echo esc_attr('Eliminar imagen ' . $img_id); ?>"
+                            >
+                                Eliminar imagen
+                            </button>
+                        </li>
+                    <?php endforeach; ?>
+                </ul>
+            <?php endif; ?>
         </div>
     </div>
 </li>
@@ -153,6 +195,45 @@ $panel_id = $card_record_id >= 1
             <p class="mt-3 text-xs text-gray-500">
                 <time datetime="<?php echo esc_attr($card_iso); ?>"><?php echo esc_html($card_display); ?></time>
             </p>
+        <?php endif; ?>
+        <?php if ($show_image_delete && $card_images !== []) : ?>
+            <ul class="aa-shell-record-images mt-3 space-y-1 m-0 p-0 list-none" aria-label="Imágenes del registro">
+                <?php foreach ($card_images as $img_row) : ?>
+                    <?php
+                    if (!is_array($img_row)) {
+                        continue;
+                    }
+                    $img_id = isset($img_row['id']) ? (int) $img_row['id'] : 0;
+                    if ($img_id < 1) {
+                        continue;
+                    }
+                    $img_payload = wp_json_encode(
+                        [
+                            'id' => $img_id,
+                            'record_id' => $card_record_id,
+                        ],
+                        JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT
+                    );
+                    if (!is_string($img_payload) || $img_payload === '') {
+                        continue;
+                    }
+                    ?>
+                    <li
+                        class="aa-shell-record-image flex items-center justify-between gap-2 text-xs text-gray-700"
+                        data-aa-image-id="<?php echo esc_attr((string) $img_id); ?>"
+                    >
+                        <span>Imagen #<?php echo esc_html((string) $img_id); ?></span>
+                        <button
+                            type="button"
+                            class="aa-shell-delete-image-btn inline-flex items-center px-2 py-1 text-xs font-semibold text-red-700 bg-red-50 border border-red-200 rounded hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-500"
+                            data-aa-image="<?php echo esc_attr($img_payload); ?>"
+                            aria-label="<?php echo esc_attr('Eliminar imagen ' . $img_id); ?>"
+                        >
+                            Eliminar imagen
+                        </button>
+                    </li>
+                <?php endforeach; ?>
+            </ul>
         <?php endif; ?>
         <?php if ($edit_payload_attr !== '') : ?>
             <div class="mt-4 pt-3 border-t border-gray-100 flex flex-wrap items-center gap-2">

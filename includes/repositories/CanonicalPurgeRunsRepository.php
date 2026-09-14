@@ -25,6 +25,7 @@ final class CanonicalPurgeRunsRepository {
 
     public const SCOPE_RECORD = 'record';
     public const SCOPE_CONTAINER = 'container';
+    public const SCOPE_IMAGE = 'image';
 
     public const STATUS_IN_PROGRESS = 'in_progress';
     public const STATUS_INCOMPLETE = 'incomplete';
@@ -59,7 +60,7 @@ final class CanonicalPurgeRunsRepository {
     }
 
     /**
-     * True si existe purge abierta sobre el registro o su contenedor.
+     * True si existe purge abierta sobre el registro, su contenedor o una imagen del registro.
      *
      * @throws CanonicalImageUploadPersistenceFailed
      * @throws CanonicalImageUploadSchemaNotReady
@@ -81,6 +82,7 @@ final class CanonicalPurgeRunsRepository {
                    AND (
                         (scope = %s AND target_id = %d)
                      OR (scope = %s AND target_id = %d)
+                     OR (scope = %s AND record_id = %d)
                    )
                  LIMIT 1",
                 self::STATUS_IN_PROGRESS,
@@ -88,7 +90,9 @@ final class CanonicalPurgeRunsRepository {
                 self::SCOPE_RECORD,
                 $record_id,
                 self::SCOPE_CONTAINER,
-                $container_id
+                $container_id,
+                self::SCOPE_IMAGE,
+                $record_id
             )
         );
 
@@ -172,14 +176,58 @@ final class CanonicalPurgeRunsRepository {
     }
 
     /**
-     * Corrida abierta solapada (contenedor vs registro hijo), excluyendo el mismo alcance.
+     * Última corrida completed del mismo alcance/target (idempotencia post-retiro).
      *
      * @return array<string, mixed>|null
      *
      * @throws CanonicalImageUploadPersistenceFailed
      * @throws CanonicalImageUploadSchemaNotReady
      */
-    public function find_overlapping_open_run(string $scope, int $target_id, int $container_id): ?array {
+    public function find_latest_completed_by_scope_target(string $scope, int $target_id): ?array {
+        $table = AA_Canonical_Schema::purge_runs_table_name();
+        $this->assert_table_exists($table);
+
+        if ($target_id < 1) {
+            return null;
+        }
+
+        $this->clear_error_state();
+        $safe = str_replace('`', '``', $table);
+        $row = $this->wpdb->get_row(
+            $this->wpdb->prepare(
+                "SELECT * FROM `{$safe}`
+                 WHERE scope = %s AND target_id = %d AND status = %s
+                 ORDER BY id DESC
+                 LIMIT 1",
+                $scope,
+                $target_id,
+                self::STATUS_COMPLETED
+            ),
+            ARRAY_A
+        );
+
+        if ($this->wpdb->last_error !== '') {
+            throw new CanonicalImageUploadPersistenceFailed('Failed to SELECT completed purge run.');
+        }
+
+        return is_array($row) ? $row : null;
+    }
+
+    /**
+     * Corrida abierta solapada (contenedor ↔ registro ↔ imagen), excluyendo el mismo alcance.
+     * Para scope=image, $record_id es obligatorio (dueño durable).
+     *
+     * @return array<string, mixed>|null
+     *
+     * @throws CanonicalImageUploadPersistenceFailed
+     * @throws CanonicalImageUploadSchemaNotReady
+     */
+    public function find_overlapping_open_run(
+        string $scope,
+        int $target_id,
+        int $container_id,
+        ?int $record_id = null
+    ): ?array {
         $table = AA_Canonical_Schema::purge_runs_table_name();
         $this->assert_table_exists($table);
 
@@ -195,14 +243,46 @@ final class CanonicalPurgeRunsRepository {
                 $this->wpdb->prepare(
                     "SELECT * FROM `{$safe}`
                      WHERE status IN (%s, %s)
-                       AND scope = %s
-                       AND target_id = %d
+                       AND (
+                            (scope = %s AND target_id = %d)
+                         OR (scope = %s AND record_id = %d)
+                       )
                      ORDER BY id ASC
                      LIMIT 1",
                     self::STATUS_IN_PROGRESS,
                     self::STATUS_INCOMPLETE,
                     self::SCOPE_CONTAINER,
-                    $container_id
+                    $container_id,
+                    self::SCOPE_IMAGE,
+                    $target_id
+                ),
+                ARRAY_A
+            );
+        } elseif ($scope === self::SCOPE_IMAGE) {
+            $owner_record_id = $record_id !== null ? (int) $record_id : 0;
+            if ($owner_record_id < 1) {
+                return null;
+            }
+            $row = $this->wpdb->get_row(
+                $this->wpdb->prepare(
+                    "SELECT * FROM `{$safe}`
+                     WHERE status IN (%s, %s)
+                       AND (
+                            (scope = %s AND target_id = %d)
+                         OR (scope = %s AND target_id = %d)
+                         OR (scope = %s AND record_id = %d AND NOT (target_id = %d))
+                       )
+                     ORDER BY id ASC
+                     LIMIT 1",
+                    self::STATUS_IN_PROGRESS,
+                    self::STATUS_INCOMPLETE,
+                    self::SCOPE_RECORD,
+                    $owner_record_id,
+                    self::SCOPE_CONTAINER,
+                    $container_id,
+                    self::SCOPE_IMAGE,
+                    $owner_record_id,
+                    $target_id
                 ),
                 ARRAY_A
             );
@@ -271,7 +351,8 @@ final class CanonicalPurgeRunsRepository {
      *   family_key:string,
      *   mandate_id:string,
      *   created_at:string,
-     *   updated_at:string
+     *   updated_at:string,
+     *   record_id?:int|null
      * } $row
      * @return array<string, mixed>
      *
@@ -281,6 +362,11 @@ final class CanonicalPurgeRunsRepository {
     public function insert_open_run(array $row): array {
         $table = AA_Canonical_Schema::purge_runs_table_name();
         $this->assert_table_exists($table);
+
+        $record_id = array_key_exists('record_id', $row) ? self::nullable_int($row['record_id']) : null;
+        if ($record_id !== null && $record_id < 1) {
+            $record_id = null;
+        }
 
         $this->clear_error_state();
         $result = $this->wpdb->insert(
@@ -296,6 +382,7 @@ final class CanonicalPurgeRunsRepository {
                 'failed_count' => 0,
                 'mandate_id' => (string) $row['mandate_id'],
                 'container_id' => (int) $row['container_id'],
+                'record_id' => $record_id,
                 'capture_status' => AA_Canonical_Schema::PURGE_CAPTURE_STATUS_PENDING,
                 'images_read_after_id' => 0,
                 'images_source_exhausted' => 0,
@@ -307,7 +394,7 @@ final class CanonicalPurgeRunsRepository {
                 'updated_at' => (string) $row['updated_at'],
             ],
             [
-                '%s', '%d', '%s', '%s', '%s', '%d', '%d', '%d', '%s', '%d', '%s',
+                '%s', '%d', '%s', '%s', '%s', '%d', '%d', '%d', '%s', '%d', '%d', '%s',
                 '%d', '%d', '%d', '%d', '%d', '%d', '%s', '%s',
             ]
         );
@@ -667,7 +754,10 @@ final class CanonicalPurgeRunsRepository {
         $table = AA_Canonical_Schema::purge_runs_table_name();
         $this->assert_table_exists($table);
 
-        if ($scope !== self::SCOPE_RECORD && $scope !== self::SCOPE_CONTAINER) {
+        if ($scope !== self::SCOPE_RECORD
+            && $scope !== self::SCOPE_CONTAINER
+            && $scope !== self::SCOPE_IMAGE
+        ) {
             return [];
         }
 

@@ -226,7 +226,7 @@ final class CaptureCanonicalPurgeInventoryUseCase {
 
         $now = gmdate('Y-m-d H:i:s');
 
-        return $this->runs->insert_open_run([
+        $insert = [
             'scope' => $command->scope(),
             'target_id' => $command->target_id(),
             'container_id' => $command->container_id(),
@@ -234,7 +234,12 @@ final class CaptureCanonicalPurgeInventoryUseCase {
             'mandate_id' => AA_Canonical_Purge_Inventory_Identity::new_uuid_v4(),
             'created_at' => $now,
             'updated_at' => $now,
-        ]);
+        ];
+        if ($command->scope() === CanonicalPurgeRunsRepository::SCOPE_RECORD) {
+            $insert['record_id'] = $command->target_id();
+        }
+
+        return $this->runs->insert_open_run($insert);
     }
 
     /**

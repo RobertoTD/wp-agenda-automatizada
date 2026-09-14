@@ -408,6 +408,9 @@ CanonicalUpdateRecordAjax::register();
 require_once __DIR__ . '/includes/http/ajax/CanonicalDeleteRecordAjax.php';
 CanonicalDeleteRecordAjax::register();
 
+require_once __DIR__ . '/includes/http/ajax/CanonicalDeleteRecordImageAjax.php';
+CanonicalDeleteRecordImageAjax::register();
+
 require_once __DIR__ . '/includes/http/ajax/CanonicalAttachRecordImageAjax.php';
 CanonicalAttachRecordImageAjax::register();
 

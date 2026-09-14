@@ -28,6 +28,7 @@
  *
  * IMG-5 incremento 4 (DB 30): checkpoints de retiro local post-sello de lista
  * (`local_retire_after_inventory_id`, `local_retire_after_record_id`) en purge_runs.
+ * IMG-5 / DB 31: `record_id` nullable en purge_runs (dueño durable de scope=image).
  *
  * Patrón técnico: dbDelta → ensure columnas v27/v28/v29/v30 → migración v25 repertorio → ALTER FK → verify() fail-closed.
  * No escribe timestamps ni genera public_id (salvo copia de filas en migración v25).
@@ -386,12 +387,14 @@ final class AA_Canonical_Schema {
             cancelled_at datetime DEFAULT NULL,
             local_retire_after_inventory_id bigint(20) unsigned NOT NULL DEFAULT 0,
             local_retire_after_record_id bigint(20) unsigned NOT NULL DEFAULT 0,
+            record_id bigint(20) unsigned DEFAULT NULL,
             created_at datetime NOT NULL,
             updated_at datetime NOT NULL,
             PRIMARY KEY  (id),
             KEY idx_purge_scope_target_status (scope, target_id, status),
             KEY idx_purge_mandate_id (mandate_id),
-            KEY idx_purge_container_status (container_id, status)
+            KEY idx_purge_container_status (container_id, status),
+            KEY idx_purge_record_status (record_id, status)
         ) ENGINE=InnoDB {$charset};";
 
         $purge_inventory_sql = "CREATE TABLE {$purge_inventory_table} (
@@ -429,6 +432,7 @@ final class AA_Canonical_Schema {
         self::ensure_purge_capture_v28();
         self::ensure_purge_retire_intent_v29();
         self::ensure_purge_container_local_retire_v30();
+        self::ensure_purge_image_retire_v31();
         self::ensure_family_capabilities_v25();
         self::ensure_containers_family_scope_v22();
         self::ensure_named_indexes();
@@ -550,6 +554,30 @@ final class AA_Canonical_Schema {
             $runs,
             'local_retire_after_record_id',
             'bigint(20) unsigned NOT NULL DEFAULT 0'
+        );
+    }
+
+    /**
+     * IMG-5 inc. 5 / DB 31: record_id durable en corridas (scope=image).
+     * NULL = no aplica (p. ej. scope=container) o corrida histórica sin dueño sellado.
+     *
+     * @throws \RuntimeException
+     */
+    public static function ensure_purge_image_retire_v31(): void {
+        $runs = self::purge_runs_table_name();
+        if (!self::physical_table_exists($runs)) {
+            return;
+        }
+
+        self::ensure_column_definition(
+            $runs,
+            'record_id',
+            'bigint(20) unsigned DEFAULT NULL'
+        );
+        self::ensure_named_index(
+            $runs,
+            'idx_purge_record_status',
+            "ALTER TABLE `{$runs}` ADD KEY idx_purge_record_status (record_id, status)"
         );
     }
 
@@ -1568,6 +1596,7 @@ final class AA_Canonical_Schema {
             'last_accepted_batch_seq', 'sealed_at', 'capture_conflict_code',
             'accept_intent_batch_seq', 'seal_intent_at', 'cancelled_at',
             'local_retire_after_inventory_id', 'local_retire_after_record_id',
+            'record_id',
             'created_at', 'updated_at',
         ];
         foreach ($expected as $field) {
@@ -1607,6 +1636,7 @@ final class AA_Canonical_Schema {
         self::assert_datetime_nullable($table, $cols['cancelled_at'], 'cancelled_at');
         self::assert_bigint_unsigned_not_null($table, $cols['local_retire_after_inventory_id'], 'local_retire_after_inventory_id');
         self::assert_bigint_unsigned_not_null($table, $cols['local_retire_after_record_id'], 'local_retire_after_record_id');
+        self::assert_bigint_unsigned_nullable($table, $cols['record_id'], 'record_id');
         self::assert_datetime_not_null_no_default($table, $cols['created_at'], 'created_at');
         self::assert_datetime_not_null_no_default($table, $cols['updated_at'], 'updated_at');
 
@@ -1614,6 +1644,7 @@ final class AA_Canonical_Schema {
         self::verify_composite_index($table, ['scope', 'target_id', 'status']);
         self::verify_index($table, 'idx_purge_mandate_id', ['mandate_id']);
         self::verify_composite_index($table, ['container_id', 'status']);
+        self::verify_composite_index($table, ['record_id', 'status']);
     }
 
     private static function verify_purge_inventory_items_structure(string $table): void {
