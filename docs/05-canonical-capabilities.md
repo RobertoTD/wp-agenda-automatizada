@@ -209,7 +209,8 @@ Hechos del repositorio tras A1b + LEGACY-X Finance + selección por lista (no su
 - **IMG-4:** lectura por lote + contributor SSR (`known_collection`) + sign-read (`aa_sign_canonical_record_image_read`); `images` sigue not-ready sin seeds/UI/galería.
 - **IMG-5 inc. 1:** cliente HMAC `accept`/`seal`/`status` de mandatos; sin schema WP.
 - **IMG-5 inc. 2:** `DB_VERSION=28`; corrida durable + inventario congelado + tandas exactas + exclusión de escritores; sin HTTP accept/seal, sin DELETE de producto, sin UI Continuar.
-- **IMG-5 inc. 3:** `DB_VERSION=29`; `batch_seq` 0-based persistido; `RetireCanonicalRecordUseCase` + `aa_delete_canonical_record`; accept/seal/status HMAC; cancelación local previa al envío; TX local post-sello. Validación integrada policyytest 2026-09-14 (A/D AJAX PASS; B PASS tras parche authorize HTTP; UI vacío+Cancelar acreditados; Continuar no PASS; C integrado pendiente). Sin retiro de contenedores, sin `is_ready`, sin worker.
+- **IMG-5 inc. 3:** `DB_VERSION=29`; `batch_seq` 0-based persistido; `RetireCanonicalRecordUseCase` + `aa_delete_canonical_record`; accept/seal/status HMAC; cancelación local previa al envío; TX local post-sello. Validación integrada policyytest 2026-09-14 (A/D AJAX PASS; B PASS tras parche authorize HTTP; UI vacío+Cancelar acreditados; Continuar no PASS; C integrado pendiente). Sin retiro de contenedores en código, sin `is_ready`, sin worker.
+- **IMG-5 inc. 4 (diseño):** retiro de lista documentado en `docs/plans/canonical-images-retire-wp-integration.md` §7; sin implementación. Retiro de una imagen (§8 del plan) pendiente aparte.
 
 ---
 
