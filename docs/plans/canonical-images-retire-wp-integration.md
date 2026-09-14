@@ -1,6 +1,6 @@
 # Exploración: retiro canónico WP, mandatos de limpieza y cuota
 
-**Estado:** incrementos 1–4 implementados en `dev/canonical-images-retire`. Incremento 3 cerrado en validación policyytest (A/D/B + UI vacío/Cancelar; Continuar no PASS; C integrado pendiente). **Incremento 4 (retiro de lista) — código y AC aislados; prueba manual no ejecutada.** Todavía sin cron/workers ni `is_ready`. Retiro de **una imagen** conservando el registro: pendiente como incremento aparte (§8).
+**Estado:** incrementos 1–4 implementados en `dev/canonical-images-retire`. Incremento 3 cerrado en validación policyytest (A/D/B + UI vacío/Cancelar; Continuar no PASS; C integrado pendiente). **Incremento 4 (retiro de lista) — código + AC aislados + AJAX integrado policyytest A/B/C PASS; clics de navegador del 4 pendientes** (fixture viva §7.10). Todavía sin cron/workers ni `is_ready`. Retiro de **una imagen** conservando el registro: pendiente como incremento aparte (§8).
 **Fecha:** 2026-09-14.
 **Ámbito:** integración WordPress del retiro de registros/adjuntos canónicos y liberación de cuota, reutilizando `accept` / `seal` / `status` del backend.
 
@@ -10,7 +10,7 @@ No modifica el state de la prueba Backend 3 (worker local Storage, `docs/ops/att
 
 | Repo | Rama | HEAD |
 |------|------|------|
-| `wp-agenda-automatizada` | `dev/canonical-images-retire` | `17cf69e13257bcb4a90e57c8c1446b47fe294f9e` (inc. 4) |
+| `wp-agenda-automatizada` | `dev/canonical-images-retire` | `17cf69e13257bcb4a90e57c8c1446b47fe294f9e` (implementación inc. 4); `cc81f830db2d895bc5dbd3d4e35ffc46e030f392` (docs SHA previo a esta validación); este commit registra los resultados |
 | `deoia-oauth-backend` (solo contratos) | `dev/backend-recovered` | `26452b3ba4ceb24b7bf46271fd30a0c58318ceed` (parche `authorize-upload`; untracked ajeno: `scripts/runner-from-pack.sh`) |
 
 **Backend Storage fixture (no reejecutada aquí):** immediate / later / reappear **PASS**. El caso reappear fue **sintético** (no un PUT tardío real del proveedor).
@@ -323,7 +323,7 @@ El detalle del flujo, numeración, cancelación segura y procedimiento manual es
 
 ### Incremento 4 — contenedor / lista completa — **completado** (`DB_VERSION=30`)
 
-`aa_delete_canonical_container` orquesta mandatos `scope=container` (`RetireCanonicalContainerUseCase`). Seal obligatorio (incl. `expected_batch_count=0`). Chunks locales post-sello. Detalle: **§7**.
+`aa_delete_canonical_container` orquesta mandatos `scope=container` (`RetireCanonicalContainerUseCase`). Seal obligatorio (incl. `expected_batch_count=0`). Chunks locales post-sello. AJAX integrado policyytest A/B/C **PASS** (§7.10). Clics de navegador del 4 **pendientes**. Detalle: **§7**.
 
 ### Incremento 5 — retiro de **una imagen** (registro vivo) — **pendiente, fuera del 4**
 
@@ -619,13 +619,15 @@ Caso B integrado (AJAX/HTTP, registro 34): **PASS** previo (ver retoma arriba). 
 
 **Re-verificación solo lectura (2026-09-14, post-Cancelar del propietario):** blog 61 / `wp_61_`; registro 33 + imagen id=1 + op `admitted` conservados; corrida 3 `cancelled` / `cancelled_at=2026-09-14 18:40:50`; `accept_intent_batch_seq`/`seal_intent_at`/`last_accepted_batch_seq`/`sealed_at` NULL; mandato `ab4e4fc3-…` ausente en Supabase; `blocking_runs` en contenedor 17 = **0**. Sin discrepancia con lo documentado.
 
-**No cerrado tras el 3:** retiro de una imagen (§8); Continuar UI; C integrado; `is_ready`; cron/worker. El incremento 4 está en código (§7); su prueba manual en policyytest **no** se ejecutó en el turno de implementación.
+**No cerrado tras el 3:** retiro de una imagen (§8); Continuar UI del registro; C integrado (interrupción de red); `is_ready`; cron/worker. Esas clasificaciones **no** cambian por el incremento 4.
+
+**Incremento 4:** AJAX integrado A/B/C **PASS** (§7.10). Clics de navegador del 4 **pendientes** (lista 21). Schema policyytest blog 61: 29→30.
 
 ---
 
 ## 7. Incremento 4 — retiro de una lista completa — **completado** (`DB_VERSION=30`)
 
-**Estado:** implementado en código + AC MySQL aislado / Ajax / JS. **Prueba manual no ejecutada.** No se migró policyytest. No se tocó backend ni Storage.
+**Estado:** implementado en código + AC MySQL aislado / Ajax / JS. Policyytest 2026-09-14: schema blog 61 29→30; AJAX A/B/C **PASS**; clics de navegador **pendientes** (lista 21). HMAC de registro: protocolo PASS; aserción estructural obsoleta 1/45. Backend no se desplegó.
 
 **Clasificación:** capability `images` + runtime WP (IMG-5).
 
@@ -685,33 +687,119 @@ Nonce `aa_delete_canonical_container` en eliminar / continuar / cancelar.
 
 ### 7.5 Schema
 
-`DB_VERSION=30`: `aa_canonical_purge_runs.local_retire_after_inventory_id` y `local_retire_after_record_id` (`bigint unsigned NOT NULL DEFAULT 0`). `ensure_purge_container_local_retire_v30()` es idempotente. No se migró policyytest en este turno.
+`DB_VERSION=30`: `aa_canonical_purge_runs.local_retire_after_inventory_id` y `local_retire_after_record_id` (`bigint unsigned NOT NULL DEFAULT 0`). `ensure_purge_container_local_retire_v30()` es idempotente.
 
-### 7.6 Pruebas automatizadas (este turno)
+Policyytest 2026-09-14: `AA_Schema::maybe_migrate()` **solo** en blog **61** (`wp_61_*`, `aa_db_version` 29→30). Columnas de checkpoint presentes. Lista 17 intacta. Otros blogs muestreados **no** se migraron (1→22, 59→22, 60→13, 62→18). No se activó `is_ready`.
+
+### 7.6 Pruebas automatizadas (turno de implementación)
 
 MySQL prefijo temporal + HMAC simulado; lock con **segunda conexión** real. Cubierto: lista vacía seal 0; registros sin imágenes; images+ops no confirmadas; 51 identidades (tandas 0/1); accept/seal/status perdidos; overlap ambos órdenes; writers bloqueados; chunks + cuota SUM; commit ambiguo; reintento con contenedor ya ausente; corrida/inventario conservados; `resource_busy`; acceso indebido; fail-closed fila extra; Ajax estados; JS Continuar/Cancelar/Cerrar.
 
 ### 7.7 Límites (no declarar de más)
 
-- Prueba **manual** de lista **no ejecutada**.
-- Continuar UI del incremento 3 y caso C integrado: **siguen sin PASS** (no se reabrieron).
+- Clics de **navegador** del incremento 4: **pendientes** (fixture lista 21; §7.10). AJAX A/B/C no acredita esos clics.
+- Continuar UI del incremento 3 y caso C integrado (interrupción de red): **siguen sin PASS** (no se reabrieron ni se reclasifican).
+- El attach de desarrollo del caso C **no** es PASS de disponibilidad de `images` en UI de producto.
 - No hay garantía de que un `UPDATE` de pertenencia hecho a mano conserve imágenes del registro movido (las identidades inventariadas se retiran).
-- Worker periódico apagado: residuos Storage esperables.
+- Worker periódico apagado: residuos Storage esperables y documentados.
 - `Write::delete` no es el camino productivo; sigue fallando por RESTRICT si alguien lo llama con images/ops.
+- Aserción estructural obsoleta `'vacío skip HMAC'` en `test-retire-canonical-record-ac.php` (busca `accept_delete_batch` dentro del UseCase de registro; el POST vive en el advancer). No es regresión de protocolo; no se «arregló» en este turno de docs.
 
-### 7.8 Procedimiento manual propuesto — **LISTA SINTÉTICA NUEVA** (no ejecutar aún)
+### 7.8 Tipos de prueba (contradicción «sin Storage» corregida)
 
-No usar la lista **17** ni los registros 32/33/34. Worker periódico **apagado**. Sin `is_ready=true`. Sin `npm start` extra ni Storage real. Sin migrar policyytest salvo lo que el propietario haga luego.
+Tres tipos **distintos**. No mezclar resultados:
 
-1. En finance, **crear una lista nueva** (título inequívoco, p. ej. `INC4-empty`).
-2. **Vacía:** Eliminar lista → confirmar. Esperado: `confirmed`, redirect a listas, corrida `completed`, `prepared_batch_count=0`, `seal_intent_at` y `sealed_at` no NULL, inventario 0, contenedor ausente. Si el modal pide Continuar, pulsar hasta `confirmed`. **No** Cancelar tras el primer intento si ya hubo red.
-3. **Otra lista nueva** (`INC4-records`) con 1–2 registros sin imagen. Eliminar lista. Esperado: igual, seal 0, registros y contenedor ausentes.
-4. **Otra lista nueva** (`INC4-image`) con un registro y **una** imagen por el camino de desarrollo acotado (mismo que B del 3). Eliminar lista. Continuar si `incomplete`. Esperado: contenedor/registro/imagen/op locales ausentes; corrida+inventario conservados; cuota SUM baja. **No** tocar Backend 3 ni worker.
-5. Conservar evidencia SQL (ids de lista/corrida/mandato). No borrar la 17.
+| Tipo | Storage | HMAC delete-mandates | Cómo se ejecuta |
+|------|---------|----------------------|-----------------|
+| **A / B** | **No.** Listas y registros vacíos. Sin identities de imagen/op. | Sí. Seal obligatorio `expected_batch_count=0`. Mandato remoto **sin** obligaciones de objeto. | AJAX HTTP `aa_create_*` / `aa_delete_canonical_container` |
+| **C** | **Sí.** JPEG sintético, authorize/PUT/finalize reales, familia canónica en bucket. Worker apagado: archivos **quedan**. | Sí. Accept tanda 0 + seal `expected_batch_count=1`. Obligación `physical_status=pending`. | Create AJAX; attach por el **mismo** camino de desarrollo acotado del inc. 3 (no producto); delete AJAX |
+| **Clics de navegador** | No en la fixture viva (51 registros vacíos). | El primer clic del propietario sí sellará count=0. | Solo el propietario; **no** se pre-eliminó por AJAX |
+
+No usar la lista **17**, registros 33/inc. 3, ni Backend 3. Worker **apagado**. Sin `is_ready=true`. Sin Render. Sin migraciones Supabase. Chunk de producción = **50** (no se bajó el límite).
 
 ### 7.9 Bloqueos
 
-Ninguno de contrato backend para el 4. Fixture lista 17 / registro 33 se conservan. Incremento 5 = una imagen con registro vivo (§8).
+Ninguno de contrato backend para el 4. Fixture lista 17 / registro 33 se conservan. Incremento 5 = una imagen con registro vivo (§8). Clics del 4: lista 21 viva; Node local pid **51399** dejado en marcha.
+
+### 7.10 Validación integrada policyytest (2026-09-14, inc. 4)
+
+Ejecutada contra WordPress local + Node local `:3000` + Supabase remoto compartido. **No** se activó `is_ready`, **no** se desplegó Render, **no** se migró Supabase, **no** se arrancó el worker, **no** se tocó lista 17 ni Backend 3.
+
+#### Regresión HMAC (componente extraído)
+
+`CanonicalPurgeRemoteMandateAdvancer` lo usan retiro de registro y de contenedor.
+
+Suite `AA_WP_ROOT=/var/www/html/wpagenda php tests/application/canonical/images/test-retire-canonical-record-ac.php`: **44/45**.
+
+Protocolo **PASS** (comportamiento): vacío sin HMAC (0 POST, registro borrado, corrida `completed`); intención persistida antes del HTTP; recuperación `already_accepted` / status sin segundo accept; seal perdido + recuperación; cancelación previa al envío; `cancel_rejected` tras remoto desconocido; tandas 0-based (51 ítems seq 0 luego 1, seal count=2); `resource_busy` en segunda conexión.
+
+**FAIL estructural** (higiene, no protocolo): `'vacío skip HMAC'` exige `accept_delete_batch` **dentro** de `RetireCanonicalRecordUseCase.php`. Tras la extracción esa llamada vive solo en el advancer. El skip real (`$prepared === 0` → `commit_local`) sigue en el UseCase; el caso `'vacío sin HMAC'` **PASS**. No se modificó PHP en este turno.
+
+Otras suites del proyecto no se reejecutaron. Ajax de registro stubéa el UseCase (no cubre el advancer).
+
+#### Entorno
+
+| Dato | Valor |
+|------|--------|
+| Sitio | `http://localhost/deoia-platform/policyytest/agenda-app` |
+| Blog | **61**, prefijo **`wp_61_`** (leídos, no asumidos) |
+| HMAC `X-Client-Id` | `localhost/deoia-platform/policyytest` |
+| `AA_API_BASE_URL` | `http://localhost:3000` (no Render) |
+| `installation_id` | `e49a26c8-c7db-4a8a-a84a-2643ddfb8b29` |
+| Schema | antes **29**, después **30** (solo blog 61; ver §7.5) |
+| `images` | `is_ready=false`; 0 filas activas de lista |
+| Node | **No había** listener en `:3000`. Arrancado para esta validación: `node index.js` pid **51399**, cwd `/home/roberto/dev/deoia-oauth-backend`, health `{"ok":true}`. Workers del `.env` en 0; el proceso no arrancó `attachmentDeleteWorker`. **Se deja en marcha** para los clics. No se detuvo ningún proceso ajeno. |
+
+#### Resultados AJAX (no clics)
+
+Creates y deletes por `admin-ajax.php` con cookie `deoia_admin` (id 1). Chunk consultado en código: `AA_Canonical_Purge_Local_Retire_Store` default **50**. Caso B: **51** registros vacíos.
+
+| Caso | Resultado | Evidencia |
+|------|-----------|-----------|
+| A lista vacía | **PASS** | Lista **18** `INC4-A-empty-20260914`. Delete → 200 `confirmed`. Contenedor ausente. Corrida **6** `completed`, `prepared_batch_count=0`, inventario 0, `seal_intent_at`/`sealed_at` set. Mandato `7459b45b-cd3d-4a7a-908f-335a099ccf40` remoto `sealed_expected_batch_count=0`, `owned_obligation_count=0`, obligaciones **[]**. |
+| B chunk + reanudación | **PASS** | Lista **19** `INC4-B-chunk-20260914`, registros **35–85**. 1ª petición: 409 `incomplete` `can_continue=true` `can_cancel=false`; contenedor vivo; queda registro **85**; corrida **7** `incomplete`; checkpoint `local_retire_after_record_id=84`; seal count=0; mandato `b2825cc4-1a60-4ee1-bb95-f45504d0c7ea`. 2ª petición **independiente** (mismo POST, sin `mandate_id`): 200 `confirmed`; hijos y contenedor ausentes; **misma** corrida 7 / mismo mandato `completed`; inventario 0 conservado. Remoto: seal 0, 0 obligaciones. |
+| C lista con imagen | **PASS** (desarrollo acotado; **no** UI de producto) | Lista **20** `INC4-C-image-20260914`, registro **86**. Attach in-memory `images` ready + stub `is_active=1` + `is_readable`: imagen id **3**, 384×384, 2994 B, op `49491195-d3a9-4284-8af7-3122f7970941`. Catálogo persistido intacto. Delete AJAX → `confirmed`. Inventario 1, `batch_seq=0`, `prepared_batch_count=1`, `last_accepted_batch_seq=0`. Cuota `canonical_images_sum` 3628→634 (−2994); `confirmed_bytes` 2330782→2327788. Corrida **8** `completed` conservada. Mandato `d7a2ba7c-9067-4bfe-b388-eb76ae35692d` `sealed_expected_batch_count=1`. Obligación `1964d4de-e05f-464b-9a34-3883a1ada1c7` `physical_status=pending`. |
+
+Backend 3 intacto: mandato `171419cc-…` `open`, 1 obligación.
+
+**Navegador:** no operativo en esta sesión. AJAX ≠ clics.
+
+#### Fixture para clics (no eliminar por AJAX)
+
+| Campo | Valor |
+|-------|--------|
+| Título | `INC4-UI-continue-20260914` |
+| ID | **21** |
+| `public_id` | `7ac91da1-c295-435c-bdfb-1fd31a15189d` |
+| Registros | **51** vacíos, ids **87–137**, títulos `INC4-UI-r001` … `INC4-UI-r051` |
+| Corrida previa | **0** (el propietario dispara el sello) |
+| Sitio | `http://localhost/deoia-platform/policyytest/agenda-app` |
+| Iframe registros | `http://localhost/deoia-platform/policyytest/wp-admin/admin-post.php?action=aa_iframe_content&module=canonical_shell&family=finance&view=records&container_id=21` |
+| Iframe listas | `http://localhost/deoia-platform/policyytest/wp-admin/admin-post.php?action=aa_iframe_content&module=canonical_shell&family=finance` |
+
+Clics exactos:
+
+1. Abrir el sitio o el iframe de registros de la lista **21**. Comprobar título e ids 87–137.
+2. **Eliminar lista** → en el modal confirmar **Eliminar lista** (no **Cerrar** todavía).
+3. Esperado: modal sigue; «La eliminación no terminó. Pulsa Continuar para seguir.»; el primario pasa a **Continuar**; **Cancelar eliminación** no aparece (ya hubo sello).
+4. Pulsar **Cerrar**. Recargar la URL de registros.
+5. Esperado: banner «No está borrada del todo»; sin FAB de alta ni edición de registros; **Eliminar lista** permanece; ~1 registro residual (keyset 50+1, análogo al caso B: quedaría **137**).
+6. **Eliminar lista** → **Continuar** hasta `confirmed` y vuelta al listado de listas. La 21 desaparece.
+
+Node **51399** debe seguir vivo. **No** Cancelar eliminación tras el primer intento.
+
+#### Residuos físicos (worker apagado; no borrar)
+
+Paths C aún en bucket `expediente-adjuntos` (los cuatro `found=true`):
+
+- `installations/e49a26c8-c7db-4a8a-a84a-2643ddfb8b29/canonical/records/86/49491195-d3a9-4284-8af7-3122f7970941.jpg`
+- `…/49491195-d3a9-4284-8af7-3122f7970941_summary.jpg`
+- `…/49491195-d3a9-4284-8af7-3122f7970941_gallery.jpg`
+- `…/49491195-d3a9-4284-8af7-3122f7970941_display.jpg`
+
+No se borraron tombstones ni objetos. Mandatos A/B sellados vacíos permanecen en Supabase.
+
+Lista 17 / registro 33 / Backend 3 no se usaron.
 
 ---
 
@@ -730,7 +818,7 @@ Ninguno de contrato backend para el 4. Fixture lista 17 / registro 33 se conserv
 | Capa | Pendiente |
 |------|-----------|
 | **Implementación** | Inc. 5 una imagen (§8) |
-| **Validación** | Continuar UI (sin evidencia); C integrado; **manual del 4** (lista sintética nueva, §7.8) |
+| **Validación** | Continuar UI inc. 3 (sin evidencia); C integrado inc. 3 (red); **clics de navegador del 4** (lista 21, §7.10) |
 | **Activación** | `is_ready` / seeds / UI galería — **fuera** hasta cerrar recorridos de borrado acordados |
 | **Ops** | Worker periódico Storage; no WP ledger físico |
 
@@ -739,7 +827,7 @@ Ninguno de contrato backend para el 4. Fixture lista 17 / registro 33 se conserv
 ## Fuera de alcance restante
 
 - Implementar incremento 5 (una imagen, §8).
-- Prueba manual del 4; caso C integrado; Continuar UI sin evidencia.
+- Clics de navegador del 4 (lista 21); caso C integrado inc. 3; Continuar UI inc. 3 sin evidencia.
 - Activar polling del worker, cron o `is_ready`.
 - Cambiar TTL, tombstones o identidades Storage Backend 3.
 - Expedientes Ciclo B; reabrir subida.
