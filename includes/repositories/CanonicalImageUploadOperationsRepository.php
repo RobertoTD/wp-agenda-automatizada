@@ -306,6 +306,85 @@ final class CanonicalImageUploadOperationsRepository {
         return $value;
     }
 
+    /**
+     * Página de captura de ops admitted|cleanup_needed (keyset por upload_operation_id).
+     * Incluye reservas vencidas: el vencimiento comercial no las excluye del inventario.
+     *
+     * @return list<array<string, mixed>>
+     *
+     * @throws CanonicalImageUploadPersistenceFailed
+     * @throws CanonicalImageUploadSchemaNotReady
+     */
+    public function list_capture_page_after_operation_id(
+        string $scope,
+        int $target_id,
+        ?string $after_operation_id,
+        int $limit
+    ): array {
+        $ops_table = AA_Canonical_Schema::image_upload_operations_table_name();
+        $records_table = AA_Canonical_Schema::records_table_name();
+        $this->assert_table_exists($ops_table);
+        $this->assert_table_exists($records_table);
+
+        if ($target_id < 1 || $limit < 1) {
+            throw new CanonicalImageUploadPersistenceFailed('Invalid ops capture page arguments.');
+        }
+
+        $after = is_string($after_operation_id) ? strtolower(trim($after_operation_id)) : '';
+        $ops_safe = str_replace('`', '``', $ops_table);
+        $records_safe = str_replace('`', '``', $records_table);
+        $admitted = AA_Canonical_Schema::IMAGE_UPLOAD_STATUS_ADMITTED;
+        $cleanup = AA_Canonical_Schema::IMAGE_UPLOAD_STATUS_CLEANUP_NEEDED;
+        $select = "SELECT o.upload_operation_id, o.record_id, o.storage_path, o.content_sha256, o.byte_size, o.status";
+
+        $this->clear_error_state();
+        if ($scope === 'record') {
+            $sql = $this->wpdb->prepare(
+                "{$select}
+                 FROM `{$ops_safe}` o
+                 WHERE o.record_id = %d
+                   AND o.status IN (%s, %s)
+                   AND o.upload_operation_id > %s
+                 ORDER BY o.upload_operation_id ASC
+                 LIMIT %d",
+                $target_id,
+                $admitted,
+                $cleanup,
+                $after,
+                $limit
+            );
+        } elseif ($scope === 'container') {
+            $sql = $this->wpdb->prepare(
+                "{$select}
+                 FROM `{$ops_safe}` o
+                 INNER JOIN `{$records_safe}` r ON r.id = o.record_id
+                 WHERE r.container_id = %d
+                   AND o.status IN (%s, %s)
+                   AND o.upload_operation_id > %s
+                 ORDER BY o.upload_operation_id ASC
+                 LIMIT %d",
+                $target_id,
+                $admitted,
+                $cleanup,
+                $after,
+                $limit
+            );
+        } else {
+            throw new CanonicalImageUploadPersistenceFailed('Invalid ops capture scope.');
+        }
+
+        if (!is_string($sql) || $sql === '') {
+            throw new CanonicalImageUploadPersistenceFailed('Failed to prepare ops capture page.');
+        }
+
+        $rows = $this->wpdb->get_results($sql, ARRAY_A);
+        if ($this->wpdb->last_error !== '' || !is_array($rows)) {
+            throw new CanonicalImageUploadPersistenceFailed('Failed to SELECT ops capture page.');
+        }
+
+        return $rows;
+    }
+
     private function is_duplicate_key_error(string $error): bool {
         $lower = strtolower($error);
         return strpos($lower, 'duplicate') !== false || strpos($lower, '1062') !== false;

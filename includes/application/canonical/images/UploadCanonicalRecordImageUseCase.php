@@ -907,6 +907,9 @@ final class UploadCanonicalRecordImageUseCase {
                 409
             );
         }
+        if ($code === 'purge_in_progress') {
+            return $this->fail('purge_in_progress', 'Hay una eliminación en curso sobre este recurso.', 409);
+        }
 
         $status = ($code === 'image_identity_conflict' || $code === 'operation_identity_conflict') ? 409 : 500;
 

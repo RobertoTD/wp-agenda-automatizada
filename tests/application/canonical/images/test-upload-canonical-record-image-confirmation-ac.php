@@ -52,6 +52,11 @@ ac_assert('store insert+delete+touch+commit', strpos($store_src, 'insert_confirm
     && strpos($store_src, 'delete_by_operation_id') !== false
     && strpos($store_src, 'touch_container') !== false
     && strpos($store_src, 'COMMIT') !== false);
+ac_assert('store reconsulta purge antes de INSERT', strpos($store_src, 'has_blocking_purge') !== false
+    && strpos($store_src, 'purge_in_progress') !== false
+    && strpos($store_src, 'insert_confirmed') !== false
+    && strpos($store_src, 'blocking_purge_failure') !== false
+    && preg_match('/blocking_purge_failure[\s\S]{0,400}insert_confirmed/', $store_src) === 1);
 ac_assert('DELETE debe afectar 1 fila', strpos($store_src, '$deleted !== 1') !== false);
 ac_assert('uncertain en COMMIT fallido', strpos($store_src, 'OUTCOME_UNCERTAIN') !== false
     || strpos($store_src, '::uncertain') !== false);

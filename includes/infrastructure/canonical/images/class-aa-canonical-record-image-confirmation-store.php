@@ -32,6 +32,15 @@ if (!class_exists('AA_Installation_Storage_Usage')) {
 if (!class_exists('CanonicalRecordImagePublicDto')) {
     require_once dirname(__DIR__, 3) . '/application/canonical/images/CanonicalRecordImagePublicDto.php';
 }
+if (!class_exists('CanonicalPurgeRunsRepository')) {
+    require_once dirname(__DIR__, 3) . '/repositories/CanonicalPurgeRunsRepository.php';
+}
+if (!class_exists('CanonicalImageUploadSchemaNotReady')) {
+    require_once dirname(__DIR__, 3) . '/application/storage/CanonicalImageUploadSchemaNotReady.php';
+}
+if (!class_exists('CanonicalImageUploadPersistenceFailed')) {
+    require_once dirname(__DIR__, 3) . '/application/storage/CanonicalImageUploadPersistenceFailed.php';
+}
 
 final class AA_Canonical_Record_Image_Confirmation_Store implements CanonicalRecordImageConfirmationPort {
 
@@ -47,6 +56,9 @@ final class AA_Canonical_Record_Image_Confirmation_Store implements CanonicalRec
     /** @var callable():int */
     private $clock_ms;
 
+    /** @var CanonicalPurgeRunsRepository */
+    private $purge_runs;
+
     /**
      * @param callable():int|null $clock_ms
      */
@@ -54,7 +66,8 @@ final class AA_Canonical_Record_Image_Confirmation_Store implements CanonicalRec
         ?CanonicalRecordImagesRepository $images = null,
         ?CanonicalImageUploadOperationsRepository $operations = null,
         $wpdb = null,
-        ?callable $clock_ms = null
+        ?callable $clock_ms = null,
+        ?CanonicalPurgeRunsRepository $purge_runs = null
     ) {
         if ($wpdb !== null) {
             $this->wpdb = $wpdb;
@@ -68,6 +81,7 @@ final class AA_Canonical_Record_Image_Confirmation_Store implements CanonicalRec
         $this->clock_ms = $clock_ms ?: static function (): int {
             return (int) floor(microtime(true) * 1000);
         };
+        $this->purge_runs = $purge_runs ?: new CanonicalPurgeRunsRepository($this->wpdb);
     }
 
     public function confirm_after_remote_finalize(array $payload): CanonicalRecordImageConfirmationResult {
@@ -124,6 +138,11 @@ final class AA_Canonical_Record_Image_Confirmation_Store implements CanonicalRec
             return CanonicalRecordImageConfirmationResult::failed('image_identity_conflict');
         }
 
+        $blocked = $this->blocking_purge_failure($record_id, $container_id);
+        if ($blocked !== null) {
+            return $blocked;
+        }
+
         $created_at = AA_Installation_Storage_Usage::utc_datetime_from_ms($now_ms);
         $image_id = null;
         $mutation_possible = false;
@@ -131,6 +150,12 @@ final class AA_Canonical_Record_Image_Confirmation_Store implements CanonicalRec
         try {
             if ($this->wpdb->query('START TRANSACTION') === false) {
                 return CanonicalRecordImageConfirmationResult::failed('persistence_failed');
+            }
+
+            $blocked = $this->blocking_purge_failure($record_id, $container_id);
+            if ($blocked !== null) {
+                $this->rollback_confirmed();
+                return $blocked;
             }
 
             $image_id = $this->images->insert_confirmed([
@@ -221,6 +246,20 @@ final class AA_Canonical_Record_Image_Confirmation_Store implements CanonicalRec
      */
     private function public_dto(array $row): array {
         return CanonicalRecordImagePublicDto::from_row($row);
+    }
+
+    private function blocking_purge_failure(int $record_id, int $container_id): ?CanonicalRecordImageConfirmationResult {
+        try {
+            if ($this->purge_runs->has_blocking_purge($record_id, $container_id)) {
+                return CanonicalRecordImageConfirmationResult::failed('purge_in_progress');
+            }
+        } catch (CanonicalImageUploadSchemaNotReady $e) {
+            return CanonicalRecordImageConfirmationResult::failed('schema_not_ready');
+        } catch (CanonicalImageUploadPersistenceFailed $e) {
+            return CanonicalRecordImageConfirmationResult::failed('persistence_failed');
+        }
+
+        return null;
     }
 
     /**

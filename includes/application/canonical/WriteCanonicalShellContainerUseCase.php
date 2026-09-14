@@ -32,6 +32,18 @@ if (!class_exists('CanonicalMutationReceipt')) {
 if (!class_exists('CanonicalReadIdentity')) {
     require_once __DIR__ . '/CanonicalReadIdentity.php';
 }
+if (!class_exists('CanonicalPurgeRunsRepository')) {
+    require_once dirname(__DIR__, 2) . '/repositories/CanonicalPurgeRunsRepository.php';
+}
+if (!class_exists('AA_Expediente_Aggregate_Lock')) {
+    require_once dirname(__DIR__, 2) . '/infrastructure/wp/class-aa-expediente-aggregate-lock.php';
+}
+if (!class_exists('CanonicalImageUploadSchemaNotReady')) {
+    require_once dirname(__DIR__) . '/storage/CanonicalImageUploadSchemaNotReady.php';
+}
+if (!class_exists('CanonicalImageUploadPersistenceFailed')) {
+    require_once dirname(__DIR__) . '/storage/CanonicalImageUploadPersistenceFailed.php';
+}
 
 final class WriteCanonicalShellContainerUseCase {
 
@@ -44,14 +56,24 @@ final class WriteCanonicalShellContainerUseCase {
     /** @var CanonicalContainerCapabilitySelectionPreparer|null */
     private $selection_preparer;
 
+    /** @var CanonicalPurgeRunsRepository|null */
+    private $purge_runs;
+
+    /** @var AA_Expediente_Aggregate_Lock|null */
+    private $lock;
+
     public function __construct(
         CanonicalWriteGateway $gateway,
         $defaults_materializer = null,
-        $selection_preparer = null
+        $selection_preparer = null,
+        ?CanonicalPurgeRunsRepository $purge_runs = null,
+        ?AA_Expediente_Aggregate_Lock $lock = null
     ) {
         $this->gateway = $gateway;
         $this->defaults_materializer = $defaults_materializer;
         $this->selection_preparer = $selection_preparer;
+        $this->purge_runs = $purge_runs;
+        $this->lock = $lock;
     }
 
     /**
@@ -98,12 +120,61 @@ final class WriteCanonicalShellContainerUseCase {
         CanonicalShellManifest $manifest,
         CanonicalDeleteContainerCommand $command
     ): CanonicalShellMutationResult {
-        return $this->execute(
-            $manifest,
-            static function (CanonicalWriteGateway $gateway, CanonicalReadIdentity $identity) use ($command): CanonicalMutationReceipt {
-                return $gateway->delete_container($identity, $command);
+        if ($this->purge_runs === null) {
+            return $this->execute(
+                $manifest,
+                static function (CanonicalWriteGateway $gateway, CanonicalReadIdentity $identity) use ($command): CanonicalMutationReceipt {
+                    return $gateway->delete_container($identity, $command);
+                }
+            );
+        }
+
+        $lease = null;
+        if ($this->lock !== null) {
+            $lease = $this->lock->acquire(
+                AA_Expediente_Aggregate_Lock::SCOPE_CANONICAL_CONTAINER,
+                $command->container_id(),
+                AA_Expediente_Aggregate_Lock::DEFAULT_TIMEOUT_SECONDS
+            );
+            if (function_exists('is_wp_error') && is_wp_error($lease)) {
+                $code = $lease->get_error_code();
+                if ($code === AA_Expediente_Aggregate_Lock::ERROR_RESOURCE_BUSY) {
+                    return CanonicalShellMutationResult::resource_busy($manifest);
+                }
+
+                return CanonicalShellMutationResult::persistence_failed($manifest);
             }
-        );
+        }
+
+        try {
+            if ($this->lock !== null && $lease !== null) {
+                $held = $this->lock->assert_held($lease);
+                if (function_exists('is_wp_error') && is_wp_error($held)) {
+                    return CanonicalShellMutationResult::persistence_failed($manifest);
+                }
+            }
+
+            try {
+                if ($this->purge_runs->has_blocking_purge_for_container($command->container_id())) {
+                    return CanonicalShellMutationResult::purge_in_progress($manifest);
+                }
+            } catch (CanonicalImageUploadSchemaNotReady $e) {
+                return CanonicalShellMutationResult::persistence_failed($manifest);
+            } catch (CanonicalImageUploadPersistenceFailed $e) {
+                return CanonicalShellMutationResult::persistence_failed($manifest);
+            }
+
+            return $this->execute(
+                $manifest,
+                static function (CanonicalWriteGateway $gateway, CanonicalReadIdentity $identity) use ($command): CanonicalMutationReceipt {
+                    return $gateway->delete_container($identity, $command);
+                }
+            );
+        } finally {
+            if ($this->lock !== null && $lease !== null && !(function_exists('is_wp_error') && is_wp_error($lease))) {
+                $this->lock->release($lease);
+            }
+        }
     }
 
     /**

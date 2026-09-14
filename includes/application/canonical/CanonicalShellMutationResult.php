@@ -23,6 +23,8 @@ final class CanonicalShellMutationResult {
     public const STATE_CONTAINER_NOT_FOUND = 'container_not_found';
     public const STATE_RECORD_NOT_FOUND = 'record_not_found';
     public const STATE_PERSISTENCE_FAILED = 'persistence_failed';
+    public const STATE_PURGE_IN_PROGRESS = 'purge_in_progress';
+    public const STATE_RESOURCE_BUSY = 'resource_busy';
 
     private const ALLOWED_STATES = [
         self::STATE_CONFIRMED,
@@ -31,6 +33,8 @@ final class CanonicalShellMutationResult {
         self::STATE_CONTAINER_NOT_FOUND,
         self::STATE_RECORD_NOT_FOUND,
         self::STATE_PERSISTENCE_FAILED,
+        self::STATE_PURGE_IN_PROGRESS,
+        self::STATE_RESOURCE_BUSY,
     ];
 
     /** @var CanonicalShellManifest */
@@ -101,6 +105,14 @@ final class CanonicalShellMutationResult {
 
     public static function persistence_failed(CanonicalShellManifest $manifest): self {
         return new self($manifest, self::STATE_PERSISTENCE_FAILED, null);
+    }
+
+    public static function purge_in_progress(CanonicalShellManifest $manifest): self {
+        return new self($manifest, self::STATE_PURGE_IN_PROGRESS, null);
+    }
+
+    public static function resource_busy(CanonicalShellManifest $manifest): self {
+        return new self($manifest, self::STATE_RESOURCE_BUSY, null);
     }
 
     public function manifest(): CanonicalShellManifest {

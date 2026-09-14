@@ -20,7 +20,10 @@
  * IMG-3a (DB 27): columnas operativas `upload_intent` / `upload_objects_json` en ops
  * (credenciales de subida; nullable para filas históricas incompletas).
  *
- * Patrón técnico: dbDelta → ensure columnas v27 → migración v25 repertorio → ALTER FK → verify() fail-closed.
+ * IMG-5 incremento 2 (DB 28): corrida durable de purge + inventario congelado
+ * (`aa_canonical_purge_inventory_items`). Sin FK a records/containers.
+ *
+ * Patrón técnico: dbDelta → ensure columnas v27/v28 → migración v25 repertorio → ALTER FK → verify() fail-closed.
  * No escribe timestamps ni genera public_id (salvo copia de filas en migración v25).
  *
  * @package WP_Agenda_Automatizada
@@ -40,10 +43,19 @@ final class AA_Canonical_Schema {
     public const TABLE_RECORD_IMAGES = 'aa_canonical_record_images';
     public const TABLE_IMAGE_UPLOAD_OPERATIONS = 'aa_canonical_image_upload_operations';
     public const TABLE_PURGE_RUNS = 'aa_canonical_purge_runs';
+    public const TABLE_PURGE_INVENTORY_ITEMS = 'aa_canonical_purge_inventory_items';
 
     /** Status estables de aa_canonical_image_upload_operations (sin fila committed). */
     public const IMAGE_UPLOAD_STATUS_ADMITTED = 'admitted';
     public const IMAGE_UPLOAD_STATUS_CLEANUP_NEEDED = 'cleanup_needed';
+
+    public const PURGE_CAPTURE_STATUS_PENDING = 'pending';
+    public const PURGE_CAPTURE_STATUS_CONFLICT = 'conflict';
+    public const PURGE_INVENTORY_SOURCE_IMAGE = 'image';
+    public const PURGE_INVENTORY_SOURCE_OPERATION = 'operation';
+    public const PURGE_INVENTORY_SOURCE_BOTH = 'both';
+    public const PURGE_PREPARED_BATCH_MAX_ITEMS = 50;
+    public const PURGE_CURSOR_KIND_SOURCE_KEYSET = 'source_keyset';
 
     public static function families_table_name(): string {
         global $wpdb;
@@ -88,6 +100,11 @@ final class AA_Canonical_Schema {
     public static function purge_runs_table_name(): string {
         global $wpdb;
         return $wpdb->prefix . self::TABLE_PURGE_RUNS;
+    }
+
+    public static function purge_inventory_items_table_name(): string {
+        global $wpdb;
+        return $wpdb->prefix . self::TABLE_PURGE_INVENTORY_ITEMS;
     }
 
     /**
@@ -187,6 +204,18 @@ final class AA_Canonical_Schema {
         );
     }
 
+    /**
+     * FK purge_inventory_items.purge_run_id → purge_runs.id (CASCADE).
+     * No hay FK hacia records ni containers.
+     */
+    public static function purge_inventory_items_foreign_key_name(?string $prefix = null): string {
+        return self::build_foreign_key_name(
+            $prefix,
+            'aa_canonical_purge_inventory_items:purge_run_id',
+            'aa_can_piv_'
+        );
+    }
+
     private static function build_foreign_key_name(
         ?string $prefix,
         string $relation_identity,
@@ -222,6 +251,7 @@ final class AA_Canonical_Schema {
         $record_images_table = self::record_images_table_name();
         $image_upload_operations_table = self::image_upload_operations_table_name();
         $purge_runs_table = self::purge_runs_table_name();
+        $purge_inventory_table = self::purge_inventory_items_table_name();
         $charset = $wpdb->get_charset_collate();
 
         $families_sql = "CREATE TABLE {$families_table} (
@@ -332,10 +362,42 @@ final class AA_Canonical_Schema {
             cursor_operation_id char(36) DEFAULT NULL,
             deleted_ok int unsigned NOT NULL DEFAULT 0,
             failed_count int unsigned NOT NULL DEFAULT 0,
+            mandate_id char(36) DEFAULT NULL,
+            container_id bigint(20) unsigned NOT NULL DEFAULT 0,
+            capture_status varchar(32) NOT NULL DEFAULT 'pending',
+            images_read_after_id bigint(20) unsigned NOT NULL DEFAULT 0,
+            ops_read_after_operation_id char(36) DEFAULT NULL,
+            images_source_exhausted tinyint(1) NOT NULL DEFAULT 0,
+            ops_source_exhausted tinyint(1) NOT NULL DEFAULT 0,
+            capture_complete tinyint(1) NOT NULL DEFAULT 0,
+            batches_prepared tinyint(1) NOT NULL DEFAULT 0,
+            prepared_batch_count int unsigned NOT NULL DEFAULT 0,
+            last_accepted_batch_seq int unsigned DEFAULT NULL,
+            sealed_at datetime DEFAULT NULL,
+            capture_conflict_code varchar(64) DEFAULT NULL,
             created_at datetime NOT NULL,
             updated_at datetime NOT NULL,
             PRIMARY KEY  (id),
-            KEY idx_purge_scope_target_status (scope, target_id, status)
+            KEY idx_purge_scope_target_status (scope, target_id, status),
+            KEY idx_purge_mandate_id (mandate_id),
+            KEY idx_purge_container_status (container_id, status)
+        ) ENGINE=InnoDB {$charset};";
+
+        $purge_inventory_sql = "CREATE TABLE {$purge_inventory_table} (
+            id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+            purge_run_id bigint(20) unsigned NOT NULL,
+            upload_operation_id char(36) NOT NULL,
+            wp_record_id bigint(20) unsigned NOT NULL,
+            content_sha256 char(64) NOT NULL,
+            byte_size int unsigned NOT NULL,
+            storage_path varchar(191) NOT NULL,
+            source varchar(32) NOT NULL,
+            batch_seq int unsigned DEFAULT NULL,
+            position_in_batch int unsigned DEFAULT NULL,
+            created_at datetime NOT NULL,
+            PRIMARY KEY  (id),
+            UNIQUE KEY uq_purge_inventory_operation (purge_run_id, upload_operation_id),
+            KEY idx_purge_inventory_batch (purge_run_id, batch_seq, position_in_batch)
         ) ENGINE=InnoDB {$charset};";
 
         if (!function_exists('dbDelta')) {
@@ -350,8 +412,10 @@ final class AA_Canonical_Schema {
         dbDelta($record_images_sql);
         dbDelta($image_upload_operations_sql);
         dbDelta($purge_runs_sql);
+        dbDelta($purge_inventory_sql);
 
         self::ensure_image_upload_operations_credentials_v27();
+        self::ensure_purge_capture_v28();
         self::ensure_family_capabilities_v25();
         self::ensure_containers_family_scope_v22();
         self::ensure_named_indexes();
@@ -373,6 +437,95 @@ final class AA_Canonical_Schema {
 
         self::ensure_nullable_mediumtext_column($table, 'upload_intent');
         self::ensure_nullable_mediumtext_column($table, 'upload_objects_json');
+    }
+
+    /**
+     * IMG-5 / DB 28: columnas de captura durable en purge_runs + tabla de inventario.
+     * last_accepted_batch_seq / sealed_at quedan NULL hasta evidencia remota (inc. 3+).
+     *
+     * @throws \RuntimeException
+     */
+    public static function ensure_purge_capture_v28(): void {
+        $runs = self::purge_runs_table_name();
+        if (self::physical_table_exists($runs)) {
+            self::ensure_column_definition($runs, 'mandate_id', 'char(36) DEFAULT NULL');
+            self::ensure_column_definition($runs, 'container_id', 'bigint(20) unsigned NOT NULL DEFAULT 0');
+            self::ensure_column_definition($runs, 'capture_status', "varchar(32) NOT NULL DEFAULT 'pending'");
+            self::ensure_column_definition($runs, 'images_read_after_id', 'bigint(20) unsigned NOT NULL DEFAULT 0');
+            self::ensure_column_definition($runs, 'ops_read_after_operation_id', 'char(36) DEFAULT NULL');
+            self::ensure_column_definition($runs, 'images_source_exhausted', 'tinyint(1) NOT NULL DEFAULT 0');
+            self::ensure_column_definition($runs, 'ops_source_exhausted', 'tinyint(1) NOT NULL DEFAULT 0');
+            self::ensure_column_definition($runs, 'capture_complete', 'tinyint(1) NOT NULL DEFAULT 0');
+            self::ensure_column_definition($runs, 'batches_prepared', 'tinyint(1) NOT NULL DEFAULT 0');
+            self::ensure_column_definition($runs, 'prepared_batch_count', 'int unsigned NOT NULL DEFAULT 0');
+            self::ensure_column_definition($runs, 'last_accepted_batch_seq', 'int unsigned DEFAULT NULL');
+            self::ensure_column_definition($runs, 'sealed_at', 'datetime DEFAULT NULL');
+            self::ensure_column_definition($runs, 'capture_conflict_code', 'varchar(64) DEFAULT NULL');
+            self::ensure_named_index(
+                $runs,
+                'idx_purge_mandate_id',
+                "ALTER TABLE `{$runs}` ADD KEY idx_purge_mandate_id (mandate_id)"
+            );
+            self::ensure_named_index(
+                $runs,
+                'idx_purge_container_status',
+                "ALTER TABLE `{$runs}` ADD KEY idx_purge_container_status (container_id, status)"
+            );
+        }
+
+        $inventory = self::purge_inventory_items_table_name();
+        if (!self::physical_table_exists($inventory)) {
+            global $wpdb;
+            $charset = $wpdb->get_charset_collate();
+            $sql = "CREATE TABLE {$inventory} (
+                id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+                purge_run_id bigint(20) unsigned NOT NULL,
+                upload_operation_id char(36) NOT NULL,
+                wp_record_id bigint(20) unsigned NOT NULL,
+                content_sha256 char(64) NOT NULL,
+                byte_size int unsigned NOT NULL,
+                storage_path varchar(191) NOT NULL,
+                source varchar(32) NOT NULL,
+                batch_seq int unsigned DEFAULT NULL,
+                position_in_batch int unsigned DEFAULT NULL,
+                created_at datetime NOT NULL,
+                PRIMARY KEY  (id),
+                UNIQUE KEY uq_purge_inventory_operation (purge_run_id, upload_operation_id),
+                KEY idx_purge_inventory_batch (purge_run_id, batch_seq, position_in_batch)
+            ) ENGINE=InnoDB {$charset};";
+            require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+            dbDelta($sql);
+        }
+    }
+
+    /**
+     * @throws \RuntimeException
+     */
+    private static function ensure_column_definition(string $table, string $column, string $definition): void {
+        global $wpdb;
+
+        $cols = self::columns_by_name($table);
+        if (isset($cols[$column])) {
+            return;
+        }
+
+        $safe_table = str_replace('`', '``', $table);
+        $safe_column = str_replace('`', '``', $column);
+        $wpdb->last_error = '';
+        $added = $wpdb->query(
+            "ALTER TABLE `{$safe_table}` ADD COLUMN `{$safe_column}` {$definition}"
+        );
+        if ($added === false) {
+            $cols_after = self::columns_by_name($table);
+            if (!isset($cols_after[$column])) {
+                $error = is_string($wpdb->last_error) && $wpdb->last_error !== ''
+                    ? $wpdb->last_error
+                    : "ADD COLUMN {$column} falló";
+                throw new \RuntimeException(
+                    "[AA_Canonical_Schema] No se pudo añadir {$column} en {$table}: {$error}"
+                );
+            }
+        }
     }
 
     /**
@@ -918,6 +1071,13 @@ final class AA_Canonical_Schema {
             self::records_table_name(),
             'RESTRICT'
         );
+        self::ensure_foreign_key(
+            self::purge_inventory_items_table_name(),
+            self::purge_inventory_items_foreign_key_name(),
+            'purge_run_id',
+            self::purge_runs_table_name(),
+            'CASCADE'
+        );
     }
 
     private static function ensure_foreign_key(
@@ -964,6 +1124,7 @@ final class AA_Canonical_Schema {
         $record_images = self::record_images_table_name();
         $image_upload_operations = self::image_upload_operations_table_name();
         $purge_runs = self::purge_runs_table_name();
+        $purge_inventory = self::purge_inventory_items_table_name();
 
         self::verify_table_existence_and_engine($families);
         self::verify_table_existence_and_engine($containers);
@@ -974,6 +1135,7 @@ final class AA_Canonical_Schema {
         self::verify_table_existence_and_engine($record_images);
         self::verify_table_existence_and_engine($image_upload_operations);
         self::verify_table_existence_and_engine($purge_runs);
+        self::verify_table_existence_and_engine($purge_inventory);
 
         self::verify_families_structure($families);
         self::verify_containers_structure($containers);
@@ -984,6 +1146,7 @@ final class AA_Canonical_Schema {
         self::verify_record_images_structure($record_images);
         self::verify_image_upload_operations_structure($image_upload_operations);
         self::verify_purge_runs_structure($purge_runs);
+        self::verify_purge_inventory_items_structure($purge_inventory);
 
         self::verify_foreign_key(
             $containers,
@@ -1033,6 +1196,13 @@ final class AA_Canonical_Schema {
             self::image_upload_operations_foreign_key_name(),
             'record_id',
             'RESTRICT'
+        );
+        self::verify_foreign_key(
+            $purge_inventory,
+            $purge_runs,
+            self::purge_inventory_items_foreign_key_name(),
+            'purge_run_id',
+            'CASCADE'
         );
     }
 
@@ -1335,7 +1505,13 @@ final class AA_Canonical_Schema {
 
         $expected = [
             'id', 'scope', 'target_id', 'family_key', 'status', 'cursor_kind', 'cursor_id',
-            'cursor_operation_id', 'deleted_ok', 'failed_count', 'created_at', 'updated_at',
+            'cursor_operation_id', 'deleted_ok', 'failed_count',
+            'mandate_id', 'container_id', 'capture_status',
+            'images_read_after_id', 'ops_read_after_operation_id',
+            'images_source_exhausted', 'ops_source_exhausted',
+            'capture_complete', 'batches_prepared', 'prepared_batch_count',
+            'last_accepted_batch_seq', 'sealed_at', 'capture_conflict_code',
+            'created_at', 'updated_at',
         ];
         foreach ($expected as $field) {
             if (!isset($cols[$field])) {
@@ -1353,11 +1529,64 @@ final class AA_Canonical_Schema {
         self::assert_char_nullable($table, $cols['cursor_operation_id'], 'cursor_operation_id', 36);
         self::assert_int_unsigned_not_null($table, $cols['deleted_ok'], 'deleted_ok');
         self::assert_int_unsigned_not_null($table, $cols['failed_count'], 'failed_count');
+        self::assert_char_nullable($table, $cols['mandate_id'], 'mandate_id', 36);
+        self::assert_bigint_unsigned_not_null($table, $cols['container_id'], 'container_id');
+        self::assert_varchar_not_null($table, $cols['capture_status'], 'capture_status', 32);
+        if ((string) ($cols['capture_status']['Default'] ?? '') !== 'pending') {
+            throw new \RuntimeException("[AA_Canonical_Schema] capture_status en {$table} debe DEFAULT pending");
+        }
+        self::assert_bigint_unsigned_not_null($table, $cols['images_read_after_id'], 'images_read_after_id');
+        self::assert_char_nullable($table, $cols['ops_read_after_operation_id'], 'ops_read_after_operation_id', 36);
+        self::assert_tinyint_not_null_default_zero($table, $cols['images_source_exhausted'], 'images_source_exhausted');
+        self::assert_tinyint_not_null_default_zero($table, $cols['ops_source_exhausted'], 'ops_source_exhausted');
+        self::assert_tinyint_not_null_default_zero($table, $cols['capture_complete'], 'capture_complete');
+        self::assert_tinyint_not_null_default_zero($table, $cols['batches_prepared'], 'batches_prepared');
+        self::assert_int_unsigned_not_null($table, $cols['prepared_batch_count'], 'prepared_batch_count');
+        self::assert_int_unsigned_nullable($table, $cols['last_accepted_batch_seq'], 'last_accepted_batch_seq');
+        self::assert_datetime_nullable($table, $cols['sealed_at'], 'sealed_at');
+        self::assert_varchar_nullable($table, $cols['capture_conflict_code'], 'capture_conflict_code', 64);
         self::assert_datetime_not_null_no_default($table, $cols['created_at'], 'created_at');
         self::assert_datetime_not_null_no_default($table, $cols['updated_at'], 'updated_at');
 
         self::verify_index($table, 'PRIMARY', ['id']);
         self::verify_composite_index($table, ['scope', 'target_id', 'status']);
+        self::verify_index($table, 'idx_purge_mandate_id', ['mandate_id']);
+        self::verify_composite_index($table, ['container_id', 'status']);
+    }
+
+    private static function verify_purge_inventory_items_structure(string $table): void {
+        $cols = self::columns_by_name($table);
+
+        $expected = [
+            'id', 'purge_run_id', 'upload_operation_id', 'wp_record_id',
+            'content_sha256', 'byte_size', 'storage_path', 'source',
+            'batch_seq', 'position_in_batch', 'created_at',
+        ];
+        foreach ($expected as $field) {
+            if (!isset($cols[$field])) {
+                throw new \RuntimeException("[AA_Canonical_Schema] Columna requerida ausente en {$table}: {$field}");
+            }
+        }
+
+        self::assert_forbidden_columns($table, $cols, [
+            'record_id', 'container_id', 'family_key', 'mandate_id',
+        ]);
+
+        self::assert_id_column($table, $cols['id']);
+        self::assert_bigint_unsigned_not_null($table, $cols['purge_run_id'], 'purge_run_id');
+        self::assert_char_not_null_no_default($table, $cols['upload_operation_id'], 'upload_operation_id', 36);
+        self::assert_bigint_unsigned_not_null($table, $cols['wp_record_id'], 'wp_record_id');
+        self::assert_char_not_null_no_default($table, $cols['content_sha256'], 'content_sha256', 64);
+        self::assert_int_unsigned_not_null($table, $cols['byte_size'], 'byte_size');
+        self::assert_varchar_not_null_no_default($table, $cols['storage_path'], 'storage_path', 191);
+        self::assert_varchar_not_null_no_default($table, $cols['source'], 'source', 32);
+        self::assert_int_unsigned_nullable($table, $cols['batch_seq'], 'batch_seq');
+        self::assert_int_unsigned_nullable($table, $cols['position_in_batch'], 'position_in_batch');
+        self::assert_datetime_not_null_no_default($table, $cols['created_at'], 'created_at');
+
+        self::verify_index($table, 'PRIMARY', ['id']);
+        self::verify_index($table, 'uq_purge_inventory_operation', ['purge_run_id', 'upload_operation_id']);
+        self::verify_composite_index($table, ['purge_run_id', 'batch_seq', 'position_in_batch']);
     }
 
     /**
@@ -1570,6 +1799,59 @@ final class AA_Canonical_Schema {
             || strtoupper((string) $col['Null']) !== 'YES'
         ) {
             throw new \RuntimeException("[AA_Canonical_Schema] Definición inválida para details en {$table}");
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $col
+     */
+    /**
+     * @param array<string, mixed> $col
+     */
+    private static function assert_int_unsigned_nullable(string $table, array $col, string $name): void {
+        $type = strtolower((string) $col['Type']);
+        if (
+            strpos($type, 'bigint') !== false
+            || !preg_match('/int(\(\d+\))?\s+unsigned/', $type)
+            || strtoupper((string) $col['Null']) !== 'YES'
+        ) {
+            throw new \RuntimeException("[AA_Canonical_Schema] Definición inválida para {$name} en {$table}");
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $col
+     */
+    private static function assert_datetime_nullable(string $table, array $col, string $name): void {
+        if (
+            stripos((string) $col['Type'], 'datetime') === false
+            || strtoupper((string) $col['Null']) !== 'YES'
+        ) {
+            throw new \RuntimeException("[AA_Canonical_Schema] Definición inválida para {$name} en {$table}");
+        }
+        $extra = strtoupper((string) ($col['Extra'] ?? ''));
+        if (strpos($extra, 'ON UPDATE') !== false || strpos($extra, 'DEFAULT_GENERATED') !== false) {
+            throw new \RuntimeException(
+                "[AA_Canonical_Schema] {$name} en {$table} no debe tener DEFAULT/ON UPDATE horarios"
+            );
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $col
+     */
+    private static function assert_varchar_nullable(
+        string $table,
+        array $col,
+        string $name,
+        int $length
+    ): void {
+        $needle = 'varchar(' . $length . ')';
+        if (
+            stripos((string) $col['Type'], $needle) === false
+            || strtoupper((string) $col['Null']) !== 'YES'
+        ) {
+            throw new \RuntimeException("[AA_Canonical_Schema] Definición inválida para {$name} en {$table}");
         }
     }
 

@@ -66,8 +66,8 @@ final class AA_Schema {
      * Independiente de la versión del plugin. Solo refleja el estado
      * de las tablas/columnas/índices.
      */
-    /** DB 25 renombra la tabla de repertorio de capabilities por familia. */
-    public const DB_VERSION = '27';
+    /** DB 28: inventario durable de purge canónico (IMG-5 inc. 2). */
+    public const DB_VERSION = '28';
 
     public const OPTION_INSTALLATION_INITIALIZED_AT = 'aa_installation_initialized_at';
 

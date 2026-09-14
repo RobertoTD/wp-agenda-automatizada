@@ -281,6 +281,73 @@ final class CanonicalRecordImagesRepository {
     }
 
     /**
+     * Página de captura (keyset por id). No es el cursor del inventario copiado.
+     *
+     * @return list<array<string, mixed>>
+     *
+     * @throws CanonicalImageUploadPersistenceFailed
+     * @throws CanonicalImageUploadSchemaNotReady
+     */
+    public function list_capture_page_after_id(
+        string $scope,
+        int $target_id,
+        int $after_id,
+        int $limit
+    ): array {
+        $images_table = AA_Canonical_Schema::record_images_table_name();
+        $records_table = AA_Canonical_Schema::records_table_name();
+        $this->assert_table_exists($images_table);
+        $this->assert_table_exists($records_table);
+
+        if ($target_id < 1 || $after_id < 0 || $limit < 1) {
+            throw new CanonicalImageUploadPersistenceFailed('Invalid image capture page arguments.');
+        }
+
+        $images_safe = str_replace('`', '``', $images_table);
+        $records_safe = str_replace('`', '``', $records_table);
+        $select = "SELECT i.id, i.record_id, i.upload_operation_id, i.storage_path, i.content_sha256, i.byte_size";
+
+        $this->clear_error_state();
+        if ($scope === 'record') {
+            $sql = $this->wpdb->prepare(
+                "{$select}
+                 FROM `{$images_safe}` i
+                 WHERE i.record_id = %d AND i.id > %d
+                 ORDER BY i.id ASC
+                 LIMIT %d",
+                $target_id,
+                $after_id,
+                $limit
+            );
+        } elseif ($scope === 'container') {
+            $sql = $this->wpdb->prepare(
+                "{$select}
+                 FROM `{$images_safe}` i
+                 INNER JOIN `{$records_safe}` r ON r.id = i.record_id
+                 WHERE r.container_id = %d AND i.id > %d
+                 ORDER BY i.id ASC
+                 LIMIT %d",
+                $target_id,
+                $after_id,
+                $limit
+            );
+        } else {
+            throw new CanonicalImageUploadPersistenceFailed('Invalid image capture scope.');
+        }
+
+        if (!is_string($sql) || $sql === '') {
+            throw new CanonicalImageUploadPersistenceFailed('Failed to prepare image capture page.');
+        }
+
+        $rows = $this->wpdb->get_results($sql, ARRAY_A);
+        if ($this->wpdb->last_error !== '' || !is_array($rows)) {
+            throw new CanonicalImageUploadPersistenceFailed('Failed to SELECT image capture page.');
+        }
+
+        return $rows;
+    }
+
+    /**
      * @throws CanonicalImageUploadSchemaNotReady
      */
     private function assert_table_exists(string $table): void {

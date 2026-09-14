@@ -48,7 +48,9 @@ ac_assert('Sin delete records manual', strpos($ajax_src, 'delete_record') === fa
 ac_assert('Códigos estables', strpos($ajax_src, "'uncertain'") !== false
     && strpos($ajax_src, "'write_adapter_pending'") !== false
     && strpos($ajax_src, "'invalid_container_id'") !== false
-    && strpos($ajax_src, "'container_not_found'") !== false);
+    && strpos($ajax_src, "'container_not_found'") !== false
+    && strpos($ajax_src, "'purge_in_progress'") !== false
+    && strpos($ajax_src, "'resource_busy'") !== false);
 ac_assert('Códigos de identidad estables en soporte', strpos($support_src, "'unknown_identity'") !== false
     && strpos($support_src, "'family_disabled'") !== false
     && strpos($support_src, "'family_not_provisioned'") !== false
@@ -189,6 +191,50 @@ require_once $plugin_root . '/includes/application/canonical/CanonicalMutationPe
 require_once $plugin_root . '/includes/application/canonical/CanonicalWriteGateway.php';
 require_once $plugin_root . '/includes/application/canonical/CanonicalShellManifest.php';
 require_once $plugin_root . '/includes/application/canonical/CanonicalShellMutationResult.php';
+
+if (!class_exists('CanonicalPurgeRunsRepository')) {
+    final class CanonicalPurgeRunsRepository {
+        public function has_blocking_purge($record_id, $container_id): bool {
+            return !empty($GLOBALS['aa_test_blocking_purge']);
+        }
+
+        public function has_blocking_purge_for_container($container_id): bool {
+            return !empty($GLOBALS['aa_test_blocking_purge']);
+        }
+    }
+}
+
+if (!class_exists('AA_Expediente_Aggregate_Lock_Lease')) {
+    final class AA_Expediente_Aggregate_Lock_Lease {
+        public function __construct($key, $connection_id, $scope_kind, $scope_id) {
+        }
+    }
+}
+
+if (!class_exists('AA_Expediente_Aggregate_Lock')) {
+    final class AA_Expediente_Aggregate_Lock {
+        public const SCOPE_CANONICAL_CONTAINER = 'canonical_container';
+        public const DEFAULT_TIMEOUT_SECONDS = 5;
+        public const ERROR_RESOURCE_BUSY = 'resource_busy';
+
+        public static function create_default(): self {
+            return new self();
+        }
+
+        public function acquire($scope_kind, $scope_id, $timeout_seconds = 5) {
+            return new AA_Expediente_Aggregate_Lock_Lease('test', 1, $scope_kind, $scope_id);
+        }
+
+        public function assert_held($lease) {
+            return true;
+        }
+
+        public function release($lease): bool {
+            return true;
+        }
+    }
+}
+
 require_once $plugin_root . '/includes/application/canonical/WriteCanonicalShellContainerUseCase.php';
 require_once $plugin_root . '/includes/infrastructure/canonical/class-aa-canonical-write-binding-registry.php';
 require_once $plugin_root . '/includes/infrastructure/wp/class-aa-canonical-shell-base-url-policy.php';
@@ -344,6 +390,12 @@ ac_assert('Uncertain redirect_url', is_string($r['data']['redirect_url'] ?? null
     && strpos($r['data']['redirect_url'], 'family=finance') !== false
     && strpos($r['data']['redirect_url'], 'page=') === false);
 ac_assert('Uncertain sin SQL', strpos(json_encode($r), 'wpdb') === false);
+
+AA_Canonical_Write_Binding_Bootstrap::$mode = 'fixture';
+$GLOBALS['aa_test_blocking_purge'] = true;
+$r = aa_run_delete_container_ajax(aa_base_delete_post());
+ac_assert('Purge abierta → purge_in_progress', ($r['data']['code'] ?? '') === 'purge_in_progress' && ($r['status'] ?? 0) === 409);
+$GLOBALS['aa_test_blocking_purge'] = false;
 
 AA_Canonical_Write_Binding_Bootstrap::$mode = 'fixture';
 $r = aa_run_delete_container_ajax(aa_base_delete_post(['container_id' => '999']));

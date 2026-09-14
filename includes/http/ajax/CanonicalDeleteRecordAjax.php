@@ -90,7 +90,12 @@ final class CanonicalDeleteRecordAjax {
             self::error($e->error_code(), $e->error_message(), $e->http_status());
         }
 
-        $use_case = new WriteCanonicalShellRecordUseCase($gateway);
+        $use_case = new WriteCanonicalShellRecordUseCase(
+            $gateway,
+            null,
+            new CanonicalPurgeRunsRepository(),
+            AA_Expediente_Aggregate_Lock::create_default()
+        );
 
         try {
             $result = $use_case->delete($manifest, $command);
@@ -137,6 +142,12 @@ final class CanonicalDeleteRecordAjax {
         if ($state === CanonicalShellMutationResult::STATE_PERSISTENCE_FAILED) {
             self::error('persistence_failed', 'No se pudo eliminar el registro.', 500);
         }
+        if ($state === CanonicalShellMutationResult::STATE_PURGE_IN_PROGRESS) {
+            self::error('purge_in_progress', 'Hay una eliminación en curso sobre este recurso.', 409);
+        }
+        if ($state === CanonicalShellMutationResult::STATE_RESOURCE_BUSY) {
+            self::error('resource_busy', 'El recurso está ocupado. Inténtalo de nuevo.', 409);
+        }
         if ($state === CanonicalShellMutationResult::STATE_UNCERTAIN) {
             self::error(
                 'uncertain',
@@ -181,6 +192,12 @@ final class CanonicalDeleteRecordAjax {
         }
         if (!class_exists('WriteCanonicalShellRecordUseCase')) {
             require_once dirname(__DIR__, 2) . '/application/canonical/WriteCanonicalShellRecordUseCase.php';
+        }
+        if (!class_exists('CanonicalPurgeRunsRepository')) {
+            require_once dirname(__DIR__, 2) . '/repositories/CanonicalPurgeRunsRepository.php';
+        }
+        if (!class_exists('AA_Expediente_Aggregate_Lock')) {
+            require_once dirname(__DIR__, 2) . '/infrastructure/wp/class-aa-expediente-aggregate-lock.php';
         }
         if (!class_exists('CanonicalShellMutationResult')) {
             require_once dirname(__DIR__, 2) . '/application/canonical/CanonicalShellMutationResult.php';

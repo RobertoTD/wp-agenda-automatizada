@@ -26,6 +26,7 @@ final class AA_Canonical_Capability_Write_Bootstrap {
             global $wpdb;
         }
 
+        AA_Canonical_Capability_Registry_Bootstrap::bootstrap();
         $capability_registry = AA_Canonical_Capability_Registry_Bootstrap::instance();
         $config_repository = new CanonicalCapabilityConfigRepository($wpdb);
         $amount_repository = new CanonicalRecordAmountRepository($wpdb);
@@ -57,7 +58,13 @@ final class AA_Canonical_Capability_Write_Bootstrap {
         $infra = __DIR__;
         $repos = dirname(__DIR__, 3) . '/repositories';
 
+        $domain = dirname(__DIR__, 3) . '/domain/canonical';
+        $canonical_infra = dirname(__DIR__);
+
         $files = [
+            $domain . '/class-aa-canonical-capability-definition.php',
+            $domain . '/class-aa-canonical-capability-registry.php',
+            $canonical_infra . '/class-aa-canonical-capability-registry-bootstrap.php',
             $app . '/CanonicalCapabilityWriteBag.php',
             $app . '/CanonicalContainerCapabilitySelection.php',
             $app . '/CanonicalContainerCapabilitySelectionPreparer.php',
@@ -71,6 +78,7 @@ final class AA_Canonical_Capability_Write_Bootstrap {
             $app . '/CanonicalCapabilityWriteRejected.php',
             $app . '/CanonicalCapabilityInactive.php',
             $app . '/AA_Canonical_Amount_Normalizer.php',
+            $repos . '/CanonicalCapabilityConfigRepository.php',
             $repos . '/CanonicalRecordAmountRepository.php',
             $infra . '/class-aa-canonical-amount-set-effect.php',
             $infra . '/class-aa-canonical-amount-clear-effect.php',
