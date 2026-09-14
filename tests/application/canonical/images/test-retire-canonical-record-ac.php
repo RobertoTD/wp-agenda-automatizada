@@ -80,7 +80,9 @@ ac_assert('TX local DELETE+touch+completed', strpos($store_src, 'delete_by_uploa
     && strpos($store_src, 'mark_completed') !== false
     && strpos($store_src, 'START TRANSACTION') !== false);
 ac_assert('vacío skip HMAC', strpos($uc_src, 'prepared_batch_count') !== false
-    && strpos($uc_src, 'accept_delete_batch') !== false);
+    && strpos($uc_src, 'commit_local') !== false
+    && strpos($uc_src, 'accept_delete_batch') === false
+    && strpos($uc_src, 'seal_delete_mandate') === false);
 ac_assert('cancelación sin envío remoto', strpos($uc_src, 'mark_cancelled') !== false
     && strpos($uc_src, 'has_attempted_remote_dispatch') !== false);
 ac_assert('Write::delete corto sigue sin guarda obligatoria', strpos((string) file_get_contents($plugin_root . '/includes/application/canonical/WriteCanonicalShellRecordUseCase.php'), 'if ($this->purge_runs === null)') !== false);

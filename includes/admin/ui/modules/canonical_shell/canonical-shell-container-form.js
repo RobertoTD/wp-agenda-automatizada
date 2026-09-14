@@ -66,6 +66,8 @@
     var deleteCloseBtn = document.getElementById('aa-shell-delete-container-modal-close-btn');
     var deleteCancelBtn = document.getElementById('aa-shell-delete-container-modal-cancel-btn');
     var deleteConfirmBtn = document.getElementById('aa-shell-delete-container-confirm-btn');
+    var DELETE_RESUME_COOLDOWN_MS = 400;
+    var deleteResumeAt = 0;
     var deleteReloadBtn = document.getElementById('aa-shell-delete-container-reload-btn');
     var deleteAbortBtn = document.getElementById('aa-shell-delete-container-abort-btn');
     var deleteTitleEl = document.getElementById('aa-shell-delete-container-title');
@@ -73,6 +75,12 @@
 
     if (!modal || !form || !titleInput || !submitBtn || !modalTitle) {
         return;
+    }
+    if (deleteModal && deleteModal.getAttribute('data-aa-shell-container-form') === 'bound') {
+        return;
+    }
+    if (deleteModal) {
+        deleteModal.setAttribute('data-aa-shell-container-form', 'bound');
     }
 
     var MODE_CREATE = 'create';
@@ -755,6 +763,7 @@
         deletePreviousFocus = triggerEl || document.activeElement;
         deleteRedirectUrl = null;
         deleteBlocked = false;
+        deleteResumeAt = 0;
         setDeleteStatus('', false);
         showDeleteReload(false);
         showDeleteAbort(false);
@@ -797,8 +806,15 @@
         }
     }
 
+    function armDeleteResumeCooldown() {
+        deleteResumeAt = Date.now() + DELETE_RESUME_COOLDOWN_MS;
+    }
+
     function submitDelete(retireAction) {
         if (!deleteModal || deleteInFlight || deleteBlocked) {
+            return;
+        }
+        if (retireAction !== 'cancel' && deleteResumeAt > 0 && Date.now() < deleteResumeAt) {
             return;
         }
         if (!(deleteContainerId >= 1) || !deleteFamilyKey) {
@@ -878,6 +894,7 @@
                 setDeleteBusy(false);
                 setDeleteConfirmLabel('Continuar');
                 showDeleteAbort(false);
+                armDeleteResumeCooldown();
                 setDeleteStatus(
                     message || 'La eliminación no terminó. Pulsa Continuar para seguir.',
                     false
@@ -900,6 +917,7 @@
                 setDeleteBusy(false);
                 setDeleteConfirmLabel('Continuar');
                 showDeleteAbort(false);
+                armDeleteResumeCooldown();
                 setDeleteStatus(
                     message || 'Ya hubo comunicación remota. No se puede cancelar. Pulsa Continuar para recuperar el protocolo.',
                     false
@@ -1021,7 +1039,15 @@
         });
     }
     if (deleteConfirmBtn) {
-        deleteConfirmBtn.addEventListener('click', function () {
+        deleteConfirmBtn.addEventListener('keydown', function (e) {
+            if ((e.key === 'Enter' || e.key === ' ') && e.repeat) {
+                e.preventDefault();
+            }
+        });
+        deleteConfirmBtn.addEventListener('click', function (e) {
+            if (e && e.repeat) {
+                return;
+            }
             submitDelete();
         });
     }

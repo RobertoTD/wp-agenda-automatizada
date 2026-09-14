@@ -94,7 +94,7 @@ function createEl(id) {
 let documentRef;
 let lastFormData;
 
-function boot(fetchImpl, payloads, cfgOverrides) {
+function boot(fetchImpl, payloads, cfgOverrides, scriptRuns) {
     const openBtn = createEl('aa-shell-open-create-btn');
     const modal = createEl('aa-shell-container-modal');
     const form = createEl('aa-shell-container-form');
@@ -250,12 +250,17 @@ function boot(fetchImpl, payloads, cfgOverrides) {
             lastFormData = options && options.body ? options.body._data : null;
             return fetchImpl();
         },
+        Date,
         console
     };
 
-    vm.runInNewContext(fs.readFileSync(jsPath, 'utf8'), env, {
-        filename: 'canonical-shell-container-form.js'
-    });
+    const src = fs.readFileSync(jsPath, 'utf8');
+    const runs = scriptRuns == null ? 1 : scriptRuns;
+    for (let i = 0; i < runs; i++) {
+        vm.runInNewContext(src, env, {
+            filename: 'canonical-shell-container-form.js'
+        });
+    }
 
     return {
         openBtn,
@@ -509,11 +514,48 @@ describe('canonical-shell-container-form', () => {
         const before = ui.getFetchCalls();
         ui.deleteConfirmBtn._listeners.click[0]();
         await new Promise((resolve) => setTimeout(resolve, 0));
+        assert.equal(ui.getFetchCalls(), before, 'no reenvío automático ni clic inmediato tras incomplete');
+
+        await new Promise((resolve) => setTimeout(resolve, 450));
+        ui.deleteConfirmBtn._listeners.click[0]();
+        await new Promise((resolve) => setTimeout(resolve, 0));
         assert.equal(ui.getFetchCalls(), before + 1);
         assert.equal(ui.getLastFormData().retire_action, undefined);
         assert.equal(ui.getLastFormData().mandate_id, undefined);
         assert.equal(ui.getLastFormData().container_id, '9');
         assert.equal(ui.getLastFormData().nonce, 'delete-nonce');
+        assert.equal(ui.getAssignedUrl(), null);
+        assert.equal(ui.deleteConfirmBtn.textContent, 'Continuar');
+
+        ui.deleteCancelBtn._listeners.click[0]();
+        assert.equal(ui.deleteModal.classList.contains('hidden'), true);
+        assert.equal(ui.getFetchCalls(), before + 1, 'Cerrar no continúa ni cancela en servidor');
+        assert.equal(ui.getAssignedUrl(), null);
+    });
+
+    it('delete: un clic de confirmación produce una sola solicitud', async () => {
+        const ui = boot(
+            async () => ({
+                status: 200,
+                text: async () => JSON.stringify({
+                    success: true,
+                    data: {
+                        status: 'confirmed',
+                        redirect_url: 'https://example.test/lists'
+                    }
+                })
+            }),
+            [{ id: 9, title: 'X', details: '' }],
+            {},
+            2
+        );
+        assert.equal(ui.deleteConfirmBtn._listeners.click.length, 1);
+        ui.deleteBtns[0]._listeners.click[0]();
+        ui.deleteConfirmBtn._listeners.click[0]();
+        ui.deleteConfirmBtn._listeners.click[0]();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        assert.equal(ui.getFetchCalls(), 1);
+        assert.equal(ui.getAssignedUrl(), 'https://example.test/lists');
     });
 
     it('delete: conflict muestra cancelar local y no envía mandate_id', async () => {

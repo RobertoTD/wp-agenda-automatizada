@@ -199,6 +199,18 @@ require_once $plugin_root . '/includes/application/canonical/ResolveCanonicalRou
 require_once $plugin_root . '/includes/infrastructure/canonical/class-aa-canonical-read-binding-registry.php';
 require_once $plugin_root . '/includes/infrastructure/wp/class-aa-canonical-shell-base-url-policy.php';
 require_once $plugin_root . '/includes/infrastructure/canonical/class-aa-canonical-shell-view-composer.php';
+require_once $plugin_root . '/includes/application/canonical/capabilities/CanonicalCapabilityRecordPageContributorRegistry.php';
+require_once $plugin_root . '/includes/application/canonical/capabilities/CanonicalCapabilityShellRecordsEnricher.php';
+require_once $plugin_root . '/includes/application/canonical/capabilities/CanonicalCapabilityRecordReadState.php';
+require_once $plugin_root . '/includes/admin/ui/modules/canonical_shell/presenters/class-aa-canonical-amount-shell-presenter.php';
+
+if (!class_exists('AA_Canonical_Capability_Page_Contributor_Bootstrap')) {
+    final class AA_Canonical_Capability_Page_Contributor_Bootstrap {
+        public static function bootstrap() {
+            return new CanonicalCapabilityRecordPageContributorRegistry();
+        }
+    }
+}
 
 AA_Canonical_Core_Bootstrap::bootstrap();
 
@@ -676,6 +688,10 @@ ac_assert('Fill header has Volver and Detalles', strpos($html_fill, 'Volver a co
     && strpos($html_fill, 'id="aa-shell-list-details-toggle"') !== false
     && strpos($html_fill, 'aria-controls="aa-shell-list-details"') !== false
     && strpos($html_fill, 'aria-expanded="false"') !== false);
+$fill_actions_ok = preg_match('/aa-shell-list-header-actions[\s\S]*?<\/div>/', $html_fill, $fill_actions) === 1
+    && substr_count($fill_actions[0], 'aa-shell-delete-container-btn') === 1
+    && substr_count($fill_actions[0], 'aa-shell-edit-container-btn') === 1;
+ac_assert('Fill header una sola acción Eliminar lista', $fill_actions_ok);
 ac_assert('Fill details start collapsed', strpos($html_fill, 'id="aa-shell-list-details"') !== false
     && preg_match('/id="aa-shell-list-details"[^>]*\bhidden\b/', $html_fill) === 1);
 ac_assert('Fill details include text and updated_at', strpos($html_fill, 'Detalle de la lista') !== false

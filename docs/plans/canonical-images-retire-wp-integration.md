@@ -1,6 +1,6 @@
 # Exploración: retiro canónico WP, mandatos de limpieza y cuota
 
-**Estado:** incrementos 1–4 implementados en `dev/canonical-images-retire`. Incremento 3 cerrado en validación policyytest (A/D/B + UI vacío/Cancelar; Continuar no PASS; C integrado pendiente). **Incremento 4 (retiro de lista) — código + AC aislados + AJAX integrado policyytest A/B/C PASS; clics de navegador del 4 pendientes** (fixture viva §7.10). Todavía sin cron/workers ni `is_ready`. Retiro de **una imagen** conservando el registro: pendiente como incremento aparte (§8).
+**Estado:** incrementos 1–4 implementados en `dev/canonical-images-retire`. Incremento 3 cerrado en validación policyytest (A/D/B + UI vacío/Cancelar; Continuar no PASS; C integrado pendiente). **Incremento 4 (retiro de lista) — código + AC aislados + AJAX integrado policyytest A/B/C PASS; primer clic de navegador del 4 no PASS de pausa/reanudación** (lista 21 consumida; causa y fixture de reemplazo §7.11). Todavía sin cron/workers ni `is_ready`. Retiro de **una imagen** conservando el registro: pendiente como incremento aparte (§8).
 **Fecha:** 2026-09-14.
 **Ámbito:** integración WordPress del retiro de registros/adjuntos canónicos y liberación de cuota, reutilizando `accept` / `seal` / `status` del backend.
 
@@ -10,8 +10,8 @@ No modifica el state de la prueba Backend 3 (worker local Storage, `docs/ops/att
 
 | Repo | Rama | HEAD |
 |------|------|------|
-| `wp-agenda-automatizada` | `dev/canonical-images-retire` | `17cf69e13257bcb4a90e57c8c1446b47fe294f9e` (implementación inc. 4); `cc81f830db2d895bc5dbd3d4e35ffc46e030f392` (docs SHA previo a esta validación); este commit registra los resultados |
-| `deoia-oauth-backend` (solo contratos) | `dev/backend-recovered` | `26452b3ba4ceb24b7bf46271fd30a0c58318ceed` (parche `authorize-upload`; untracked ajeno: `scripts/runner-from-pack.sh`) |
+| `wp-agenda-automatizada` | `dev/canonical-images-retire` | `17cf69e13257bcb4a90e57c8c1446b47fe294f9e` (implementación inc. 4); `c76681d6fa0e230caf1456ad92c4c044bf5960ef` (docs AJAX A/B/C); este commit: UI duplicado + cooldown Continuar + fixture r2 (§7.11) |
+| `deoia-oauth-backend` (solo contratos) | `dev/backend-recovered` | `26452b3ba4ceb24b7bf46271fd30a0c58318ceed` (sin cambios; untracked ajeno: `scripts/runner-from-pack.sh`) |
 
 **Backend Storage fixture (no reejecutada aquí):** immediate / later / reappear **PASS**. El caso reappear fue **sintético** (no un PUT tardío real del proveedor).
 
@@ -323,7 +323,7 @@ El detalle del flujo, numeración, cancelación segura y procedimiento manual es
 
 ### Incremento 4 — contenedor / lista completa — **completado** (`DB_VERSION=30`)
 
-`aa_delete_canonical_container` orquesta mandatos `scope=container` (`RetireCanonicalContainerUseCase`). Seal obligatorio (incl. `expected_batch_count=0`). Chunks locales post-sello. AJAX integrado policyytest A/B/C **PASS** (§7.10). Clics de navegador del 4 **pendientes**. Detalle: **§7**.
+`aa_delete_canonical_container` orquesta mandatos `scope=container` (`RetireCanonicalContainerUseCase`). Seal obligatorio (incl. `expected_batch_count=0`). Chunks locales post-sello. AJAX integrado policyytest A/B/C **PASS** (§7.10). Primer clic de navegador del 4 **no PASS** de Continuar (§7.11). Detalle: **§7**.
 
 ### Incremento 5 — retiro de **una imagen** (registro vivo) — **pendiente, fuera del 4**
 
@@ -621,13 +621,13 @@ Caso B integrado (AJAX/HTTP, registro 34): **PASS** previo (ver retoma arriba). 
 
 **No cerrado tras el 3:** retiro de una imagen (§8); Continuar UI del registro; C integrado (interrupción de red); `is_ready`; cron/worker. Esas clasificaciones **no** cambian por el incremento 4.
 
-**Incremento 4:** AJAX integrado A/B/C **PASS** (§7.10). Clics de navegador del 4 **pendientes** (lista 21). Schema policyytest blog 61: 29→30.
+**Incremento 4:** AJAX integrado A/B/C **PASS** (§7.10). Primer clic de navegador **no PASS** de Continuar (lista 21 consumida; §7.11). Schema policyytest blog 61: 29→30.
 
 ---
 
 ## 7. Incremento 4 — retiro de una lista completa — **completado** (`DB_VERSION=30`)
 
-**Estado:** implementado en código + AC MySQL aislado / Ajax / JS. Policyytest 2026-09-14: schema blog 61 29→30; AJAX A/B/C **PASS**; clics de navegador **pendientes** (lista 21). HMAC de registro: protocolo PASS; aserción estructural obsoleta 1/45. Backend no se desplegó.
+**Estado:** implementado en código + AC MySQL aislado / Ajax / JS. Policyytest 2026-09-14: schema blog 61 29→30; AJAX A/B/C **PASS**; primer clic de navegador **no PASS** de Continuar (lista 21; §7.11). HMAC de registro: protocolo PASS; estructural `'vacío skip HMAC'` 45/45. Backend no se desplegó.
 
 **Clasificación:** capability `images` + runtime WP (IMG-5).
 
@@ -697,13 +697,13 @@ MySQL prefijo temporal + HMAC simulado; lock con **segunda conexión** real. Cub
 
 ### 7.7 Límites (no declarar de más)
 
-- Clics de **navegador** del incremento 4: **pendientes** (fixture lista 21; §7.10). AJAX A/B/C no acredita esos clics.
+- Clics de **navegador** del incremento 4: primer intento lista 21 **no PASS** de pausa/reanudación (§7.11). Fixture de reemplazo r2. AJAX A/B/C no acredita esos clics.
 - Continuar UI del incremento 3 y caso C integrado (interrupción de red): **siguen sin PASS** (no se reabrieron ni se reclasifican).
 - El attach de desarrollo del caso C **no** es PASS de disponibilidad de `images` en UI de producto.
 - No hay garantía de que un `UPDATE` de pertenencia hecho a mano conserve imágenes del registro movido (las identidades inventariadas se retiran).
 - Worker periódico apagado: residuos Storage esperables y documentados.
 - `Write::delete` no es el camino productivo; sigue fallando por RESTRICT si alguien lo llama con images/ops.
-- Aserción estructural obsoleta `'vacío skip HMAC'` en `test-retire-canonical-record-ac.php` (busca `accept_delete_batch` dentro del UseCase de registro; el POST vive en el advancer). No es regresión de protocolo; no se «arregló» en este turno de docs.
+- Aserción estructural `'vacío skip HMAC'` alineada al skip local (`commit_local` en el UseCase de registro; accept/seal solo en el advancer).
 
 ### 7.8 Tipos de prueba (contradicción «sin Storage» corregida)
 
@@ -719,7 +719,7 @@ No usar la lista **17**, registros 33/inc. 3, ni Backend 3. Worker **apagado**. 
 
 ### 7.9 Bloqueos
 
-Ninguno de contrato backend para el 4. Fixture lista 17 / registro 33 se conservan. Incremento 5 = una imagen con registro vivo (§8). Clics del 4: lista 21 viva; Node local pid **51399** dejado en marcha.
+Ninguno de contrato backend para el 4. Fixture lista 17 / registro 33 se conservan. Incremento 5 = una imagen con registro vivo (§8). Lista 21 **consumida** en el primer clic (§7.11). Fixture de reemplazo en §7.11. Node local pid **51399** dejado en marcha (no reiniciado).
 
 ### 7.10 Validación integrada policyytest (2026-09-14, inc. 4)
 
@@ -729,13 +729,11 @@ Ejecutada contra WordPress local + Node local `:3000` + Supabase remoto comparti
 
 `CanonicalPurgeRemoteMandateAdvancer` lo usan retiro de registro y de contenedor.
 
-Suite `AA_WP_ROOT=/var/www/html/wpagenda php tests/application/canonical/images/test-retire-canonical-record-ac.php`: **44/45**.
+Suite `AA_WP_ROOT=/var/www/html/wpagenda php tests/application/canonical/images/test-retire-canonical-record-ac.php`: **45/45**.
 
 Protocolo **PASS** (comportamiento): vacío sin HMAC (0 POST, registro borrado, corrida `completed`); intención persistida antes del HTTP; recuperación `already_accepted` / status sin segundo accept; seal perdido + recuperación; cancelación previa al envío; `cancel_rejected` tras remoto desconocido; tandas 0-based (51 ítems seq 0 luego 1, seal count=2); `resource_busy` en segunda conexión.
 
-**FAIL estructural** (higiene, no protocolo): `'vacío skip HMAC'` exige `accept_delete_batch` **dentro** de `RetireCanonicalRecordUseCase.php`. Tras la extracción esa llamada vive solo en el advancer. El skip real (`$prepared === 0` → `commit_local`) sigue en el UseCase; el caso `'vacío sin HMAC'` **PASS**. No se modificó PHP en este turno.
-
-Otras suites del proyecto no se reejecutaron. Ajax de registro stubéa el UseCase (no cubre el advancer).
+**Estructural `'vacío skip HMAC'`:** comprueba el comportamiento en el UseCase de registro (`prepared_batch_count` + `commit_local`) y la **ausencia** de `accept_delete_batch` / `seal_delete_mandate` en ese archivo tras extraer el advancer. No busca el nombre del método HMAC dentro del UseCase.
 
 #### Entorno
 
@@ -801,7 +799,74 @@ No se borraron tombstones ni objetos. Mandatos A/B sellados vacíos permanecen e
 
 Lista 17 / registro 33 / Backend 3 no se usaron.
 
----
+### 7.11 Primer clic de navegador (2026-09-14) — no PASS de Continuar
+
+El propietario reportó dos discrepancias en la lista 21. **No** se marca pausa/reanudación visual como PASS.
+
+#### Estado persistido (solo lectura; no se recreó la 21)
+
+| Dato | Valor |
+|------|--------|
+| Contenedor 21 / `public_id` `7ac91da1-…` | **ausente** |
+| Registros 87–137 | **ausentes** (0 en ese rango) |
+| Corrida | **9**, `scope=container`, `status=completed` |
+| Mandato | `7920fa4a-03ae-4392-8815-ab3c180e98b2` |
+| Inventario | 0 filas; `prepared_batch_count=0`; `last_accepted_batch_seq=null` |
+| Sello | `seal_intent_at` / `sealed_at` = `2026-09-14 22:31:08` (UTC) — count=0 acreditado |
+| Checkpoint | `local_retire_after_record_id=137` (último id del alcance) |
+| Tiempos corrida | `created_at` `:08`; `updated_at` `:16` |
+
+Chunk de producción intacto (`AA_Canonical_Purge_Local_Retire_Store` default **50**). 51 registros vacíos **no** caben en una sola petición; el checkpoint 137 acredita un **segundo** chunk local. No hay defecto de chunk en servidor. No se añadió regresión MySQL de chunk.
+
+Apache `access.log` (hora local 16:31 = 22:31 UTC), Referer = iframe `container_id=21`, Chrome:
+
+1. `16:31:08` POST `admin-ajax.php` → **409** (765 B) = `incomplete`
+2. `16:31:16` POST `admin-ajax.php` → **200** (854 B) = `confirmed`
+3. GET inmediato al listado `family=finance` (`location.assign` tras confirmed)
+
+Dos POSTs **secuenciales** (~8 s). No son dos confirms en paralelo (eso habría sido dos POST a las `:08`). El intervalo coincide con la duración de la primera petición (captura + sello count=0 + 50 DELETE). `completed` **no** basta para contar peticiones; aquí el access log sí las distingue. Node pid **51399** no registra líneas HMAC de este intento (solo arranque); no se reinició Node. JS servido: `canonical-shell-container-form.js?ver=3.4.1` (fuente del plugin, no bundle webpack).
+
+**No reconstruible:** si el segundo POST fue un clic explícito en Continuar, un Enter/clic retenido al reactivarse el botón, u otra acción humana en el mismo segundo. El propietario no acredita Continuar. El código **no** reenviaba solo al recibir `incomplete`. Los dos botones duplicados **no** prueban dos handlers de confirmación en paralelo.
+
+#### Botones duplicados
+
+Causa: markup PHP duplicado en el header fill de `includes/admin/ui/modules/canonical_shell/index.php` (commit `17cf69e`: dos `.aa-shell-delete-container-btn` idénticos junto a Editar y Detalles). No fue clonación JS ni doble init del iframe. Corrección: un solo Eliminar lista en `.aa-shell-list-header-actions`. No se ocultó con CSS.
+
+#### Por qué no se vio incomplete
+
+La primera petición sí devolvió 409 `incomplete`. El JS no hace retry automático. Tras ~8 s el confirm se reetiquetaba Continuar y se reactivaba; una segunda petición inmediatamente después completa el chunk restante y `location.assign` al listado. El modal no permanece visible. Cooldown 400 ms + bind-once del IIFE + ignore `e.repeat` en confirm impiden ese reenvío inmediato. Cerrar sigue sin fetch.
+
+#### Pruebas dirigidas
+
+- JS `canonical-shell-container-form.test.js`: una sola solicitud por confirmación (incl. doble boot); incomplete conserva Continuar sin reenvío automático; Cerrar no POST; confirmed solo `location.assign` tras éxito final.
+- Ajax AC: fill header una sola acción Eliminar; bind + cooldown en JS.
+- Records-nav AC: fill header 1 Eliminar + 1 Editar (harness de contributors vacío para `compose_family_records`).
+- Record AC estructural `'vacío skip HMAC'`: 45/45.
+
+#### Fixture de reemplazo (no pulsar Eliminar)
+
+Sustituye la lista 21. Chunk de producción intacto (50). 0 corridas. 0 imágenes. Lista 17 / registro 33 / Backend 3 intactos.
+
+| Campo | Valor |
+|-------|--------|
+| Título | `INC4-UI-continue-20260914-r2` |
+| ID | **22** |
+| `public_id` | `f146d231-d841-4561-b4ae-96a76e22742d` |
+| Registros | **51** vacíos, ids **138–188**, títulos `INC4-UI-r2-001` … `INC4-UI-r2-051` |
+| Header fill | 1× Eliminar lista (HTML SSR; no navegador) |
+| Sitio | `http://localhost/deoia-platform/policyytest/agenda-app` |
+| Iframe registros | `http://localhost/deoia-platform/policyytest/wp-admin/admin-post.php?action=aa_iframe_content&module=canonical_shell&family=finance&view=records&container_id=22` |
+| Iframe listas | `http://localhost/deoia-platform/policyytest/wp-admin/admin-post.php?action=aa_iframe_content&module=canonical_shell&family=finance` |
+
+Clics (el agente **no** pulsó Eliminar):
+
+1. Recarga forzada (Ctrl+Shift+R): el JS sigue `?ver=3.4.1`.
+2. Abrir iframe de registros de la **22**. Un solo «Eliminar lista» junto a Editar y Detalles.
+3. Eliminar lista → confirmar. Esperado: modal sigue; «La eliminación no terminó…»; primario **Continuar**; sin Cancelar eliminación.
+4. **Cerrar**. Recargar. Banner «No está borrada del todo»; ~1 registro residual (keyset 50+1; análogo al caso B).
+5. Eliminar lista → **Continuar** (un clic, esperar). Confirmed → listado de listas.
+
+Network opcional: filtro `admin-ajax.php`. 1ª POST 409 `incomplete`; 2ª solo tras Continuar, 200 `confirmed`. No pedir cookies.
 
 ## 8. Retiro de una imagen (registro vivo)
 
@@ -818,7 +883,7 @@ Lista 17 / registro 33 / Backend 3 no se usaron.
 | Capa | Pendiente |
 |------|-----------|
 | **Implementación** | Inc. 5 una imagen (§8) |
-| **Validación** | Continuar UI inc. 3 (sin evidencia); C integrado inc. 3 (red); **clics de navegador del 4** (lista 21, §7.10) |
+| **Validación** | Continuar UI inc. 3 (sin evidencia); C integrado inc. 3 (red); **pausa/reanudación visual del 4** (primer intento lista 21 **no PASS**; fixture r2 §7.11) |
 | **Activación** | `is_ready` / seeds / UI galería — **fuera** hasta cerrar recorridos de borrado acordados |
 | **Ops** | Worker periódico Storage; no WP ledger físico |
 
@@ -827,7 +892,7 @@ Lista 17 / registro 33 / Backend 3 no se usaron.
 ## Fuera de alcance restante
 
 - Implementar incremento 5 (una imagen, §8).
-- Clics de navegador del 4 (lista 21); caso C integrado inc. 3; Continuar UI inc. 3 sin evidencia.
+- Clics de navegador del 4 (fixture r2, §7.11); primer intento lista 21 **no PASS**; caso C integrado inc. 3; Continuar UI inc. 3 sin evidencia.
 - Activar polling del worker, cron o `is_ready`.
 - Cambiar TTL, tombstones o identidades Storage Backend 3.
 - Expedientes Ciclo B; reabrir subida.

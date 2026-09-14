@@ -361,7 +361,7 @@ $is_records_fill = $show_read_ui
                                         >Volver a contenedores</a>
                                     <?php endif; ?>
                                 </p>
-                                <div class="shrink-0 flex items-center gap-3 flex-wrap">
+                                <div class="aa-shell-list-header-actions shrink-0 flex items-center gap-3 flex-wrap">
                                     <?php if ($edit_list_payload_attr !== '') : ?>
                                         <button
                                             type="button"
@@ -369,12 +369,6 @@ $is_records_fill = $show_read_ui
                                             data-aa-container="<?php echo $edit_list_payload_attr; ?>"
                                             aria-label="<?php echo esc_attr('Editar lista: ' . $list_heading); ?>"
                                         >Editar lista</button>
-                                        <button
-                                            type="button"
-                                            class="aa-shell-delete-container-btn text-sm font-medium text-red-700 hover:underline focus:outline-none focus:ring-2 focus:ring-red-500 rounded"
-                                            data-aa-container="<?php echo $edit_list_payload_attr; ?>"
-                                            aria-label="<?php echo esc_attr('Eliminar lista: ' . $list_heading); ?>"
-                                        >Eliminar lista</button>
                                         <button
                                             type="button"
                                             class="aa-shell-delete-container-btn text-sm font-medium text-red-700 hover:underline focus:outline-none focus:ring-2 focus:ring-red-500 rounded"
