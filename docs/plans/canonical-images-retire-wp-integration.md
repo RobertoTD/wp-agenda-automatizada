@@ -1,6 +1,6 @@
 # Exploración: retiro canónico WP, mandatos de limpieza y cuota
 
-**Estado:** incrementos 1–4 implementados en `dev/canonical-images-retire`. Incremento 3 cerrado en validación policyytest (A/D/B + UI vacío/Cancelar; Continuar no PASS; C integrado pendiente). **Incremento 4 (retiro de lista) — código + AC aislados + AJAX A/B/C PASS; pausa/Continuar visual desde listado de listas PASS (lista 22, §7.12); Cerrar/recargar/banner/bloqueo de altas aún no probados visualmente.** Primer intento lista 21: no PASS (§7.11). Todavía sin cron/workers ni `is_ready`. Retiro de **una imagen** conservando el registro: pendiente como incremento aparte (§8).
+**Estado:** incrementos 1–4 implementados en `dev/canonical-images-retire`. Incremento 3: AJAX/HTTP PASS; Continuar UI registro y C de red pendientes. Incremento 4: AJAX A/B/C PASS; Continuar visual desde listado lista 22 PASS (§7.12); Cerrar/recargar/banner/altas **no** PASS. **Incremento 5 (una imagen, registro vivo): diseño documentado en §8 — no implementado.** `images` sigue `is_ready=false`. Sin cron/workers.
 **Fecha:** 2026-09-14.
 **Ámbito:** integración WordPress del retiro de registros/adjuntos canónicos y liberación de cuota, reutilizando `accept` / `seal` / `status` del backend.
 
@@ -10,7 +10,7 @@ No modifica el state de la prueba Backend 3 (worker local Storage, `docs/ops/att
 
 | Repo | Rama | HEAD |
 |------|------|------|
-| `wp-agenda-automatizada` | `dev/canonical-images-retire` | `17cf69e13257bcb4a90e57c8c1446b47fe294f9e` (implementación inc. 4); `7b21e4371fa746af095041f12a74269fd870c315` (UI un solo Eliminar + cooldown); este commit: docs §7.12 Continuar visual lista 22 |
+| `wp-agenda-automatizada` | `dev/canonical-images-retire` | `287fb50bbc75b8c8d299f2d65b2dcc624827d6f5` (docs Continuar lista 22); este commit: diseño incremento 5 §8 |
 | `deoia-oauth-backend` (solo contratos) | `dev/backend-recovered` | `26452b3ba4ceb24b7bf46271fd30a0c58318ceed` (sin cambios; untracked ajeno: `scripts/runner-from-pack.sh`) |
 
 **Backend Storage fixture (no reejecutada aquí):** immediate / later / reappear **PASS**. El caso reappear fue **sintético** (no un PUT tardío real del proveedor).
@@ -325,9 +325,9 @@ El detalle del flujo, numeración, cancelación segura y procedimiento manual es
 
 `aa_delete_canonical_container` orquesta mandatos `scope=container` (`RetireCanonicalContainerUseCase`). Seal obligatorio (incl. `expected_batch_count=0`). Chunks locales post-sello. AJAX integrado policyytest A/B/C **PASS** (§7.10). Continuar visual desde listado **PASS** (lista 22, §7.12). Cerrar/recargar/banner **pendientes**. Primer intento lista 21 **no PASS** (§7.11). Detalle: **§7**.
 
-### Incremento 5 — retiro de **una imagen** (registro vivo) — **pendiente, fuera del 4**
+### Incremento 5 — retiro de **una imagen** (registro vivo) — **diseñado (§8), no implementado**
 
-Norma §12.4: «Eliminar una imagen elimina sus objetos asociados.» No hay AJAX/UseCase canónico de detach. No se inventa exclusión: queda **§8** como incremento acotado aparte. No es parte del entregable del 4.
+Norma §12.4. Diseño único, componentes, schema mínimo, matriz de pruebas y veredicto de preparación: **§8**. No forma parte del entregable del 4.
 
 ### Incremento 6 (opcional, aparte)
 
@@ -909,13 +909,176 @@ Dos POSTs secuenciales (~47 s). Una sola corrida / un solo mandato. Chunk 50 int
 
 Las demás limitaciones ya registradas (Continuar UI inc. 3; C integrado inc. 3; `is_ready`; worker; retiro de una imagen §8) **permanecen**.
 
-## 8. Retiro de una imagen (registro vivo)
+## 8. Incremento 5 — retiro de una imagen (registro vivo) — **diseño**
 
-**Norma:** `docs/05-canonical-capabilities.md` §12.4 — «Eliminar una imagen elimina sus objetos asociados.»
+**Estado de este turno:** exploración y documentación únicamente. **No implementado.** No se ejecutaron pruebas con efectos, ni HTTP remoto, ni fixtures nuevas.
 
-**Código canónico:** no existe AJAX ni UseCase de detach (`aa_attach` / `aa_sign` solamente). Legacy Expedientes (`DeleteExpedienteAdjunto*`) es otro mundo (Storage-first síncrono); no es el camino canónico.
+**Norma:** `docs/05-canonical-capabilities.md` §12.4 — eliminar una imagen elimina sus objetos asociados; aplica aunque `images` esté inactiva en la lista; fallo a medias → incompleto + Continuar.
 
-**Conclusión:** pendiente **dentro** del alcance normativo de eliminaciones, **fuera** del primer entregable del incremento 4. Ubicar como **incremento 5** (o etiqueta IMG-5b): un mandato/corrida de alcance imagen u operación puntual, reutilizando accept/seal si el contrato lo permite, o el mínimo protocolo durable acordado — **sin implementarlo ahora**. No se declara exclusión inventada.
+**Clasificación:** capability `images` + runtime WP (IMG-5). No es shell genérico, no es familia nueva, no es API pública.
+
+**Producto (cerrado; no reabrir):**
+
+- Quitar **una** imagen confirmada.
+- Conservar el **registro** (title, details, amount u otras capabilities).
+- Conservar **otras** imágenes y operaciones no inventariadas en esta corrida.
+- La cuota comercial (`SUM` de `aa_canonical_record_images.byte_size`) baja al retirar la asociación SQL.
+- La limpieza física sigue siendo obligación durable del backend + worker; WP no llama `POST /expediente/attachments/delete` ni borra Storage.
+
+### 8.1 Hechos del código actual (comprobados)
+
+| Hecho | Detalle |
+|-------|---------|
+| Scopes de purge | Solo `record` \| `container` (`CanonicalPurgeRunsRepository`). `scope` es `varchar(32)` sin ENUM SQL. |
+| Captura | `CaptureCanonicalPurgeInventoryCommand` rechaza cualquier otro scope; páginas por registro o contenedor completos. |
+| Inventario | Identidad durable = `upload_operation_id`; también `wp_record_id`, sha, byte_size, `storage_path`; `source` image\|operation\|both. Sin columna de `image.id`. |
+| Retiro local registro | `AA_Canonical_Purge_Local_Retire_Store::retire_record` borra identidades del inventario, **exige** que no queden filas vivas fuera del inventario, **DELETE del registro**, touch contenedor. **Incompatible** con conservar el registro. |
+| Advancer HMAC | `CanonicalPurgeRemoteMandateAdvancer` ya sirve tandas 0-based y seal con `prepared_batch_count` (incl. 0 y 1). |
+| Backend | Accept exige `upload_operation_id` + metadatos; max 50; tombstone por `(installation_id, upload_operation_id)`. Seal `expected_batch_count≥0` (1 ítem = seal 1) ya soportado. |
+| UI pública | `CanonicalRecordImagePublicDto` expone `{id,width,height,byte_size,created_at}` — **sin** `upload_operation_id`. Sign-read resuelve `image_id` → fila completa en servidor. |
+| Contributor | `CanonicalImagesRecordsPageContributor` → `not_offered` mientras `is_ready=false`. Partial de card no pinta galería. |
+| Attach / sign | Exigen `images` ready + activa en lista. Delete de registro/lista **no** exige ready (§12.4). |
+| Blocking | `has_blocking_purge(record,container)` solo mira scopes `record`\|`container`. `has_blocking_purge_for_container` mira cualquier abierta con ese `container_id`. |
+| Confirm attach | INSERT image → DELETE op → touch **contenedor** `updated_at`. Tombstone remoto **no** se crea en confirm; se crea en accept. |
+
+### 8.2 Diseño único elegido
+
+**Un mandato / una corrida / alcance imagen**, reutilizando captura durable + accept + seal + retiro local acotado.
+
+| Campo de corrida | Valor |
+|------------------|--------|
+| `scope` | **`image`** (nueva constante Application; no reutilizar `record`) |
+| `target_id` | **`aa_canonical_record_images.id`** (bigint estable hasta el DELETE local) |
+| `container_id` | Siempre el contenedor del registro dueño |
+| `record_id` | **Columna nueva nullable** en `aa_canonical_purge_runs` (`DB_VERSION=31`): el registro dueño, sellado al abrir. Necesaria para blocking/recuperación sin JOIN a la fila de imagen (que desaparece al completar) |
+
+**Por qué no `scope=record` filtrado:** la captura y `retire_record` actuales significan “vaciar y borrar el registro”; Continuar/conflicto colisionarían con Eliminar registro; un filtro ad hoc sobrecarga `target_id` sin dejar de bloquear el slot de purge de registro entero.
+
+**Por qué `target_id = image.id` y no el UUID de operación:** `target_id` es bigint; el UUID vive en inventario (`upload_operation_id`), que es la identidad del mandato. El cliente habla en `image_id` (como sign-read); el servidor resuelve a operación.
+
+**Flujo:**
+
+1. Autorizar familia (Access Policy / `authorize_identity`). **No** exigir `images.is_ready` (norma §12.4). Comprobar pertenencia: imagen → registro → contenedor → familia.
+2. `GET_LOCK` del contenedor (mismo patrón). No mantener TX SQL durante HTTP.
+3. Abrir o reanudar corrida `scope=image`, `target_id=image_id`. Overlap → conflicto / `resource_busy` según reglas §8.4.
+4. Captura **puntual** (no página de todo el registro):
+   - Fila imagen por `id` + `record_id` esperado.
+   - Op `admitted|cleanup_needed` con el **mismo** `upload_operation_id`, si existe (tras confirm suele no haber op).
+   - Metadatos (sha, byte_size, path) deben coincidir entre fuentes; discrepancia → **conflicto explícito** (`capture_conflict` / equivalente), sin accept.
+   - Inventario: 0 o 1 identidad (`upload_operation_id`). `prepared_batch_count` 0 o 1; `batch_seq` 0-based.
+5. Si inventario 0 (asociación ya ausente al capturar): cerrar como el vacío de registro — **sin** inventar DELETE del registro; marcar completed / confirmed según corrida (ver §8.5). No hace falta seal vacío salvo que haya corrida abierta con mandato ya comunicado; entonces recuperar vía status/seal como hoy.
+6. Si inventario 1: `CanonicalPurgeRemoteMandateAdvancer` → accept tanda 0 → seal `expected_batch_count=1` (misma política común que contenedor: seal obligatorio cuando hubo preparación). Evidencia: `last_accepted_batch_seq` / `sealed_at` / status remoto.
+7. TX local (`retire_image`): DELETE solo image+op del `upload_operation_id` inventariado; **no** tocar otras imágenes/ops; **no** DELETE del registro; touch `updated_at` del **contenedor** (misma recencia que confirm attach); `mark_completed`; conservar corrida e inventario.
+8. Respuesta: `confirmed` (registro vivo; opcional `redirect_url` o payload con `record_id`/`image_id` ausente). `incomplete` no debería aparecer con N≤1 salvo fallo de protocolo a medias (accept sin seal, etc.) → Continuar. `uncertain` → recargar, sin retry ciego.
+
+**Tombstones:** no se borran. Una subida nueva al mismo registro usa **nuevo** `upload_operation_id`; el tombstone de la operación retirada no bloquea identidades distintas. No reutilizar la operación retirada.
+
+### 8.3 Componentes reutilizados vs nuevos
+
+| Reutilizar | Nuevo / extender |
+|------------|------------------|
+| Cliente HMAC accept/seal/status | `SCOPE_IMAGE` + validación en repos |
+| `CanonicalPurgeRemoteMandateAdvancer` | Captura puntual (método/store o UseCase hermano; **no** reutilizar páginas record/container sin filtro) |
+| Locks `canonical_container` | `RetireCanonicalRecordImageUseCase` (nombre orientativo) |
+| Inventario / corridas / intención HMAC | `AA_Canonical_Purge_Local_Retire_Store::retire_image` (o equivalente) |
+| Patrones AJAX delete registro/lista (nonce, incomplete, Continuar, Cancelar local, uncertain) | `aa_delete_canonical_record_image` + support cableado |
+| Resolución `image_id` → fila (como sign-read) | Extender `has_blocking_purge` / `find_overlapping_open_run` |
+| Schema purge_runs/items (base) | `DB_VERSION=31`: columna `record_id` nullable + verify; **sin** ENUM SQL nuevo (varchar admite `image`) |
+
+**No reutilizar:** `RetireCanonicalRecordUseCase` / `retire_record` / captura scope=record completa / `WriteCanonicalShellRecordUseCase::delete` / delete síncrono Expedientes / `POST /expediente/attachments/delete`.
+
+### 8.4 Concurrencia y recuperación
+
+| Escenario | Comportamiento acordado |
+|-----------|-------------------------|
+| Purge `image` abierta vs attach/confirm en **ese** registro | Bloqueo vía `has_blocking_purge` extendido (`scope=image` + `record_id`) → `purge_in_progress`. |
+| Purge `image` vs Eliminar **ese** registro / **esa** lista | Overlap: open `record` del mismo `record_id` o open `container` del mismo `container_id` ↔ open `image` → `scope_overlap` / conflicto; un solo mandato de alcance. |
+| Dos Eliminar imagen del **mismo** `image_id` | Segunda ve open run o imagen ausente; no segundo mandato. |
+| Dos imágenes distintas del mismo registro | Serializadas por lock de contenedor; pueden existir corridas distintas en el tiempo; no dos abiertas que se pisen sin overlap rule — **mínimo:** segunda espera lock; si la primera sigue abierta sobre otro `image_id` del mismo `record_id`, overlap de registro (bloquear) **o** permitir si solo se toca otra identidad — **elegido: bloquear a nivel registro** mientras haya cualquier `scope=image` abierta con ese `record_id` (simple, fail-closed; evita attach a medias). |
+| Confirm/reanudación misma op | Confirm ya borró la op; captura solo ve imagen. Replay accept → `already_accepted` / status. |
+| Respuesta remota perdida | Igual que inc. 3: intención local + status / already_accepted antes de re-POST. |
+| Cancelación | Solo si **no** hubo intento remoto (`has_attempted_remote_dispatch`); conserva corrida+inventario cancelados; libera escritores. |
+| Commit local ambiguo | `uncertain`; no afirmar confirmed; recargar. |
+| Reintento: imagen ausente, registro vivo | Si corrida completed → confirmed idempotente. Si no hay filas ni open run → confirmed/`image_not_found` estable (análogo a record_not_found tras completed). Nunca borrar el registro. |
+| Subida nueva tras retiro | Nuevo `upload_operation_id`; attach vuelve a exigir ready+activa; tombstone viejo no aplica. |
+
+**Escritores a trazar al implementar (no declarar “seguro” sin cablear):** attach/confirm, Write delete record/container, Retire record/container, y el nuevo Retire image. Hoy attach **no** ve `scope=image` — extensión obligatoria.
+
+### 8.5 Retiro local (TX)
+
+Orden bajo lock ya adquirido, **después** de evidencia de seal (o skip vacío acreditado):
+
+1. DELETE `aa_canonical_image_upload_operations` por `upload_operation_id` inventariado (si existe).
+2. DELETE `aa_canonical_record_images` por el mismo `upload_operation_id` (o `id`+op coherente).
+3. Assert: esas identidades ya no existen; **otras** imágenes del registro pueden seguir.
+4. Touch `aa_canonical_containers.updated_at` del `container_id` de la corrida.
+5. `mark_completed` de la corrida.
+6. COMMIT. Inventario y corrida **permanecen**.
+
+No contadores de cuota. No Storage. No DELETE de `aa_canonical_records`.
+
+### 8.6 Punto de entrada UX (mínimo)
+
+- **AJAX:** `aa_delete_canonical_record_image` (nombre orientativo). Body: `family_key`, `image_id`, nonce, opcional `retire_action=cancel`. Servidor resuelve registro/contenedor. **Sin** gate `is_ready`.
+- **UI:** sin galería nueva ni subida/reemplazo. Patrón del modal de Eliminar registro (confirmación que mencione objetos asociados / limpieza diferida según copy ya usado en lista/registro). Control “Eliminar imagen” por miniatura cuando el SSR exponga el DTO público.
+- Con `is_ready=false` el contributor de página sigue `not_offered` para producto general; para cumplir §12.4 (borrar con capability inactiva) el SSR de delete puede listar filas existentes vía repositorio **sin** exigir ready, solo Access Policy + pertenencia. No activar seeds ni `is_ready`.
+- Continuar / Cancelar local / uncertain: mismos contratos de estado que delete de registro.
+
+### 8.7 Cambios mínimos por capa
+
+| Capa | Cambio |
+|------|--------|
+| Schema | `DB_VERSION=31`; `aa_canonical_purge_runs.record_id` NULL; verify/migrate. Sin tablas nuevas. |
+| Domain/repos | `SCOPE_IMAGE`; open/find/overlap/blocking conscientes de `image` + `record_id`. |
+| Application | Captura puntual; `RetireCanonicalRecordImage*`; local `retire_image`; cablear advancer. |
+| HTTP | Un endpoint AJAX + registro en bootstrap. |
+| UI | Botón + modal/JS mínimos; sin galería. |
+| Backend repo | **Ninguno.** |
+
+### 8.8 Matriz de pruebas
+
+**Automatizadas (MySQL aislado + stub HMAC; sin Storage real):**
+
+| Caso | Expectativa |
+|------|-------------|
+| Una imagen; registro con title/details/amount | Imagen/op inventariadas ausentes; registro y amount intactos |
+| Segunda imagen en el mismo registro | Intacta |
+| Op no relacionada / otra identidad | Intacta |
+| Cuota SUM | Baja exactamente `byte_size` de la imagen retirada |
+| Recencia | `container.updated_at` avanza; registro no se borra |
+| Familia/contenedor ajenos | Rechazo |
+| Accept perdido → status / already_accepted | Sin segundo accept inventado |
+| Seal perdido → recuperación | Sin DELETE local prematuro |
+| Cancel antes de remoto | Cancelled; escritores libres; sin mandato remoto |
+| Overlap image↔record / image↔container | Conflicto; un alcance |
+| Doble delete misma imagen | Idempotente / not_found estable; registro vivo |
+| Imagen ausente, registro vivo | No DELETE registro |
+| Nueva subida (identidad nueva) tras completed | No bloqueada por tombstone de la op vieja (stub de issuance) |
+
+**Manual policyytest (posterior a implementación; no en este turno):**
+
+- Fixture con ≥1 imagen confirmada (camino de desarrollo acotado como inc. 4 caso C si hace falta); Node local; worker apagado.
+- AJAX/UI: Eliminar imagen → confirmed; registro visible; cuota; residuo Storage esperado.
+- Incomplete/Continuar solo si se fuerza fallo de protocolo.
+- No marcar PASS de Cerrar/banner/altas del **incremento 4** en esta exploración.
+- Conservar lista 17 / registro 33 / Backend 3.
+
+### 8.9 Bloqueos y veredicto
+
+| Ítem | Estado |
+|------|--------|
+| Contrato backend single-item + seal 1 | Listo (sin cambio backend) |
+| Advancer HMAC | Listo para reutilizar |
+| Captura/retiro local actuales scope=record | **No** sirven sin ramificación — bloqueo de diseño ya resuelto en §8.2 |
+| Blocking APIs vs futuro `scope=image` | Debe implementarse en el mismo incremento |
+| `is_ready=false` | No bloquea el diseño del delete (§12.4); sí limita galería de producto |
+| Worker / Render / tombstones | Fuera; no bloquean el diseño WP |
+
+**Veredicto:** **preparado para implementar** el incremento 5 según §8.2–8.7. No reabrir subida ni limpieza física del backend. No implementar en este turno.
+
+### 8.10 Relación con pendientes visuales del 4
+
+Cerrar/recargar en incomplete, banner interior y bloqueo de altas del retiro de **lista** siguen **no PASS** (§7.12). Esta exploración **no** los acredita ni los reabre.
 
 ---
 
@@ -923,19 +1086,21 @@ Las demás limitaciones ya registradas (Continuar UI inc. 3; C integrado inc. 3;
 
 | Capa | Pendiente |
 |------|-----------|
-| **Implementación** | Inc. 5 una imagen (§8) |
-| **Validación** | Continuar UI inc. 3 (sin evidencia); C integrado inc. 3 (red); **Cerrar/recargar/banner/altas del 4** (lista 22 Continuar listado PASS §7.12; resto pendiente); lista 21 primer intento **no PASS** (§7.11) |
-| **Activación** | `is_ready` / seeds / UI galería — **fuera** hasta cerrar recorridos de borrado acordados |
-| **Ops** | Worker periódico Storage; no WP ledger físico |
+| **Implementación** | **Inc. 5** una imagen (§8 diseño → código) |
+| **Validación visual 4** | Cerrar/recargar incomplete; banner interior; bloqueo de altas (lista 22 Continuar listado ya PASS) |
+| **Validación 3** | Continuar UI de registro; C integrado (interrupción de red) |
+| **Activación producto** | `is_ready` / seeds / UI galería — **después** de recorridos de borrado acordados |
+| **Ops** | Activación operativa del **worker** periódico de Storage (no WP ledger físico); Render/ops aparte de este diseño |
 
 ---
 
 ## Fuera de alcance restante
 
-- Implementar incremento 5 (una imagen, §8).
-- Cerrar/recargar/banner/bloqueo de altas del 4 (lista 22 Continuar desde listado PASS §7.12); primer intento lista 21 **no PASS**; caso C integrado inc. 3; Continuar UI inc. 3 sin evidencia.
-- Activar polling del worker, cron o `is_ready`.
+- **Implementar** incremento 5 (este documento solo diseña).
+- Cerrar/recargar/banner/altas del 4; Continuar UI y C de red del 3.
+- Activar polling del worker, cron WP o `is_ready`.
 - Cambiar TTL, tombstones o identidades Storage Backend 3.
-- Expedientes Ciclo B; reabrir subida.
+- Expedientes Ciclo B; reabrir diseño de subida.
+- Galería/picker/visor nuevos.
 
 **Backend Storage fixture (no reejecutada):** immediate / later / reappear **PASS**; reappear fue sintético. Worker periódico apagado.
