@@ -1,6 +1,6 @@
 # Exploración: retiro canónico WP, mandatos de limpieza y cuota
 
-**Estado:** incrementos 1–3 implementados en `dev/canonical-images-retire`. Incremento 3: retiro de **un registro** vía mandatos (`aa_delete_canonical_record` → `RetireCanonicalRecordUseCase`). Validación integrada en policyytest (2026-09-14): A y D **PASS** (AJAX HTTP, no clics de navegador); B **PASS** tras parche de `authorize-upload` HTTP `canonical_v1` (subida de desarrollo acotada + retiro AJAX); C **pendiente** (sin inyección de fallo acotada). Todavía sin retiro de contenedores, cron/workers ni `is_ready`.
+**Estado:** incrementos 1–3 implementados en `dev/canonical-images-retire`. Incremento 3: retiro de **un registro** vía mandatos (`aa_delete_canonical_record` → `RetireCanonicalRecordUseCase`). Validación integrada en policyytest (2026-09-14): A/D AJAX **PASS**; B **PASS** (authorize-upload parchado + attach de desarrollo + retiro AJAX); UI modal: Eliminar vacío (32) y Cancelar conflicto (33) **acreditados** por el propietario + SQL; Continuar **sin** confirmación visual → no PASS; C **pendiente** (cobertura automatizada; sin inyección integrada). Todavía sin retiro de contenedores, cron/workers ni `is_ready`.
 **Fecha:** 2026-09-14.
 **Ámbito:** integración WordPress del retiro de registros/adjuntos canónicos y liberación de cuota, reutilizando `accept` / `seal` / `status` del backend.
 
@@ -529,9 +529,9 @@ Lista finance **id=17** `INC3-RETIRE-20260914 policyytest` (`public_id=f5ee0b24-
 | Caso | Record id | Título | Notas |
 |------|-----------|--------|--------|
 | A | 31 | `INC3-A-empty` | retirado |
-| B | 32 | `INC3-B-image` | vacío (la subida integrada se hizo en el registro **34**, no en este) |
+| B | 32 | `INC3-B-image` | **retirado por UI** del propietario (corrida 5 `completed` vacía); la subida integrada B fue el registro **34** |
 | B2 | 34 | `INC3-B2-image` | creado, imagen confirmada y **retirado** (`aa_delete_canonical_record` confirmed) |
-| D | 33 | `INC3-D-conflict` | imagen+op locales en conflicto; **corrida 3 `incomplete` abierta** para clics UI |
+| D | 33 | `INC3-D-conflict` | imagen+op locales en conflicto; corrida 3 **cancelled** por UI (`cancelled_at` set); registro conservado |
 
 URL de registros (iframe): `http://localhost/deoia-platform/policyytest/wp-admin/admin-post.php?action=aa_iframe_content&module=canonical_shell&family=finance&view=records&container_id=17`
 
@@ -587,54 +587,51 @@ A y D no se reejecutaron (el parche no los toca). C sigue cubierto por tests aut
 
 #### Residuos a conservar
 
-- Corridas WP `wp_61_aa_canonical_purge_runs`: id 1 completed (vacío, registro 31); id 2 cancelled (conflicto 33); id 3 **incomplete** (conflicto 33; `has_blocking_purge_for_container` sigue true); id 4 completed (retiro B2, registro 34).
-- Inventarios de las corridas 2, 3 y 4.
-- Registro 33 + imagen local + op `admitted` (sin objeto Storage de esa identidad; no se envió accept). Conservar evidencia de conflicto; no cancelar salvo clic explícito del propietario.
-- Registro 32 intacto, sin images/ops (queda para clic UI de vacío).
-- Registro 34 retirado; objetos Storage de su op **sí** existen (worker off).
-- Lista 17: **no** eliminar el contenedor (incremento 4 no integrado).
+- Corridas WP `wp_61_aa_canonical_purge_runs`: id 1 completed (vacío, 31); id 2 cancelled (conflicto 33, AJAX); id 3 **cancelled** (conflicto 33, UI propietario, `cancelled_at=2026-09-14 18:40:50`); id 4 completed (B2, 34); id 5 completed (UI vacío, 32).
+- Inventarios de las corridas 2, 3 y 4 (inventario vacío en 1 y 5).
+- Registro 33 + imagen id=1 + op `admitted` `240d8d55-…` (sin objeto Storage ni mandato remoto de esas corridas).
+- Registro 32 ausente; registro 34 ausente; objetos Storage de la op B2 **sí** existen (worker off).
+- Lista 17: **no** eliminar el contenedor (incremento 4 no integrado). Bloqueo de escritores en contenedor 17: **0** corridas `in_progress|incomplete`.
 - Mandato/obligación remotos B2 (`6764dd13-…` / `523c3b81-…`) y fixture Backend 3.
 
 #### Node y workers
 
-Proceso identificado **antes** de recargar: `node index.js` pid 28600, cwd `/home/roberto/dev/deoia-oauth-backend`, padre `npm start` (log `/tmp/aa-inc3-node.log`). Se detuvo **solo** ese árbol y se arrancó de nuevo el mismo comando. Ahora: pid **33419**, mismo cwd, health `{"ok":true}`. Workers en `.env` comprobados en 0 **antes** del arranque: `REMINDERS_WORKER`, `PROVISIONING_WORKER`, `UPCOMING_CONFIRMED_PUSH_WORKER`, `TASK_EXECUTION_AVAILABLE_PUSH_WORKER`, `TRAINING_WELCOME_EMAIL_WORKER`, `ATTACHMENT_DELETE_WORKER`. No se tocó el Node de TypeScript de Cursor. Destino API sigue `http://localhost:3000` (no Render).
+Proceso de prueba: `node index.js` pid **33419**, cwd `/home/roberto/dev/deoia-oauth-backend` (rearranque del día para cargar `26452b3`). Workers en `.env` = `0`. Tras cerrar los clics de UI acreditados, **se detiene solo ese árbol** (no otros Node). Nota de arranque: un segundo `npm start` con el puerto ocupado imprime `Servidor corriendo…` y sale con código 0 por `EADDRINUSE` (callback de `listen` engañoso); no se cambió el manejo del puerto en este hito.
 
-Se **deja en marcha** porque quedan clics de UI. No arrancar un segundo `npm start`. Health: `GET http://localhost:3000/health`. Para detenerlo cuando terminen los clics: el `node index.js` pid 33419 (no otros Node).
+#### Pruebas de interfaz (navegador del propietario)
 
-#### UI pendiente (no declarar PASS de modal)
+Separado de AJAX/HTTP. No hay agente con navegador en estas sesiones.
 
-No hay navegador operativo en esta sesión. A/D/B2 se probaron por `admin-ajax.php` (B2: create+delete AJAX; attach por Use Case de desarrollo). No se pulsó el modal.
+| Acción UI | Registro | Resultado | Evidencia |
+|-----------|----------|-----------|-----------|
+| Eliminar (vacío) | **32** `INC3-B-image` | Propietario confirmó desaparición visual. SQL: ausente; corrida **5** `completed`, inventario 0, sin `accept_intent`/`seal_intent`/`sealed_at`. | Visual + SQL |
+| Cerrar (conflicto) | **33** | Modal cerrado; purga **no** cancelada en ese momento (corrida 3 seguía `incomplete`). | Reportado + SQL intermedio |
+| Cancelar eliminación | **33** | Modal cerrado; registro visible. SQL: corrida **3** `status=cancelled`, `cancelled_at=2026-09-14 18:40:50`; imagen/op intactos; `accept_intent_batch_seq`/`seal_intent_at` NULL; mandatos locales `ab4e4fc3-…` / `87b4824e-…` **ausentes** en Supabase; 0 corridas bloqueantes en contenedor 17. | Visual + SQL |
+| Continuar | **33** | **Sin** confirmación visual explícita del propietario. **No PASS.** | — |
 
-Clics sobre las identidades que **siguen existiendo**, con Node en `:3000`:
-
-1. Entrar a `http://localhost/deoia-platform/policyytest/agenda-app` como administrador del blog.
-2. Abrir Finanzas → lista **id 17** (iframe de registros citado arriba). No usar «Todas las listas» de preview (`shell_preview`).
-3. **Registro 32** `INC3-B-image` (vacío; sigue en la lista): menú → Eliminar → **Eliminar registro**. Esperado: confirmed + recarga; nueva corrida `completed` inventario 0 sin POST remoto. Confirmar el id 32 en el DOM/`data-aa-record` antes de confirmar.
-4. **Registro 33** `INC3-D-conflict`: Eliminar. Esperado: texto de preparación fallida, **Continuar** visible, **Cancelar eliminación** visible, **Cerrar** no borra. Continuar debe repetir `conflict` sobre la corrida 3 (mismo `mandate_id` local `ab4e4fc3-ddb3-4298-ad29-017a7801c512`, no visible en JSON). **Cancelar eliminación** debe dejar el registro y la imagen, marcar corrida 3 `cancelled`, y un Eliminar nuevo abriría otra corrida. No cancelar salvo esa acción explícita.
-5. El registro 34 **ya no está** (retiro B2). No buscarlo para clics.
-6. No pulsar Eliminar lista. No recargar para «limpiar» evidencias. No borrar a mano los cuatro JPEG de Storage del 34.
+Caso B integrado (AJAX/HTTP, registro 34): **PASS** previo (ver retoma arriba). Caso C interrupción accept→seal: cobertura automatizada; prueba integrada **pendiente**.
 
 ### 6.8 Veredicto
 
-**Incremento 3 implementado** para un registro, con `batch_seq` 0-based persistido, intención HMAC antes del POST, cancelación local previa al envío y TX local post-sello. Authorize HTTP `canonical_v1` ya no inventa `wpClientId` ausente. Caso B integrado (attach HMAC + retiro con imagen real) **PASS** en el recorte de desarrollo descrito; no certifica UI de producto de `images`.
+**Incremento 3 implementado** para un registro, con `batch_seq` 0-based persistido, intención HMAC antes del POST, cancelación local previa al envío y TX local post-sello. Authorize HTTP `canonical_v1` ya no inventa `wpClientId` ausente. Caso B integrado (attach HMAC + retiro con imagen real) **PASS** en el recorte de desarrollo descrito; no certifica UI de producto de `images`. UI: vacío + Cancelar acreditados; Continuar no marcado PASS.
 
 **Límites (no sustituir por una afirmación de seguridad):**
 
-1. Continuar **no** garantiza resolver `intervention_required` (payload ajeno, filas vivas fuera de inventario, formato 1-based ya enviado).
+1. Continuar **no** garantiza resolver `intervention_required` (payload ajeno, filas vivas fuera de inventario, formato 1-based ya enviado). **No** hay PASS de Continuar en esta validación.
 2. Create/update de título/amount del mismo registro no están guardados por purge; no mutan inventario.
 3. No hay expiración automática ni limpieza física en WordPress. Worker apagado: los objetos del registro 34 permanecen con obligación `pending`.
 4. Delete de contenedor sigue siendo el camino de shell (RESTRICT si hay images/ops).
 5. `physical_status` del worker no autoriza retiro WP. `structural_retire_authorized` no certifica el COMMIT local.
 
-**No cerrado:** incremento 4 (contenedores); caso C manual; clics de modal; activación operativa (`is_ready`); cron/worker.
+**No cerrado:** incremento 4 (contenedores); caso C integrado; Continuar UI (sin evidencia visual); activación operativa (`is_ready`); cron/worker.
 
 ---
 
 ## Fuera de alcance restante (tras el incremento 3)
 
 - Eliminación de contenedores (incremento 4).
-- Caso C manual (sin inyección integrada acotada).
-- Clics de modal en navegador sobre los registros 32 y 33 (instrucciones en §6.7).
+- Caso C integrado (sin inyección acotada; cobertura automatizada vigente).
+- Continuar en modal de conflicto (sin confirmación visual del propietario).
 - Activar polling del worker, cron o `is_ready`.
 - Cambiar TTL, tombstones o identidades de la fixture Storage.
 - Expedientes Ciclo B.
