@@ -1,6 +1,6 @@
 # Exploración: retiro canónico WP, mandatos de limpieza y cuota
 
-**Estado:** incrementos 1–4 implementados en `dev/canonical-images-retire`. Incremento 3 cerrado en validación policyytest (A/D/B + UI vacío/Cancelar; Continuar no PASS; C integrado pendiente). **Incremento 4 (retiro de lista) — código + AC aislados + AJAX integrado policyytest A/B/C PASS; primer clic de navegador del 4 no PASS de pausa/reanudación** (lista 21 consumida; causa y fixture de reemplazo §7.11). Todavía sin cron/workers ni `is_ready`. Retiro de **una imagen** conservando el registro: pendiente como incremento aparte (§8).
+**Estado:** incrementos 1–4 implementados en `dev/canonical-images-retire`. Incremento 3 cerrado en validación policyytest (A/D/B + UI vacío/Cancelar; Continuar no PASS; C integrado pendiente). **Incremento 4 (retiro de lista) — código + AC aislados + AJAX A/B/C PASS; pausa/Continuar visual desde listado de listas PASS (lista 22, §7.12); Cerrar/recargar/banner/bloqueo de altas aún no probados visualmente.** Primer intento lista 21: no PASS (§7.11). Todavía sin cron/workers ni `is_ready`. Retiro de **una imagen** conservando el registro: pendiente como incremento aparte (§8).
 **Fecha:** 2026-09-14.
 **Ámbito:** integración WordPress del retiro de registros/adjuntos canónicos y liberación de cuota, reutilizando `accept` / `seal` / `status` del backend.
 
@@ -10,7 +10,7 @@ No modifica el state de la prueba Backend 3 (worker local Storage, `docs/ops/att
 
 | Repo | Rama | HEAD |
 |------|------|------|
-| `wp-agenda-automatizada` | `dev/canonical-images-retire` | `17cf69e13257bcb4a90e57c8c1446b47fe294f9e` (implementación inc. 4); `c76681d6fa0e230caf1456ad92c4c044bf5960ef` (docs AJAX A/B/C); este commit: UI duplicado + cooldown Continuar + fixture r2 (§7.11) |
+| `wp-agenda-automatizada` | `dev/canonical-images-retire` | `17cf69e13257bcb4a90e57c8c1446b47fe294f9e` (implementación inc. 4); `7b21e4371fa746af095041f12a74269fd870c315` (UI un solo Eliminar + cooldown); este commit: docs §7.12 Continuar visual lista 22 |
 | `deoia-oauth-backend` (solo contratos) | `dev/backend-recovered` | `26452b3ba4ceb24b7bf46271fd30a0c58318ceed` (sin cambios; untracked ajeno: `scripts/runner-from-pack.sh`) |
 
 **Backend Storage fixture (no reejecutada aquí):** immediate / later / reappear **PASS**. El caso reappear fue **sintético** (no un PUT tardío real del proveedor).
@@ -323,7 +323,7 @@ El detalle del flujo, numeración, cancelación segura y procedimiento manual es
 
 ### Incremento 4 — contenedor / lista completa — **completado** (`DB_VERSION=30`)
 
-`aa_delete_canonical_container` orquesta mandatos `scope=container` (`RetireCanonicalContainerUseCase`). Seal obligatorio (incl. `expected_batch_count=0`). Chunks locales post-sello. AJAX integrado policyytest A/B/C **PASS** (§7.10). Primer clic de navegador del 4 **no PASS** de Continuar (§7.11). Detalle: **§7**.
+`aa_delete_canonical_container` orquesta mandatos `scope=container` (`RetireCanonicalContainerUseCase`). Seal obligatorio (incl. `expected_batch_count=0`). Chunks locales post-sello. AJAX integrado policyytest A/B/C **PASS** (§7.10). Continuar visual desde listado **PASS** (lista 22, §7.12). Cerrar/recargar/banner **pendientes**. Primer intento lista 21 **no PASS** (§7.11). Detalle: **§7**.
 
 ### Incremento 5 — retiro de **una imagen** (registro vivo) — **pendiente, fuera del 4**
 
@@ -621,13 +621,13 @@ Caso B integrado (AJAX/HTTP, registro 34): **PASS** previo (ver retoma arriba). 
 
 **No cerrado tras el 3:** retiro de una imagen (§8); Continuar UI del registro; C integrado (interrupción de red); `is_ready`; cron/worker. Esas clasificaciones **no** cambian por el incremento 4.
 
-**Incremento 4:** AJAX integrado A/B/C **PASS** (§7.10). Primer clic de navegador **no PASS** de Continuar (lista 21 consumida; §7.11). Schema policyytest blog 61: 29→30.
+**Incremento 4:** AJAX integrado A/B/C **PASS** (§7.10). Continuar visual listado lista 22 **PASS** (§7.12); Cerrar/recargar/banner pendientes. Lista 21 primer intento **no PASS** (§7.11). Schema policyytest blog 61: 29→30.
 
 ---
 
 ## 7. Incremento 4 — retiro de una lista completa — **completado** (`DB_VERSION=30`)
 
-**Estado:** implementado en código + AC MySQL aislado / Ajax / JS. Policyytest 2026-09-14: schema blog 61 29→30; AJAX A/B/C **PASS**; primer clic de navegador **no PASS** de Continuar (lista 21; §7.11). HMAC de registro: protocolo PASS; estructural `'vacío skip HMAC'` 45/45. Backend no se desplegó.
+**Estado:** implementado en código + AC MySQL aislado / Ajax / JS. Policyytest 2026-09-14: schema blog 61 29→30; AJAX A/B/C **PASS**; Continuar visual desde listado lista 22 **PASS** (§7.12); Cerrar/recargar/banner/altas **no** PASS visual. Lista 21 primer intento **no PASS** (§7.11). HMAC de registro: protocolo PASS; estructural `'vacío skip HMAC'` 45/45. Backend no se desplegó.
 
 **Clasificación:** capability `images` + runtime WP (IMG-5).
 
@@ -697,7 +697,7 @@ MySQL prefijo temporal + HMAC simulado; lock con **segunda conexión** real. Cub
 
 ### 7.7 Límites (no declarar de más)
 
-- Clics de **navegador** del incremento 4: primer intento lista 21 **no PASS** de pausa/reanudación (§7.11). Fixture de reemplazo r2. AJAX A/B/C no acredita esos clics.
+- Clics de **navegador** del incremento 4: Continuar desde listado lista 22 **PASS** (§7.12). Cerrar/recargar/banner/bloqueo de altas **pendientes**. Primer intento lista 21 **no PASS** (§7.11). AJAX A/B/C no sustituye esos clics.
 - Continuar UI del incremento 3 y caso C integrado (interrupción de red): **siguen sin PASS** (no se reabrieron ni se reclasifican).
 - El attach de desarrollo del caso C **no** es PASS de disponibilidad de `images` en UI de producto.
 - No hay garantía de que un `UPDATE` de pertenencia hecho a mano conserve imágenes del registro movido (las identidades inventariadas se retiran).
@@ -719,7 +719,7 @@ No usar la lista **17**, registros 33/inc. 3, ni Backend 3. Worker **apagado**. 
 
 ### 7.9 Bloqueos
 
-Ninguno de contrato backend para el 4. Fixture lista 17 / registro 33 se conservan. Incremento 5 = una imagen con registro vivo (§8). Lista 21 **consumida** en el primer clic (§7.11). Fixture de reemplazo en §7.11. Node local pid **51399** dejado en marcha (no reiniciado).
+Ninguno de contrato backend para el 4. Fixture lista 17 / registro 33 se conservan. Incremento 5 = una imagen con registro vivo (§8). Lista 21 consumida (§7.11); lista 22 consumida en Continuar visual (§7.12). Node de prueba detenerse al cerrar §7.12.
 
 ### 7.10 Validación integrada policyytest (2026-09-14, inc. 4)
 
@@ -868,6 +868,47 @@ Clics (el agente **no** pulsó Eliminar):
 
 Network opcional: filtro `admin-ajax.php`. 1ª POST 409 `incomplete`; 2ª solo tras Continuar, 200 `confirmed`. No pedir cookies.
 
+### 7.12 Continuar visual desde listado (lista 22, 2026-09-14)
+
+#### Observación del propietario (UI)
+
+- Inició **Eliminar lista** desde el **listado de listas** (fuera del contenedor).
+- Tras la primera confirmación, el modal mostró: «La eliminación no terminó. Pulsa Continuar para seguir.»
+- Pulsó **Continuar**.
+- La lista desapareció.
+
+Acredita visualmente **incomplete → Continuar → desaparición final**. **No** se probó Cerrar/recargar en incomplete, ni el banner interior, ni la ausencia de altas: esas partes **no** PASS.
+
+#### Resultado final persistido (solo lectura; no se repitió el borrado)
+
+Blog **61** / `wp_61_`. Contenedor **22** / `public_id` `f146d231-d841-4561-b4ae-96a76e22742d` **ausente**. Registros `container_id=22` = **0**; ids **138–188** = **0**.
+
+| Dato | Valor |
+|------|--------|
+| Corrida | **10**, `scope=container`, `target_id=22`, `status=completed` |
+| Mandato (única corrida) | `518397ab-67ee-42b5-89d1-f2581fa3790d` — mismo id en toda la continuación |
+| Inventario | **0** filas conservadas bajo `purge_run_id=10`; `prepared_batch_count=0`; `last_accepted_batch_seq=null` |
+| Sello local | `seal_intent_at` / `sealed_at` = `2026-09-14 23:18:04` (UTC) |
+| Sello remoto (status HMAC) | `inventory_status=sealed`, `sealed_expected_batch_count=0`, `owned_obligation_count=0`, `sealed_at=2026-09-14T23:18:05Z` |
+| Checkpoint | `local_retire_after_record_id=188` (último id del alcance) |
+| Tiempos corrida | `created_at`/`sealed_at` `:04`; `updated_at` `:51` |
+
+Apache `access.log` (hora local −0600; Referer = iframe **listas** `family=finance`, sin `view=records`):
+
+1. `17:18:04` POST `admin-ajax.php` → **409** (765 B) — compatible con `incomplete`
+2. `17:18:51` POST `admin-ajax.php` → **200** (854 B) — compatible con `confirmed`
+3. `17:18:51` GET listado `family=finance` — redirect tras confirmed
+
+Dos POSTs secuenciales (~47 s). Una sola corrida / un solo mandato. Chunk 50 intacto (51 registros requieren segunda petición). Lista **17** / registro **33** intactos. Backend 3 no tocado.
+
+#### Pendiente visual (no PASS)
+
+- Cerrar el modal en `incomplete` y recargar.
+- Banner «No está borrada del todo» dentro de registros.
+- Bloqueo de altas / edición mientras la purga está incompleta.
+
+Las demás limitaciones ya registradas (Continuar UI inc. 3; C integrado inc. 3; `is_ready`; worker; retiro de una imagen §8) **permanecen**.
+
 ## 8. Retiro de una imagen (registro vivo)
 
 **Norma:** `docs/05-canonical-capabilities.md` §12.4 — «Eliminar una imagen elimina sus objetos asociados.»
@@ -883,7 +924,7 @@ Network opcional: filtro `admin-ajax.php`. 1ª POST 409 `incomplete`; 2ª solo t
 | Capa | Pendiente |
 |------|-----------|
 | **Implementación** | Inc. 5 una imagen (§8) |
-| **Validación** | Continuar UI inc. 3 (sin evidencia); C integrado inc. 3 (red); **pausa/reanudación visual del 4** (primer intento lista 21 **no PASS**; fixture r2 §7.11) |
+| **Validación** | Continuar UI inc. 3 (sin evidencia); C integrado inc. 3 (red); **Cerrar/recargar/banner/altas del 4** (lista 22 Continuar listado PASS §7.12; resto pendiente); lista 21 primer intento **no PASS** (§7.11) |
 | **Activación** | `is_ready` / seeds / UI galería — **fuera** hasta cerrar recorridos de borrado acordados |
 | **Ops** | Worker periódico Storage; no WP ledger físico |
 
@@ -892,7 +933,7 @@ Network opcional: filtro `admin-ajax.php`. 1ª POST 409 `incomplete`; 2ª solo t
 ## Fuera de alcance restante
 
 - Implementar incremento 5 (una imagen, §8).
-- Clics de navegador del 4 (fixture r2, §7.11); primer intento lista 21 **no PASS**; caso C integrado inc. 3; Continuar UI inc. 3 sin evidencia.
+- Cerrar/recargar/banner/bloqueo de altas del 4 (lista 22 Continuar desde listado PASS §7.12); primer intento lista 21 **no PASS**; caso C integrado inc. 3; Continuar UI inc. 3 sin evidencia.
 - Activar polling del worker, cron o `is_ready`.
 - Cambiar TTL, tombstones o identidades Storage Backend 3.
 - Expedientes Ciclo B; reabrir subida.
