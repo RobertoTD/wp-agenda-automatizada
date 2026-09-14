@@ -66,7 +66,7 @@ ac_assert('DDL upload_objects_json', strpos($canonical_src, 'upload_objects_json
 ac_assert('ensure v27', strpos($canonical_src, 'ensure_image_upload_operations_credentials_v27') !== false);
 
 $schema_src = file_get_contents($plugin_root . '/includes/infrastructure/wp/Schema.php');
-ac_assert("DB_VERSION es '28'", strpos($schema_src, "DB_VERSION = '28'") !== false);
+ac_assert("DB_VERSION es '29'", strpos($schema_src, "DB_VERSION = '29'") !== false);
 
 ac_assert(
     'expires_at derivado de intent ms',

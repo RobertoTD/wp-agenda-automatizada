@@ -257,6 +257,34 @@ final class CanonicalImageUploadOperationsRepository {
     }
 
     /**
+     * @throws CanonicalImageUploadPersistenceFailed
+     * @throws CanonicalImageUploadSchemaNotReady
+     */
+    public function count_for_record(int $record_id): int {
+        $table = AA_Canonical_Schema::image_upload_operations_table_name();
+        $this->assert_table_exists($table);
+
+        if ($record_id < 1) {
+            return 0;
+        }
+
+        $this->clear_error_state();
+        $safe = str_replace('`', '``', $table);
+        $count = $this->wpdb->get_var(
+            $this->wpdb->prepare(
+                "SELECT COUNT(*) FROM `{$safe}` WHERE record_id = %d",
+                $record_id
+            )
+        );
+
+        if ($this->wpdb->last_error !== '') {
+            throw new CanonicalImageUploadPersistenceFailed('Failed to COUNT image upload operations.');
+        }
+
+        return (int) $count;
+    }
+
+    /**
      * Suma byte_size de reservas admitted vigentes del blog actual.
      * $exclude_operation_id solo descuenta si esa fila es reserva válida ahora.
      *

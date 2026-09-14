@@ -166,7 +166,7 @@ final class CanonicalPurgeInventoryItemsRepository {
         $table = AA_Canonical_Schema::purge_inventory_items_table_name();
         $this->assert_table_exists($table);
 
-        if ($item_id < 1 || $batch_seq < 1 || $position_in_batch < 1) {
+        if ($item_id < 1 || $batch_seq < 0 || $position_in_batch < 1) {
             throw new CanonicalImageUploadPersistenceFailed('Invalid batch slot.');
         }
 
@@ -232,7 +232,7 @@ final class CanonicalPurgeInventoryItemsRepository {
         $table = AA_Canonical_Schema::purge_inventory_items_table_name();
         $this->assert_table_exists($table);
 
-        if ($purge_run_id < 1 || $batch_seq < 1) {
+        if ($purge_run_id < 1 || $batch_seq < 0) {
             return [];
         }
 
@@ -284,6 +284,91 @@ final class CanonicalPurgeInventoryItemsRepository {
         }
 
         return (int) $count;
+    }
+
+    /**
+     * Mínimo `batch_seq` ya asignado, o null si no hay tandas.
+     *
+     * @throws CanonicalImageUploadPersistenceFailed
+     * @throws CanonicalImageUploadSchemaNotReady
+     */
+    public function min_assigned_batch_seq(int $purge_run_id): ?int {
+        $table = AA_Canonical_Schema::purge_inventory_items_table_name();
+        $this->assert_table_exists($table);
+
+        if ($purge_run_id < 1) {
+            return null;
+        }
+
+        $this->clear_error_state();
+        $safe = str_replace('`', '``', $table);
+        $min = $this->wpdb->get_var(
+            $this->wpdb->prepare(
+                "SELECT MIN(batch_seq) FROM `{$safe}`
+                 WHERE purge_run_id = %d AND batch_seq IS NOT NULL",
+                $purge_run_id
+            )
+        );
+
+        if ($this->wpdb->last_error !== '') {
+            throw new CanonicalImageUploadPersistenceFailed('Failed to MIN purge inventory batch_seq.');
+        }
+        if ($min === null || $min === false || $min === '') {
+            return null;
+        }
+
+        return (int) $min;
+    }
+
+    /**
+     * @throws CanonicalImageUploadPersistenceFailed
+     * @throws CanonicalImageUploadSchemaNotReady
+     */
+    public function has_assigned_batch_seq(int $purge_run_id, int $batch_seq): bool {
+        $table = AA_Canonical_Schema::purge_inventory_items_table_name();
+        $this->assert_table_exists($table);
+
+        if ($purge_run_id < 1 || $batch_seq < 0) {
+            return false;
+        }
+
+        $this->clear_error_state();
+        $safe = str_replace('`', '``', $table);
+        $found = $this->wpdb->get_var(
+            $this->wpdb->prepare(
+                "SELECT id FROM `{$safe}`
+                 WHERE purge_run_id = %d AND batch_seq = %d
+                 LIMIT 1",
+                $purge_run_id,
+                $batch_seq
+            )
+        );
+
+        if ($this->wpdb->last_error !== '') {
+            throw new CanonicalImageUploadPersistenceFailed('Failed to query purge inventory batch_seq.');
+        }
+
+        return $found !== null && $found !== false && (int) $found >= 1;
+    }
+
+    /**
+     * True si hay tandas preparadas con índice 1-based del incremento 2
+     * (MIN=1 y ninguna fila con batch_seq=0). No renumerar esas corridas.
+     *
+     * @throws CanonicalImageUploadPersistenceFailed
+     * @throws CanonicalImageUploadSchemaNotReady
+     */
+    public function has_legacy_one_based_batches(int $purge_run_id): bool {
+        if ($purge_run_id < 1) {
+            return false;
+        }
+
+        $min = $this->min_assigned_batch_seq($purge_run_id);
+        if ($min !== 1) {
+            return false;
+        }
+
+        return !$this->has_assigned_batch_seq($purge_run_id, 0);
     }
 
     /**

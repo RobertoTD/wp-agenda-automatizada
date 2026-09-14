@@ -39,8 +39,13 @@ ac_assert('Sin nopriv', strpos($ajax_src, 'wp_ajax_nopriv_') === false);
 ac_assert('Bootstrap registra', strpos($boot_src, 'CanonicalDeleteRecordAjax::register()') !== false);
 ac_assert('Access Policy vía soporte SB1-5C1', strpos($support_src, 'AA_Canonical_Access_Policy::check_family_access') !== false
     && strpos($ajax_src, 'CanonicalShellWriteAjaxSupport::authorize_identity') !== false);
-ac_assert('Write bootstrap vía soporte SB1-5C1', strpos($support_src, 'AA_Canonical_Write_Binding_Bootstrap::register_productive') !== false
-    && strpos($ajax_src, 'CanonicalShellWriteAjaxSupport::build_write_gateway') !== false);
+ac_assert('Retire UseCase', strpos($ajax_src, 'new RetireCanonicalRecordUseCase()') !== false
+    && strpos($ajax_src, '->execute($command)') !== false
+    && strpos($ajax_src, 'WriteCanonicalShellRecordUseCase') === false);
+ac_assert('Sin mandate_id en JSON', strpos($ajax_src, "'mandate_id'") === false
+    && strpos($ajax_src, '"mandate_id"') === false
+    && strpos($ajax_src, "'batch_seq'") === false
+    && strpos($ajax_src, '"batch_seq"') === false);
 ac_assert('Códigos de identidad estables en soporte', strpos($support_src, "'unknown_identity'") !== false
     && strpos($support_src, "'family_disabled'") !== false
     && strpos($support_src, "'family_not_provisioned'") !== false
@@ -52,13 +57,14 @@ ac_assert('Soporte contenido: sin SQL, JSON, $_POST, redirects ni commands', str
     && strpos($support_src, '$_POST') === false
     && strpos($support_src, 'AA_Canonical_Shell_Base_Url_Policy') === false
     && strpos($support_src, 'Command') === false);
-ac_assert('UseCase delete', strpos($ajax_src, '->delete($manifest, $command)') !== false);
 ac_assert('Sin SQL directo', strpos($ajax_src, '$wpdb') === false
     && !preg_match('/->query\(|->insert\(/', $ajax_src));
 ac_assert('Códigos estables', strpos($ajax_src, "'record_not_found'") !== false
     && strpos($ajax_src, "'invalid_record_id'") !== false
     && strpos($ajax_src, "'uncertain'") !== false
-    && strpos($ajax_src, "'purge_in_progress'") !== false
+    && strpos($ajax_src, "'incomplete'") !== false
+    && strpos($ajax_src, "'conflict'") !== false
+    && strpos($ajax_src, "'cancel_rejected'") !== false
     && strpos($ajax_src, "'resource_busy'") !== false);
 ac_assert('Sin aa_finance_', strpos($ajax_src, 'aa_finance_') === false);
 ac_assert('Sin aa_expediente_', strpos($ajax_src, 'aa_expediente_') === false);
@@ -68,6 +74,10 @@ ac_assert('Card Eliminar', strpos($card_src, 'aa-shell-delete-record-btn') !== f
     && strpos($card_src, 'Eliminar') !== false);
 ac_assert('Modal delete separado', strpos($shell_src, 'aa-shell-delete-record-modal') !== false
     && strpos($shell_src, 'deleteAction') !== false);
+ac_assert('JS Continuar y cancelar local', strpos($js_src, "retire_action', 'cancel'") !== false
+    && strpos($js_src, "code === 'incomplete'") !== false
+    && strpos($js_src, 'deleteAbortBtn') !== false
+    && strpos($js_src, "Continuar") !== false);
 ac_assert('JS uncertain bloquea', strpos($js_src, 'deleteBlocked') !== false
     && strpos($js_src, 'reloadAfterUncertain') !== false
     && strpos($shell_src, 'Recargar lista') !== false);
@@ -170,70 +180,22 @@ require_once $plugin_root . '/includes/application/canonical/CanonicalFamilyEnab
 require_once $plugin_root . '/includes/application/canonical/ReadCanonicalFamilyEnablementUseCase.php';
 require_once $plugin_root . '/includes/infrastructure/wp/class-aa-canonical-access-policy.php';
 require_once $plugin_root . '/includes/application/canonical/CanonicalReadIdentity.php';
-require_once $plugin_root . '/includes/application/canonical/CanonicalCreateContainerCommand.php';
-require_once $plugin_root . '/includes/application/canonical/CanonicalUpdateContainerCommand.php';
-require_once $plugin_root . '/includes/application/canonical/CanonicalDeleteContainerCommand.php';
-require_once $plugin_root . '/includes/application/canonical/CanonicalCreateRecordCommand.php';
-require_once $plugin_root . '/includes/application/canonical/CanonicalUpdateRecordCommand.php';
-require_once $plugin_root . '/includes/application/canonical/CanonicalDeleteRecordCommand.php';
-require_once $plugin_root . '/includes/application/canonical/CanonicalMutationReceipt.php';
-require_once $plugin_root . '/includes/application/canonical/CanonicalWriteAdapter.php';
-require_once $plugin_root . '/includes/application/canonical/CanonicalWriteAdapterResolver.php';
-require_once $plugin_root . '/includes/application/canonical/CanonicalWriteBindingNotFound.php';
-require_once $plugin_root . '/includes/application/canonical/CanonicalContainerNotFound.php';
-require_once $plugin_root . '/includes/application/canonical/CanonicalRecordNotFound.php';
-require_once $plugin_root . '/includes/application/canonical/CanonicalMutationPersistenceFailed.php';
-require_once $plugin_root . '/includes/application/canonical/CanonicalWriteGateway.php';
-require_once $plugin_root . '/includes/application/canonical/CanonicalShellManifest.php';
-require_once $plugin_root . '/includes/application/canonical/CanonicalShellMutationResult.php';
-
-if (!class_exists('CanonicalPurgeRunsRepository')) {
-    final class CanonicalPurgeRunsRepository {
-        public function has_blocking_purge($record_id, $container_id): bool {
-            return !empty($GLOBALS['aa_test_blocking_purge']);
-        }
-
-        public function has_blocking_purge_for_container($container_id): bool {
-            return !empty($GLOBALS['aa_test_blocking_purge']);
-        }
-    }
-}
-
-if (!class_exists('AA_Expediente_Aggregate_Lock_Lease')) {
-    final class AA_Expediente_Aggregate_Lock_Lease {
-        public function __construct($key, $connection_id, $scope_kind, $scope_id) {
-        }
-    }
-}
-
-if (!class_exists('AA_Expediente_Aggregate_Lock')) {
-    final class AA_Expediente_Aggregate_Lock {
-        public const SCOPE_CANONICAL_CONTAINER = 'canonical_container';
-        public const DEFAULT_TIMEOUT_SECONDS = 5;
-        public const ERROR_RESOURCE_BUSY = 'resource_busy';
-
-        public static function create_default(): self {
-            return new self();
-        }
-
-        public function acquire($scope_kind, $scope_id, $timeout_seconds = 5) {
-            return new AA_Expediente_Aggregate_Lock_Lease('test', 1, $scope_kind, $scope_id);
-        }
-
-        public function assert_held($lease) {
-            return true;
-        }
-
-        public function release($lease): bool {
-            return true;
-        }
-    }
-}
-
-require_once $plugin_root . '/includes/application/canonical/WriteCanonicalShellRecordUseCase.php';
-require_once $plugin_root . '/includes/infrastructure/canonical/class-aa-canonical-write-binding-registry.php';
 require_once $plugin_root . '/includes/infrastructure/wp/class-aa-canonical-shell-base-url-policy.php';
-require_once $plugin_root . '/tests/support/canonical/CanonicalFixtureWriteAdapter.php';
+require_once $plugin_root . '/includes/application/canonical/images/RetireCanonicalRecordCommand.php';
+require_once $plugin_root . '/includes/application/canonical/images/RetireCanonicalRecordResult.php';
+
+if (!class_exists('RetireCanonicalRecordUseCase')) {
+    final class RetireCanonicalRecordUseCase {
+        public function execute(RetireCanonicalRecordCommand $command): RetireCanonicalRecordResult {
+            $handler = $GLOBALS['aa_test_retire_handler'] ?? null;
+            if (!is_callable($handler)) {
+                return RetireCanonicalRecordResult::persistence_failed();
+            }
+
+            return $handler($command);
+        }
+    }
+}
 
 final class AA_Canonical_Family_Enablement_Store implements CanonicalFamilyEnablementPort {
     public static $mode = 'ok';
@@ -263,48 +225,51 @@ final class AA_Canonical_Family_Enablement_Store implements CanonicalFamilyEnabl
     }
 }
 
-final class AA_Canonical_Write_Binding_Bootstrap {
-    public static $mode = 'fixture';
-    /** @var CanonicalFixtureWriteAdapter|null */
-    public static $shared_adapter = null;
+$GLOBALS['aa_test_retire_mode'] = 'confirmed';
+$GLOBALS['aa_test_retire_deleted'] = [];
+$GLOBALS['aa_test_retire_handler'] = static function (RetireCanonicalRecordCommand $command): RetireCanonicalRecordResult {
+    $mode = (string) ($GLOBALS['aa_test_retire_mode'] ?? 'confirmed');
+    $cid = $command->container_id();
+    $rid = $command->record_id();
+    $key = $cid . ':' . $rid;
 
-    public static function register_productive(AA_Canonical_Write_Binding_Registry $registry, $repository = null): void {
-        if (self::$mode === 'noop') {
-            return;
-        }
-        $canonical = AA_Canonical_Core_Bootstrap::instance();
-        if (!(self::$shared_adapter instanceof CanonicalFixtureWriteAdapter)) {
-            self::$shared_adapter = CanonicalFixtureWriteAdapter::with_seed(
-                'finance',
-                [
-                    1 => ['title' => 'Lista', 'details' => null],
-                    2 => ['title' => 'Otra', 'details' => null],
-                ],
-                [
-                    1 => [
-                        10 => ['title' => 'Registro seed', 'details' => 'detalle'],
-                    ],
-                ]
-            );
-        }
-        $adapter = self::$shared_adapter;
-        if (self::$mode === 'uncertain') {
-            $adapter->uncertain_operation = 'delete_record';
-        } elseif (self::$mode === 'persist_fail') {
-            $adapter->uncertain_operation = 'persistence_failed';
-        } else {
-            $adapter->uncertain_operation = null;
-        }
-        foreach ($canonical->families() as $family) {
-            $key = $family->key();
-            if (empty(AA_Canonical_Family_Enablement_Store::$enabled_map[$key])) {
-                continue;
-            }
-            $identity = new CanonicalReadIdentity($key);
-            $registry->register($identity, $adapter);
-        }
+    if ($mode === 'forbidden') {
+        return RetireCanonicalRecordResult::forbidden();
     }
-}
+    if ($cid === 99) {
+        return RetireCanonicalRecordResult::container_not_found($cid);
+    }
+    if ($command->is_cancel()) {
+        if ($mode === 'cancel_rejected') {
+            return RetireCanonicalRecordResult::cancel_rejected($rid, $cid);
+        }
+        return RetireCanonicalRecordResult::cancelled($rid, $cid);
+    }
+    if ($mode === 'uncertain') {
+        return RetireCanonicalRecordResult::uncertain($rid, $cid);
+    }
+    if ($mode === 'incomplete') {
+        return RetireCanonicalRecordResult::incomplete($rid, $cid);
+    }
+    if ($mode === 'conflict') {
+        return RetireCanonicalRecordResult::conflict($rid, $cid, ['can_cancel' => true]);
+    }
+    if ($mode === 'persist_fail') {
+        return RetireCanonicalRecordResult::persistence_failed();
+    }
+    if ($mode === 'busy') {
+        return RetireCanonicalRecordResult::resource_busy();
+    }
+    if (!empty($GLOBALS['aa_test_retire_deleted'][$key])) {
+        return RetireCanonicalRecordResult::record_not_found($cid, $rid);
+    }
+    if ($rid !== 10 || $cid !== 1) {
+        return RetireCanonicalRecordResult::record_not_found($cid, $rid);
+    }
+    $GLOBALS['aa_test_retire_deleted'][$key] = true;
+
+    return RetireCanonicalRecordResult::confirmed($rid, $cid);
+};
 
 AA_Canonical_Core_Bootstrap::bootstrap();
 require_once $ajax_file;
@@ -376,11 +341,6 @@ $r = aa_run_delete_record_ajax(aa_base_delete_post());
 ac_assert('Enablement fail → enablement_unavailable', ($r['data']['code'] ?? '') === 'enablement_unavailable');
 AA_Canonical_Family_Enablement_Store::$mode = 'ok';
 
-AA_Canonical_Write_Binding_Bootstrap::$mode = 'noop';
-$r = aa_run_delete_record_ajax(aa_base_delete_post());
-ac_assert('No binding → write_adapter_pending', ($r['data']['code'] ?? '') === 'write_adapter_pending');
-
-AA_Canonical_Write_Binding_Bootstrap::$mode = 'fixture';
 $r = aa_run_delete_record_ajax(aa_base_delete_post(['container_id' => '99']));
 ac_assert('Missing container → container_not_found', ($r['data']['code'] ?? '') === 'container_not_found');
 
@@ -390,11 +350,11 @@ ac_assert('Missing record → record_not_found', ($r['data']['code'] ?? '') === 
 $r = aa_run_delete_record_ajax(aa_base_delete_post(['container_id' => '2', 'record_id' => '10']));
 ac_assert('Cross-container → record_not_found', ($r['data']['code'] ?? '') === 'record_not_found');
 
-AA_Canonical_Write_Binding_Bootstrap::$mode = 'persist_fail';
+$GLOBALS['aa_test_retire_mode'] = 'persist_fail';
 $r = aa_run_delete_record_ajax(aa_base_delete_post());
 ac_assert('Persist fail → persistence_failed', ($r['data']['code'] ?? '') === 'persistence_failed');
 
-AA_Canonical_Write_Binding_Bootstrap::$mode = 'uncertain';
+$GLOBALS['aa_test_retire_mode'] = 'uncertain';
 $r = aa_run_delete_record_ajax(aa_base_delete_post());
 ac_assert('Uncertain code', ($r['data']['code'] ?? '') === 'uncertain');
 ac_assert('Uncertain HTTP 409', ($r['status'] ?? 0) === 409);
@@ -403,18 +363,39 @@ ac_assert('Uncertain redirect_url', is_string($r['data']['redirect_url'] ?? null
     && strpos($r['data']['redirect_url'], 'view=records') !== false);
 ac_assert('Uncertain sin SQL', stripos((string) ($r['data']['message'] ?? ''), 'sql') === false);
 
-AA_Canonical_Write_Binding_Bootstrap::$mode = 'fixture';
-$GLOBALS['aa_test_blocking_purge'] = true;
+$GLOBALS['aa_test_retire_mode'] = 'incomplete';
 $r = aa_run_delete_record_ajax(aa_base_delete_post());
-ac_assert('Purge abierta → purge_in_progress', ($r['data']['code'] ?? '') === 'purge_in_progress' && ($r['status'] ?? 0) === 409);
-$GLOBALS['aa_test_blocking_purge'] = false;
+ac_assert('Incomplete 409', ($r['data']['code'] ?? '') === 'incomplete' && ($r['status'] ?? 0) === 409);
+ac_assert('Incomplete can_continue', ($r['data']['can_continue'] ?? false) === true);
+ac_assert('Incomplete sin mandate_id', !array_key_exists('mandate_id', $r['data'] ?? []));
 
-AA_Canonical_Write_Binding_Bootstrap::$mode = 'fixture';
+$GLOBALS['aa_test_retire_mode'] = 'conflict';
+$r = aa_run_delete_record_ajax(aa_base_delete_post());
+ac_assert('Conflict 409', ($r['data']['code'] ?? '') === 'conflict' && ($r['data']['can_cancel'] ?? false) === true);
+
+$GLOBALS['aa_test_retire_mode'] = 'confirmed';
+$r = aa_run_delete_record_ajax(aa_base_delete_post(['retire_action' => 'cancel']));
+ac_assert('Cancel success', ($r['success'] ?? false) === true && ($r['data']['status'] ?? '') === 'cancelled');
+
+$GLOBALS['aa_test_retire_mode'] = 'cancel_rejected';
+$r = aa_run_delete_record_ajax(aa_base_delete_post(['retire_action' => 'cancel']));
+ac_assert('Cancel rejected', ($r['data']['code'] ?? '') === 'cancel_rejected' && ($r['status'] ?? 0) === 409);
+
+$GLOBALS['aa_test_retire_mode'] = 'busy';
+$r = aa_run_delete_record_ajax(aa_base_delete_post());
+ac_assert('Busy → resource_busy', ($r['data']['code'] ?? '') === 'resource_busy' && ($r['status'] ?? 0) === 409);
+
+$GLOBALS['aa_test_retire_mode'] = 'forbidden';
+$r = aa_run_delete_record_ajax(aa_base_delete_post());
+ac_assert('Corrida ajena → forbidden', ($r['data']['code'] ?? '') === 'forbidden' && ($r['status'] ?? 0) === 403);
+
+$GLOBALS['aa_test_retire_mode'] = 'confirmed';
 $r = aa_run_delete_record_ajax(aa_base_delete_post());
 ac_assert('Confirmed success', ($r['success'] ?? false) === true);
 ac_assert('Confirmed status', ($r['data']['status'] ?? '') === 'confirmed');
 ac_assert('Confirmed resource_id', (int) ($r['data']['resource_id'] ?? 0) === 10);
 ac_assert('Confirmed container_id', (int) ($r['data']['container_id'] ?? 0) === 1);
+ac_assert('Confirmed sin mandate_id', !array_key_exists('mandate_id', $r['data'] ?? []));
 ac_assert(
     'Redirect records page 1',
     is_string($r['data']['redirect_url'] ?? null)

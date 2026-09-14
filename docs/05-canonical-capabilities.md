@@ -12,7 +12,7 @@
 - **Estado implementado** — lo que existe hoy en el repositorio.
 - **Mecanismo técnico pendiente** — diseño o código aún no aprobado o no construido.
 
-Hoy (tras IMG-5 inc. 2 / DB 28): schema `DB_VERSION=28`; repertorio familiar en `aa_canonical_family_capabilities`; selección explícita de capacidades por lista en create/update del shell; familia canónica `finance` y capability `amount` (`is_ready=true`) sobre `aa_canonical_*`; escritura/lectura/UI amount operativas; único normalizador `AA_Canonical_Amount_Normalizer`; tablas físicas `images`/ops/purge + inventario de captura de retiro; helper de consumo de instalación; attach Application/AJAX canónico (`aa_attach_canonical_record_image`) implementado; cliente HMAC de mandatos + captura durable de purge (IMG-5 inc. 1–2); capability `images` **registrada `is_ready=false`** (sin seeds ni UI de producto). El módulo Finance legacy (`module=canonical`, `aa_finance_*`) está **retirado**.
+Hoy (tras IMG-5 inc. 3 / DB 29): schema `DB_VERSION=29`; repertorio familiar en `aa_canonical_family_capabilities`; selección explícita de capacidades por lista en create/update del shell; familia canónica `finance` y capability `amount` (`is_ready=true`) sobre `aa_canonical_*`; escritura/lectura/UI amount operativas; único normalizador `AA_Canonical_Amount_Normalizer`; tablas físicas `images`/ops/purge + inventario de captura de retiro; helper de consumo de instalación; attach Application/AJAX canónico (`aa_attach_canonical_record_image`) implementado; cliente HMAC de mandatos + captura durable de purge (IMG-5 inc. 1–2); retiro de un registro vía mandatos (`aa_delete_canonical_record` → `RetireCanonicalRecordUseCase`); capability `images` **registrada `is_ready=false`** (sin seeds ni UI de producto). El módulo Finance legacy (`module=canonical`, `aa_finance_*`) está **retirado**.
 
 ---
 
@@ -209,6 +209,7 @@ Hechos del repositorio tras A1b + LEGACY-X Finance + selección por lista (no su
 - **IMG-4:** lectura por lote + contributor SSR (`known_collection`) + sign-read (`aa_sign_canonical_record_image_read`); `images` sigue not-ready sin seeds/UI/galería.
 - **IMG-5 inc. 1:** cliente HMAC `accept`/`seal`/`status` de mandatos; sin schema WP.
 - **IMG-5 inc. 2:** `DB_VERSION=28`; corrida durable + inventario congelado + tandas exactas + exclusión de escritores; sin HTTP accept/seal, sin DELETE de producto, sin UI Continuar.
+- **IMG-5 inc. 3:** `DB_VERSION=29`; `batch_seq` 0-based persistido; `RetireCanonicalRecordUseCase` + `aa_delete_canonical_record`; accept/seal/status HMAC; cancelación local previa al envío; TX local post-sello. Sin retiro de contenedores, sin `is_ready`, sin worker.
 
 ---
 

@@ -92,8 +92,13 @@ ac_assert('confirmación reconsulta purge antes de INSERT', strpos($confirm_src,
     && preg_match('/blocking_purge_failure[\s\S]{0,400}insert_confirmed/', $confirm_src) === 1);
 ac_assert('delete shell opcional: sin purge no bloquea', strpos($write_rec_src, 'if ($this->purge_runs === null)') !== false
     && strpos($write_cont_src, 'if ($this->purge_runs === null)') !== false);
-ac_assert('AJAX productivo cablea guarda', strpos((string) file_get_contents($plugin_root . '/includes/http/ajax/CanonicalDeleteRecordAjax.php'), 'new CanonicalPurgeRunsRepository()') !== false
+ac_assert('AJAX productivo: retiro de registro vía Retire; contenedor conserva guarda', strpos((string) file_get_contents($plugin_root . '/includes/http/ajax/CanonicalDeleteRecordAjax.php'), 'RetireCanonicalRecordUseCase') !== false
     && strpos((string) file_get_contents($plugin_root . '/includes/http/ajax/CanonicalDeleteContainerAjax.php'), 'new CanonicalPurgeRunsRepository()') !== false);
+ac_assert('captura reutilizable bajo lock ya adquirido', strpos($uc_src, 'function execute_with_held_lock') !== false
+    && strpos($uc_src, 'execute_with_held_lock') > strpos($uc_src, 'function execute('));
+ac_assert('tandas persistidas 0-based', strpos($store_src, 'intdiv($index, $max) + 1') === false
+    && strpos($store_src, 'intdiv($index, $max)') !== false
+    && strpos($inv_src, '$batch_seq < 0') !== false);
 ac_assert('ops captura incluye admitted y cleanup_needed', strpos($ops_src, 'IMAGE_UPLOAD_STATUS_ADMITTED') !== false
     && strpos($ops_src, 'IMAGE_UPLOAD_STATUS_CLEANUP_NEEDED') !== false
     && strpos($ops_src, 'list_capture_page_after_operation_id') !== false);
@@ -470,11 +475,11 @@ try {
     ac_assert('incluye op admitted vencida', isset($by_op[$op_unconfirmed])
         && (int) $by_op[$op_unconfirmed]['byte_size'] === 200);
     ac_assert('incluye op cleanup_needed', isset($by_op[$op_cleanup]));
-    $batch1 = $inventory->list_prepared_batch((int) $matched->purge_run_id(), 1);
-    ac_assert('tanda 1 persistida 1..50', count($batch1) === 3
-        && (int) $batch1[0]['batch_seq'] === 1
-        && (int) $batch1[0]['position_in_batch'] === 1
-        && $batch1[0]['upload_operation_id'] < $batch1[1]['upload_operation_id']);
+    $batch0 = $inventory->list_prepared_batch((int) $matched->purge_run_id(), 0);
+    ac_assert('tanda 0 persistida 0..49', count($batch0) === 3
+        && (int) $batch0[0]['batch_seq'] === 0
+        && (int) $batch0[0]['position_in_batch'] === 1
+        && $batch0[0]['upload_operation_id'] < $batch0[1]['upload_operation_id']);
 
     $conflict_record_table = AA_Canonical_Schema::records_table_name();
     $wpdb->insert($conflict_record_table, [
@@ -604,9 +609,11 @@ try {
     ));
     ac_assert('>50 completa en dos tandas', $done_big->is_capture_complete() === true
         && $done_big->prepared_batch_count() === 2);
-    $prepared_first = $inventory->list_prepared_batch((int) $done_big->purge_run_id(), 1);
-    $prepared_second = $inventory->list_prepared_batch((int) $done_big->purge_run_id(), 2);
-    ac_assert('tandas 50+1 inmutables en contenido', count($prepared_first) === 50 && count($prepared_second) === 1);
+    $prepared_first = $inventory->list_prepared_batch((int) $done_big->purge_run_id(), 0);
+    $prepared_second = $inventory->list_prepared_batch((int) $done_big->purge_run_id(), 1);
+    ac_assert('tandas 50+1 inmutables en contenido', count($prepared_first) === 50 && count($prepared_second) === 1
+        && (int) $prepared_first[0]['batch_seq'] === 0
+        && (int) $prepared_second[0]['batch_seq'] === 1);
     $again = aa_purge_test_uc($wpdb, $lock)->execute(new CaptureCanonicalPurgeInventoryCommand(
         CanonicalPurgeRunsRepository::SCOPE_RECORD,
         $big_record,
@@ -614,7 +621,7 @@ try {
         'finance',
         3
     ));
-    $prepared_first_after = $inventory->list_prepared_batch((int) $done_big->purge_run_id(), 1);
+    $prepared_first_after = $inventory->list_prepared_batch((int) $done_big->purge_run_id(), 0);
     ac_assert('tanda preparada no cambia al recapturar', $again->mandate_id() === $done_big->mandate_id()
         && count($prepared_first_after) === 50
         && $prepared_first_after[0]['upload_operation_id'] === $prepared_first[0]['upload_operation_id']

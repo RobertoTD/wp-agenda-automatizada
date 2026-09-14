@@ -1,8 +1,9 @@
 <?php
 /**
- * Canonical Delete Record AJAX — eliminación productiva de registros universales (SB1-5B4).
+ * Canonical Delete Record AJAX — retiro productivo de un registro (IMG-5 inc. 3).
  *
- * Transporte + composition root de escritura. Sin SQL directo.
+ * Transporte + composition root. Delega en RetireCanonicalRecordUseCase.
+ * Sin SQL directo. Sin mandate_id ni batch_seq en JSON.
  *
  * @package WP_Agenda_Automatizada
  * @subpackage HTTP\AJAX
@@ -34,16 +35,17 @@ final class CanonicalDeleteRecordAjax {
         $family_key_raw = isset($_POST['family_key']) ? wp_unslash($_POST['family_key']) : null;
         $container_id_raw = isset($_POST['container_id']) ? wp_unslash($_POST['container_id']) : null;
         $record_id_raw = isset($_POST['record_id']) ? wp_unslash($_POST['record_id']) : null;
+        $retire_action_raw = array_key_exists('retire_action', $_POST) ? wp_unslash($_POST['retire_action']) : '';
 
         if (is_array($family_key_raw) || is_object($family_key_raw)
             || is_array($container_id_raw) || is_object($container_id_raw)
             || is_array($record_id_raw) || is_object($record_id_raw)
+            || is_array($retire_action_raw) || is_object($retire_action_raw)
         ) {
             self::error('invalid_payload', 'La solicitud contiene campos no válidos.', 400);
         }
 
-        if (!is_string($family_key_raw) || $family_key_raw === ''
-        ) {
+        if (!is_string($family_key_raw) || $family_key_raw === '') {
             self::error('invalid_payload', 'La solicitud contiene campos no válidos.', 400);
         }
 
@@ -55,6 +57,14 @@ final class CanonicalDeleteRecordAjax {
         $record_id = CanonicalShellWriteAjaxSupport::parse_positive_int($record_id_raw);
         if ($record_id === null) {
             self::error('invalid_record_id', 'El registro no es válido.', 400);
+        }
+
+        $intent = RetireCanonicalRecordCommand::INTENT_RETIRE;
+        if (is_string($retire_action_raw) && $retire_action_raw !== '') {
+            if ($retire_action_raw !== RetireCanonicalRecordCommand::INTENT_CANCEL) {
+                self::error('invalid_payload', 'La solicitud contiene campos no válidos.', 400);
+            }
+            $intent = RetireCanonicalRecordCommand::INTENT_CANCEL;
         }
 
         $family_key = sanitize_key($family_key_raw);
@@ -69,7 +79,12 @@ final class CanonicalDeleteRecordAjax {
         $resolved_family_key = $family->key();
 
         try {
-            $command = new CanonicalDeleteRecordCommand($container_id, $record_id);
+            $command = new RetireCanonicalRecordCommand(
+                $resolved_family_key,
+                $container_id,
+                $record_id,
+                $intent
+            );
         } catch (\InvalidArgumentException $e) {
             $msg = $e->getMessage();
             if (strpos($msg, '[invalid_container_id]') === 0) {
@@ -81,24 +96,10 @@ final class CanonicalDeleteRecordAjax {
             self::error('invalid_payload', 'La solicitud contiene campos no válidos.', 400);
         }
 
-        $identity = new CanonicalReadIdentity($resolved_family_key);
-        $manifest = new CanonicalShellManifest($identity, $family);
+        $use_case = new RetireCanonicalRecordUseCase();
 
         try {
-            $gateway = CanonicalShellWriteAjaxSupport::build_write_gateway();
-        } catch (CanonicalShellWriteAjaxRejection $e) {
-            self::error($e->error_code(), $e->error_message(), $e->http_status());
-        }
-
-        $use_case = new WriteCanonicalShellRecordUseCase(
-            $gateway,
-            null,
-            new CanonicalPurgeRunsRepository(),
-            AA_Expediente_Aggregate_Lock::create_default()
-        );
-
-        try {
-            $result = $use_case->delete($manifest, $command);
+            $result = $use_case->execute($command);
         } catch (\InvalidArgumentException $e) {
             self::error('persistence_failed', 'No se pudo eliminar el registro.', 500);
         } catch (\Throwable $e) {
@@ -130,25 +131,25 @@ final class CanonicalDeleteRecordAjax {
             $return_ctx['lists_scope']
         );
 
-        if ($state === CanonicalShellMutationResult::STATE_WRITE_ADAPTER_PENDING) {
-            self::error('write_adapter_pending', 'La escritura canónica aún no está disponible.', 409);
-        }
-        if ($state === CanonicalShellMutationResult::STATE_CONTAINER_NOT_FOUND) {
+        if ($state === RetireCanonicalRecordResult::STATE_CONTAINER_NOT_FOUND) {
             self::error('container_not_found', 'El contenedor solicitado no existe o no está disponible.', 404);
         }
-        if ($state === CanonicalShellMutationResult::STATE_RECORD_NOT_FOUND) {
+        if ($state === RetireCanonicalRecordResult::STATE_RECORD_NOT_FOUND) {
             self::error('record_not_found', 'El registro solicitado no existe o no está disponible.', 404);
         }
-        if ($state === CanonicalShellMutationResult::STATE_PERSISTENCE_FAILED) {
+        if ($state === RetireCanonicalRecordResult::STATE_FORBIDDEN) {
+            self::error('forbidden', 'No tienes permiso para esta operación.', 403);
+        }
+        if ($state === RetireCanonicalRecordResult::STATE_PERSISTENCE_FAILED) {
             self::error('persistence_failed', 'No se pudo eliminar el registro.', 500);
         }
-        if ($state === CanonicalShellMutationResult::STATE_PURGE_IN_PROGRESS) {
-            self::error('purge_in_progress', 'Hay una eliminación en curso sobre este recurso.', 409);
-        }
-        if ($state === CanonicalShellMutationResult::STATE_RESOURCE_BUSY) {
+        if ($state === RetireCanonicalRecordResult::STATE_RESOURCE_BUSY) {
             self::error('resource_busy', 'El recurso está ocupado. Inténtalo de nuevo.', 409);
         }
-        if ($state === CanonicalShellMutationResult::STATE_UNCERTAIN) {
+        if ($state === RetireCanonicalRecordResult::STATE_SCOPE_OVERLAP) {
+            self::error('scope_overlap', 'Hay otra eliminación en curso sobre este recurso.', 409);
+        }
+        if ($state === RetireCanonicalRecordResult::STATE_UNCERTAIN) {
             self::error(
                 'uncertain',
                 'No fue posible confirmar si el registro se eliminó. Recarga la lista para verificarlo antes de intentarlo nuevamente.',
@@ -156,19 +157,67 @@ final class CanonicalDeleteRecordAjax {
                 ['redirect_url' => $redirect_url]
             );
         }
-        if ($state !== CanonicalShellMutationResult::STATE_CONFIRMED) {
-            self::error('persistence_failed', 'No se pudo eliminar el registro.', 500);
+        if ($state === RetireCanonicalRecordResult::STATE_INCOMPLETE) {
+            self::error(
+                'incomplete',
+                'La eliminación no terminó. Pulsa Continuar para seguir.',
+                409,
+                [
+                    'can_continue' => true,
+                    'can_cancel' => false,
+                ]
+            );
         }
-
-        $receipt = $result->receipt();
-        if (!$receipt instanceof CanonicalMutationReceipt) {
+        if ($state === RetireCanonicalRecordResult::STATE_CONFLICT) {
+            self::error(
+                'conflict',
+                'No se pudo preparar la eliminación. Puedes cancelarla para desbloquear el registro, o reintentar.',
+                409,
+                [
+                    'can_continue' => true,
+                    'can_cancel' => $result->can_cancel(),
+                ]
+            );
+        }
+        if ($state === RetireCanonicalRecordResult::STATE_CANCEL_REJECTED) {
+            self::error(
+                'cancel_rejected',
+                'Ya hubo comunicación remota. No se puede cancelar. Pulsa Continuar para recuperar el protocolo.',
+                409,
+                [
+                    'can_continue' => true,
+                    'can_cancel' => false,
+                ]
+            );
+        }
+        if ($state === RetireCanonicalRecordResult::STATE_INTERVENTION_REQUIRED) {
+            self::error(
+                'intervention_required',
+                'Esta eliminación no puede continuar sola. Recarga la lista. Si el problema persiste, hace falta una revisión.',
+                409,
+                [
+                    'can_continue' => false,
+                    'can_cancel' => false,
+                    'redirect_url' => $redirect_url,
+                ]
+            );
+        }
+        if ($state === RetireCanonicalRecordResult::STATE_CANCELLED) {
+            wp_send_json_success([
+                'status' => 'cancelled',
+                'resource_id' => $result->record_id(),
+                'container_id' => $result->container_id(),
+                'family_key' => $resolved_family_key,
+            ]);
+        }
+        if ($state !== RetireCanonicalRecordResult::STATE_CONFIRMED) {
             self::error('persistence_failed', 'No se pudo eliminar el registro.', 500);
         }
 
         wp_send_json_success([
             'status' => 'confirmed',
-            'resource_id' => $receipt->resource_id(),
-            'container_id' => $receipt->container_id(),
+            'resource_id' => $result->record_id(),
+            'container_id' => $result->container_id(),
             'family_key' => $resolved_family_key,
             'redirect_url' => $redirect_url,
         ]);
@@ -181,29 +230,14 @@ final class CanonicalDeleteRecordAjax {
         if (!class_exists('CanonicalShellWriteAjaxSupport')) {
             require_once __DIR__ . '/CanonicalShellWriteAjaxSupport.php';
         }
-        if (!class_exists('CanonicalDeleteRecordCommand')) {
-            require_once dirname(__DIR__, 2) . '/application/canonical/CanonicalDeleteRecordCommand.php';
+        if (!class_exists('RetireCanonicalRecordCommand')) {
+            require_once dirname(__DIR__, 2) . '/application/canonical/images/RetireCanonicalRecordCommand.php';
         }
-        if (!class_exists('CanonicalReadIdentity')) {
-            require_once dirname(__DIR__, 2) . '/application/canonical/CanonicalReadIdentity.php';
+        if (!class_exists('RetireCanonicalRecordResult')) {
+            require_once dirname(__DIR__, 2) . '/application/canonical/images/RetireCanonicalRecordResult.php';
         }
-        if (!class_exists('CanonicalShellManifest')) {
-            require_once dirname(__DIR__, 2) . '/application/canonical/CanonicalShellManifest.php';
-        }
-        if (!class_exists('WriteCanonicalShellRecordUseCase')) {
-            require_once dirname(__DIR__, 2) . '/application/canonical/WriteCanonicalShellRecordUseCase.php';
-        }
-        if (!class_exists('CanonicalPurgeRunsRepository')) {
-            require_once dirname(__DIR__, 2) . '/repositories/CanonicalPurgeRunsRepository.php';
-        }
-        if (!class_exists('AA_Expediente_Aggregate_Lock')) {
-            require_once dirname(__DIR__, 2) . '/infrastructure/wp/class-aa-expediente-aggregate-lock.php';
-        }
-        if (!class_exists('CanonicalShellMutationResult')) {
-            require_once dirname(__DIR__, 2) . '/application/canonical/CanonicalShellMutationResult.php';
-        }
-        if (!class_exists('CanonicalMutationReceipt')) {
-            require_once dirname(__DIR__, 2) . '/application/canonical/CanonicalMutationReceipt.php';
+        if (!class_exists('RetireCanonicalRecordUseCase')) {
+            require_once dirname(__DIR__, 2) . '/application/canonical/images/RetireCanonicalRecordUseCase.php';
         }
         if (!class_exists('AA_Canonical_Shell_Base_Url_Policy')) {
             require_once dirname(__DIR__, 2) . '/infrastructure/wp/class-aa-canonical-shell-base-url-policy.php';

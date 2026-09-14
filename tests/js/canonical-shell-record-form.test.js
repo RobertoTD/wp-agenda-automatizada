@@ -86,6 +86,9 @@ function boot(fetchImpl, payloads, options) {
     const deleteCloseBtn = createEl('aa-shell-delete-record-modal-close-btn');
     const deleteCancelBtn = createEl('aa-shell-delete-record-modal-cancel-btn');
     const deleteConfirmBtn = createEl('aa-shell-delete-record-confirm-btn');
+    deleteConfirmBtn.textContent = 'Eliminar registro';
+    const deleteAbortBtn = createEl('aa-shell-delete-record-abort-btn');
+    deleteAbortBtn.classList.add('hidden');
     const deleteReloadBtn = createEl('aa-shell-delete-record-reload-btn');
     deleteReloadBtn.classList.add('hidden');
     const deleteTitleEl = createEl('aa-shell-delete-record-title');
@@ -137,6 +140,7 @@ function boot(fetchImpl, payloads, options) {
         'aa-shell-delete-record-modal-close-btn': deleteCloseBtn,
         'aa-shell-delete-record-modal-cancel-btn': deleteCancelBtn,
         'aa-shell-delete-record-confirm-btn': deleteConfirmBtn,
+        'aa-shell-delete-record-abort-btn': deleteAbortBtn,
         'aa-shell-delete-record-reload-btn': deleteReloadBtn,
         'aa-shell-delete-record-title': deleteTitleEl,
         'aa-shell-delete-record-status': deleteStatusEl
@@ -243,6 +247,7 @@ function boot(fetchImpl, payloads, options) {
         deleteTitleEl,
         deleteStatusEl,
         deleteConfirmBtn,
+        deleteAbortBtn,
         deleteCancelBtn,
         deleteReloadBtn,
         documentListeners,
@@ -455,6 +460,8 @@ describe('canonical-shell-record-form', () => {
         assert.equal(ui.getLastFormData().action, 'aa_delete_canonical_record');
         assert.equal(ui.getLastFormData().nonce, 'delete-nonce');
         assert.equal(ui.getLastFormData().record_id, '11');
+        assert.equal(ui.getLastFormData().retire_action, undefined);
+        assert.equal(ui.getLastFormData().mandate_id, undefined);
         await new Promise((resolve) => setTimeout(resolve, 0));
         assert.equal(ui.getAssignedUrl(), 'https://example.test/records?container_id=42');
     });
@@ -516,6 +523,143 @@ describe('canonical-shell-record-form', () => {
 
         ui.deleteReloadBtn._listeners.click[0]();
         assert.equal(ui.getAssignedUrl(), 'https://example.test/records?container_id=42');
+    });
+
+    it('delete: incomplete deja Continuar sin bloquear', async () => {
+        const ui = boot(
+            async () => ({
+                status: 409,
+                text: async () => JSON.stringify({
+                    success: false,
+                    data: {
+                        code: 'incomplete',
+                        message: 'La eliminación no terminó. Pulsa Continuar para seguir.',
+                        can_continue: true,
+                        can_cancel: false
+                    }
+                })
+            }),
+            [{ id: 9, title: 'X', details: '' }]
+        );
+        ui.deleteBtns[0]._listeners.click[0]();
+        ui.deleteConfirmBtn._listeners.click[0]();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        assert.equal(ui.getAssignedUrl(), null);
+        assert.equal(ui.deleteConfirmBtn.disabled, false);
+        assert.equal(ui.deleteConfirmBtn.textContent, 'Continuar');
+        assert.equal(ui.deleteAbortBtn.classList.contains('hidden'), true);
+        assert.ok(ui.deleteStatusEl.textContent.indexOf('Continuar') !== -1);
+
+        const before = ui.getFetchCalls();
+        ui.deleteConfirmBtn._listeners.click[0]();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        assert.equal(ui.getFetchCalls(), before + 1);
+        assert.equal(ui.getLastFormData().retire_action, undefined);
+        assert.equal(ui.getLastFormData().mandate_id, undefined);
+    });
+
+    it('delete: conflict muestra cancelar local y no envía mandate_id', async () => {
+        let lastAction = null;
+        const ui = boot(
+            async () => ({
+                status: 409,
+                text: async () => JSON.stringify({
+                    success: false,
+                    data: {
+                        code: 'conflict',
+                        message: 'No se pudo preparar la eliminación.',
+                        can_continue: true,
+                        can_cancel: true
+                    }
+                })
+            }),
+            [{ id: 9, title: 'X', details: '' }]
+        );
+        ui.deleteBtns[0]._listeners.click[0]();
+        ui.deleteConfirmBtn._listeners.click[0]();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        assert.equal(ui.deleteConfirmBtn.textContent, 'Reintentar');
+        assert.equal(ui.deleteAbortBtn.classList.contains('hidden'), false);
+
+        ui.deleteAbortBtn._listeners.click[0]();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        lastAction = ui.getLastFormData().retire_action;
+        assert.equal(lastAction, 'cancel');
+        assert.equal(ui.getLastFormData().mandate_id, undefined);
+        assert.equal(ui.getLastFormData().record_id, '9');
+    });
+
+    it('delete: cancel_rejected oculta abortar y ofrece Continuar', async () => {
+        const ui = boot(
+            async () => ({
+                status: 409,
+                text: async () => JSON.stringify({
+                    success: false,
+                    data: {
+                        code: 'cancel_rejected',
+                        message: 'Ya hubo comunicación remota. No se puede cancelar. Pulsa Continuar para recuperar el protocolo.',
+                        can_continue: true,
+                        can_cancel: false
+                    }
+                })
+            }),
+            [{ id: 9, title: 'X', details: '' }]
+        );
+        ui.deleteBtns[0]._listeners.click[0]();
+        ui.deleteAbortBtn.classList.remove('hidden');
+        ui.deleteAbortBtn._listeners.click[0]();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        assert.equal(ui.deleteConfirmBtn.textContent, 'Continuar');
+        assert.equal(ui.deleteAbortBtn.classList.contains('hidden'), true);
+        assert.equal(ui.deleteConfirmBtn.disabled, false);
+        assert.ok(ui.deleteStatusEl.textContent.indexOf('No se puede cancelar') !== -1);
+    });
+
+    it('delete: intervention_required no promete Continuar', async () => {
+        const ui = boot(
+            async () => ({
+                status: 409,
+                text: async () => JSON.stringify({
+                    success: false,
+                    data: {
+                        code: 'intervention_required',
+                        message: 'Esta eliminación no puede continuar sola. Recarga la lista.',
+                        can_continue: false,
+                        can_cancel: false,
+                        redirect_url: 'https://example.test/records?container_id=42'
+                    }
+                })
+            }),
+            [{ id: 9, title: 'X', details: '' }]
+        );
+        ui.deleteBtns[0]._listeners.click[0]();
+        ui.deleteConfirmBtn._listeners.click[0]();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        assert.equal(ui.getAssignedUrl(), null);
+        assert.equal(ui.deleteConfirmBtn.disabled, true);
+        assert.equal(ui.deleteAbortBtn.classList.contains('hidden'), true);
+        assert.equal(ui.deleteReloadBtn.classList.contains('hidden'), false);
+        assert.ok(ui.deleteStatusEl.textContent.indexOf('no puede continuar sola') !== -1);
+    });
+
+    it('delete: cancelled cierra el modal sin redirect', async () => {
+        const ui = boot(
+            async () => ({
+                status: 200,
+                text: async () => JSON.stringify({
+                    success: true,
+                    data: { status: 'cancelled', resource_id: 9, container_id: 42 }
+                })
+            }),
+            [{ id: 9, title: 'X', details: '' }]
+        );
+        ui.deleteBtns[0]._listeners.click[0]();
+        ui.deleteAbortBtn.classList.remove('hidden');
+        ui.deleteAbortBtn._listeners.click[0]();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        assert.equal(ui.getAssignedUrl(), null);
+        assert.equal(ui.deleteModal.classList.contains('hidden'), true);
+        assert.equal(ui.getLastFormData().retire_action, 'cancel');
     });
 
     it('amount offered: create muestra vacío y envía amount', async () => {

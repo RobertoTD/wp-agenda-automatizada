@@ -1,6 +1,6 @@
 <?php
 /**
- * AC Test — Persistencia Canónica Universal (PCU-2 / LEGACY-X DB 24 / repertorio DB 25 / images DB 26 / IMG-3a DB 27 / IMG-5 inc. 2 DB 28).
+ * AC Test — Persistencia Canónica Universal (PCU-2 / LEGACY-X DB 24 / repertorio DB 25 / images DB 26 / IMG-3a DB 27 / IMG-5 inc. 2 DB 28 / IMG-5 inc. 3 DB 29).
  *
  * Ejecutar:
  *   php tests/infrastructure/wp/test-canonical-schema-ac.php
@@ -55,7 +55,7 @@ $canonical_src = file_get_contents($canonical_schema_file);
 
 ac_assert('Schema.php es legible', is_string($schema_src) && $schema_src !== '');
 ac_assert('CanonicalSchema.php es legible', is_string($canonical_src) && $canonical_src !== '');
-ac_assert("AA_Schema::DB_VERSION es '28'", strpos($schema_src, "DB_VERSION = '28'") !== false);
+ac_assert("AA_Schema::DB_VERSION es '29'", strpos($schema_src, "DB_VERSION = '29'") !== false);
 ac_assert('Schema.php delega en AA_Canonical_Schema::install()', strpos($schema_src, 'AA_Canonical_Schema::install()') !== false);
 ac_assert(
     'Sin AA_Finance_Schema::install()',
@@ -119,6 +119,10 @@ ac_assert('TABLE_IMAGE_UPLOAD_OPERATIONS', strpos($canonical_src, "TABLE_IMAGE_U
 ac_assert('TABLE_PURGE_RUNS', strpos($canonical_src, "TABLE_PURGE_RUNS = 'aa_canonical_purge_runs'") !== false);
 ac_assert('TABLE_PURGE_INVENTORY_ITEMS', strpos($canonical_src, "TABLE_PURGE_INVENTORY_ITEMS = 'aa_canonical_purge_inventory_items'") !== false);
 ac_assert('ensure_purge_capture_v28', strpos($canonical_src, 'ensure_purge_capture_v28') !== false);
+ac_assert('ensure_purge_retire_intent_v29', strpos($canonical_src, 'ensure_purge_retire_intent_v29') !== false);
+ac_assert('intención HMAC y cancelación locales nulas hasta evidencia', strpos($canonical_src, 'accept_intent_batch_seq int unsigned DEFAULT NULL') !== false
+    && strpos($canonical_src, 'seal_intent_at datetime DEFAULT NULL') !== false
+    && strpos($canonical_src, 'cancelled_at datetime DEFAULT NULL') !== false);
 ac_assert('Inventario sin FK a records/containers', strpos($canonical_src, 'purge_inventory_items_foreign_key_name') !== false
     && strpos($canonical_src, 'aa_canonical_purge_inventory_items:purge_run_id') !== false
     && preg_match("/purge_inventory_items_table_name\(\)[\s\S]{0,250}'CASCADE'/", $canonical_src) === 1);
@@ -412,11 +416,17 @@ if ($has_real_wp) {
         $mandate_col = $wpdb->get_row($wpdb->prepare("SHOW COLUMNS FROM `{$pr1}` LIKE %s", 'mandate_id'), ARRAY_A);
         $sealed_col = $wpdb->get_row($wpdb->prepare("SHOW COLUMNS FROM `{$pr1}` LIKE %s", 'sealed_at'), ARRAY_A);
         $accepted_col = $wpdb->get_row($wpdb->prepare("SHOW COLUMNS FROM `{$pr1}` LIKE %s", 'last_accepted_batch_seq'), ARRAY_A);
+        $accept_intent_col = $wpdb->get_row($wpdb->prepare("SHOW COLUMNS FROM `{$pr1}` LIKE %s", 'accept_intent_batch_seq'), ARRAY_A);
+        $seal_intent_col = $wpdb->get_row($wpdb->prepare("SHOW COLUMNS FROM `{$pr1}` LIKE %s", 'seal_intent_at'), ARRAY_A);
+        $cancelled_col = $wpdb->get_row($wpdb->prepare("SHOW COLUMNS FROM `{$pr1}` LIKE %s", 'cancelled_at'), ARRAY_A);
         ac_assert(
             'MySQL: columnas remotas de mandato son NULLABLE',
             is_array($mandate_col) && strtoupper((string) $mandate_col['Null']) === 'YES'
             && is_array($sealed_col) && strtoupper((string) $sealed_col['Null']) === 'YES'
             && is_array($accepted_col) && strtoupper((string) $accepted_col['Null']) === 'YES'
+            && is_array($accept_intent_col) && strtoupper((string) $accept_intent_col['Null']) === 'YES'
+            && is_array($seal_intent_col) && strtoupper((string) $seal_intent_col['Null']) === 'YES'
+            && is_array($cancelled_col) && strtoupper((string) $cancelled_col['Null']) === 'YES'
         );
 
         $idx_count = (int) $wpdb->get_var(
@@ -901,7 +911,7 @@ if ($has_real_wp) {
             update_option('aa_db_version', '20');
             AA_Schema::install();
             $stored = (string) get_option('aa_db_version', '0');
-            ac_assert("MySQL: AA_Schema::install deja aa_db_version=28", $stored === '28');
+            ac_assert("MySQL: AA_Schema::install deja aa_db_version=29", $stored === '29');
             $uf = $wpdb->prefix . AA_Canonical_Schema::TABLE_FAMILIES;
             $uc = $wpdb->prefix . AA_Canonical_Schema::TABLE_CONTAINERS;
             $ur = $wpdb->prefix . AA_Canonical_Schema::TABLE_RECORDS;

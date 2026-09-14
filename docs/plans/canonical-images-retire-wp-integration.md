@@ -1,6 +1,6 @@
 # Exploración: retiro canónico WP, mandatos de limpieza y cuota
 
-**Estado:** incrementos 1–2 implementados en `dev/canonical-images-retire` (`2eb87482ed6f2c12cab6685efa6df254dd40c61c`). Incremento 3 **diseñado, no implementado**: retiro de un registro vía mandatos. Todavía sin HTTP accept/seal, DELETE de producto, UI Continuar ni cron/workers.
+**Estado:** incrementos 1–3 implementados en `dev/canonical-images-retire`. Incremento 3: retiro de **un registro** vía mandatos (`aa_delete_canonical_record` → `RetireCanonicalRecordUseCase`). Todavía sin retiro de contenedores, validación integrada, cron/workers ni `is_ready`.
 **Fecha:** 2026-09-14.
 **Ámbito:** integración WordPress del retiro de registros/adjuntos canónicos y liberación de cuota, reutilizando `accept` / `seal` / `status` del backend.
 
@@ -10,7 +10,7 @@ No modifica el state de la prueba Backend 3 (worker local Storage, `docs/ops/att
 
 | Repo | Rama | HEAD |
 |------|------|------|
-| `wp-agenda-automatizada` | `dev/canonical-images-retire` | `2eb87482ed6f2c12cab6685efa6df254dd40c61c` |
+| `wp-agenda-automatizada` | `dev/canonical-images-retire` | (SHA del commit de incremento 3; ver git) |
 | `deoia-oauth-backend` (solo contratos) | `dev/backend-recovered` | `b4d868ced6ddedb4d81ab30ce0e746c91736ab1b` (untracked ajeno: `scripts/runner-from-pack.sh`) |
 
 **Backend Storage fixture (no reejecutada aquí):** immediate / later / reappear **PASS**. El caso reappear fue **sintético** (no un PUT tardío real del proveedor).
@@ -52,12 +52,12 @@ El producto acordado no espera Storage en el request del usuario.
 2. `AA_Expediente_Attachments_Backend_Client` reutiliza `aa_send_authenticated_request` para authorize / finalize / sign-read / `delete_object` **y** (incremento 1) `accept_delete_batch` / `seal_delete_mandate` / `get_delete_mandate_status`. `installation_id` lo deriva el backend del cliente HMAC (`verifyClient` → `agenda_clients` → `resolveExpedienteAttachmentContext`); el cliente WP **no** lo envía en el body. El delete síncrono `POST /expediente/attachments/delete` no cambia.
 3. Delete canónico de registro/contenedor **no** toca imágenes ni Storage: `WriteCanonicalShellRecordUseCase::delete` / `WriteCanonicalShellContainerUseCase::delete` → gateway → `CanonicalRelationalRepository`.
 4. FK: `aa_canonical_records.container_id` → contenedores **CASCADE**; `aa_canonical_record_images.record_id` y `aa_canonical_image_upload_operations.record_id` → registros **RESTRICT**. Borrar un registro o contenedor **con imágenes u ops** falla en MySQL. Sin imágenes ni ops, el delete actual funciona.
-5. `aa_canonical_purge_runs` + `aa_canonical_purge_inventory_items` (`DB_VERSION=28`). `mandate_id` estable al abrir. Captura congelada por páginas con checkpoints de **fuentes** (`images_read_after_id` / `ops_read_after_operation_id`). `has_blocking_purge` / `has_blocking_purge_for_container` bloquean attach, confirmación SQL y el delete de shell actual. `last_accepted_batch_seq` / `sealed_at` permanecen NULL hasta evidencia remota (inc. 3).
+5. `aa_canonical_purge_runs` + `aa_canonical_purge_inventory_items` (`DB_VERSION=29` sobre la captura de DB 28). `mandate_id` estable al abrir. Captura congelada por páginas. `has_blocking_purge` solo `in_progress|incomplete` (cancelada/completada no bloquean). Intención HMAC (`accept_intent_batch_seq` / `seal_intent_at`) y `cancelled_at` en inc. 3. `last_accepted_batch_seq` NULL = ninguna tanda acreditada; `0` = primera tanda acreditada.
 6. Cuota: `AA_Installation_Storage_Usage::{confirmed_bytes, reserved_bytes, admission_used_bytes}`. Confirmados = `SUM(aa_expediente_adjuntos.byte_size)` + `SUM(aa_canonical_record_images.byte_size)`. Reservados = ops `admitted` vigentes. **No hay RPC de «liberar cuota»:** desaparece la fila confirmada (o la reserva) y el SUM baja.
-7. Lectura de imágenes para UI (`find_public_rows_by_record_ids_for_container`) **no** incluye `upload_operation_id`, `content_sha256` ni `storage_path`. Accept necesita esos campos.
-8. Backend: max 50 ítems/tanda; fingerprint por tanda; replay idéntico → `already_accepted`; misma identidad+metadatos otro mandato → `already_obligated` persistido; `status` recupera respuesta perdida; seal vacío (`expected_batch_count=0`) acredita inventario **entregado vacío** (WP no debe sellar vacío si el alcance local tenía imágenes); tombstone + advisory lock de identidad serializa accept vs `begin_canonical_upload_issuance`.
-9. UI canónica de delete: éxito `confirmed` + redirect; `uncertain` 409 bloquea retry («Recargar lista»). **Aún no** existe «Eliminación incompleta» + Continuar (diseñado en §6; no implementado).
-10. `images` permanece `is_ready=false`. IMG-4 es el último incremento de imágenes cerrado. Borrado/purge está explícitamente excluido.
+7. Lectura de imágenes para UI (`find_public_rows_by_record_ids_for_container`) **no** incluye `upload_operation_id`, `content_sha256` ni `storage_path`. Accept usa el inventario persistido.
+8. Backend: max 50 ítems/tanda; fingerprint por tanda; replay idéntico → `already_accepted`; misma identidad+metadatos otro mandato → `already_obligated` persistido; `status` recupera respuesta perdida; seal vacío (`expected_batch_count=0`) acredita inventario **entregado vacío** (WP no sella vacío en delete de un registro; skip HMAC). tombstone + advisory lock de identidad serializa accept vs `begin_canonical_upload_issuance`.
+9. UI canónica de delete de **registro**: `confirmed` + redirect; `incomplete` + Continuar (mismo POST); `uncertain` 409 bloquea retry («Recargar lista»); conflicto previo a envío + cancelar purga local; `intervention_required` no promete que Continuar lo resuelva. Delete de **contenedor** sigue siendo el delete de shell (inc. 4).
+10. `images` permanece `is_ready=false`. Borrado de contenedores y activación de producto siguen fuera.
 
 ### Decisiones de producto (cerradas; no reabrir)
 
@@ -90,8 +90,10 @@ Contenedor expediente (Ciclo B)
     → TX corta: DELETE registros + padre. Progreso parcial reintentable.
 
 Registro canónico
-  AJAX aa_delete_canonical_record → WriteCanonicalShellRecordUseCase::delete
-    → DELETE aa_canonical_records (+ amount CASCADE). Sin inventario, sin HMAC delete.
+  AJAX aa_delete_canonical_record → RetireCanonicalRecordUseCase
+    → lock contenedor → captura (reanuda corrida) → accept/seal HMAC (o skip si vacío)
+    → TX: DELETE images/ops del inventario + DELETE registro + touch + completed.
+    WriteCanonicalShellRecordUseCase::delete conserva la guarda de purge (no es el camino HTTP).
 
 Contenedor canónico
   AJAX aa_delete_canonical_container → WriteCanonicalShellContainerUseCase::delete
@@ -140,7 +142,7 @@ Un solo diseño: **corrida de retiro canónico (purge_runs) + mandato HMAC + DEL
 2. **GET_LOCK** `canonical_container` (y, al mutar cuota, `storage_quota`). Sin `BEGIN` abierto durante HTTP.
 3. Abrir o reanudar `aa_canonical_purge_runs` de forma atómica bajo el lock: `mandate_id` estable, alcance `record` XOR `container`. El bloqueo durable queda confirmado **antes** de capturar. Alcances solapados (lista vs registro hijo) no abren un segundo mandato.
 4. Captura recuperable por páginas (inc. 2, ya implementada): copiar imágenes confirmadas ∪ ops `admitted|cleanup_needed` a `aa_canonical_purge_inventory_items`. Checkpoint de **fuentes**, no de inventario copiado. Ítems + checkpoint en la misma TX. Sin TX larga ni HTTP.
-5. Al agotar ambas fuentes sin conflicto: preparar tandas inmutables de **1..50 ítems** (o cero tandas si el inventario está vacío). `capture_complete=1`. **Índice de tanda:** el backend exige la primera tanda con `batch_seq=0` (ver §6.1). El incremento 2 persistió índices 1-based; el 3 debe alinearlos.
+5. Al agotar ambas fuentes sin conflicto: preparar tandas inmutables de **hasta 50 ítems** (o cero tandas si el inventario está vacío). `capture_complete=1`. **Índice de tanda:** persistido 0-based (`intdiv($index, 50)`). `prepared_batch_count` es cantidad.
 6. **Incremento 3:** enviar las tandas **ya persistidas** a `POST …/delete-mandates/accept`. No reconstruir la tanda desde las tablas vivas. Replay/`status` con el mismo `mandate_id` + el **mismo** `batch_seq` remoto (0-based).
 7. **Incremento 3:** `POST …/delete-mandates/seal` con `expected_batch_count` = **cantidad** de tandas (`prepared_batch_count`, 0 si vacío). No es un índice. Exigir `inventory_status=sealed` / `structural_retire_authorized`.
 8. **TX corta InnoDB** (tras HTTP cerrado): DELETE imágenes y ops del inventario acreditado; luego DELETE registro(s); si alcance contenedor, DELETE contenedor. Commit → cuota confirmada baja sola.
@@ -189,7 +191,7 @@ La captura copia imágenes y ops del alcance a `aa_canonical_purge_inventory_ite
 - Página de hasta 50 filas: ítems + checkpoint en la **misma TX**. Reintentar una página no duplica (UNIQUE) ni salta (el checkpoint solo avanza si esa TX confirma).
 - `capture_complete` solo cuando ambas fuentes se recorrieron sin conflicto.
 - Tandas de **hasta 50 ítems** se asignan **después** de completar la captura (`batch_seq` / `position_in_batch`). Una tanda preparada no gana, pierde ni cambia ítems. Inventario vacío → `prepared_batch_count=0`, ninguna tanda vacía. No hay fingerprint local: el hash lo calcula el backend en accept.
-- **Incompatibilidad de índice (inc. 2 vs backend):** ver §6.1. El incremento 2 persistió `batch_seq` 1-based (`intdiv($index, 50) + 1`). El backend exige la primera tanda con `batch_seq=0`. `last_accepted_batch_seq` / `sealed_at` son aceptación remota; el incremento 2 no los escribe.
+- **Incompatibilidad de índice (inc. 2 vs backend, corregida en inc. 3):** el incremento 2 persistió `batch_seq` 1-based. El 3 persiste 0-based y rechaza corridas legacy 1-based sin renumerarlas. Ver §6.1.
 - Confirmación que termina **antes** de que la purga adquiera el lock entra en la captura. Un escritor que intenta INSERT después de abierta la corrida ve `has_blocking_purge` **antes** de escribir. El delete de shell actual también queda bloqueado; el nuevo retiro aún no está cableado al botón.
 
 ### 3.3 Accept remoto confirmado + fallo SQL local
@@ -296,28 +298,28 @@ El orquestador posterior es dueño de identidades y recuperación. Debe cumplir:
 
 **Pruebas:** `tests/application/canonical/images/test-capture-canonical-purge-inventory-ac.php` (MySQL aislado + dos conexiones reales para locks) y schema AC DB 28.
 
-**Incremento 3 consumirá:** `mandate_id` estable, tandas persistidas (índice remoto 0..N-1; cantidad N = `prepared_batch_count`, 0 si vacío), `capture_complete=1`, el lock y las guardas de escritores de inventario ya existentes, y el cliente HMAC del incremento 1. Corrección obligatoria: alinear `batch_seq` local a 0-based (no traducir a ciegas en el POST). Todavía no implementado: accept/seal HTTP, DELETE de images/ops/registro, Continuar UI.
+**Incremento 3 consume:** `mandate_id` estable, tandas persistidas 0-based (índice remoto 0..N-1; cantidad N = `prepared_batch_count`), `capture_complete=1`, lock ya adquirido, cliente HMAC del incremento 1, DELETE local post-sello, Continuar UI.
 
-### Incremento 3 — retiro de **un registro** (diseño concreto; no implementado)
+### Incremento 3 — retiro de **un registro** — **completado** (`DB_VERSION=29`)
 
-**Clasificación:** capability `images` + runtime WP. El AJAX/JS de delete del shell solo coordina el resultado de mutación (incomplete / uncertain / confirmed); no absorbe reglas de mandato.
+**Clasificación:** capability `images` + runtime WP. El AJAX/JS de delete del shell coordina el resultado de mutación; no absorbe reglas de mandato.
 
-**Application:** `RetireCanonicalRecordUseCase` (nombre estable) orquesta, bajo `GET_LOCK` `canonical_container` y **sin TX SQL abierta durante HTTP**:
+**Application:** `RetireCanonicalRecordUseCase` orquesta, bajo `GET_LOCK` `canonical_container` (reutiliza `CaptureCanonicalPurgeInventoryUseCase::execute_with_held_lock`; sin adquisición anidada) y **sin TX SQL abierta durante HTTP**:
 
-1. Access Policy (`authorize_identity` por `family_key`) + contenedor existente. El registro vivo **no** es requisito para Continuar (ver §6.4).
-2. Reutilizar `CaptureCanonicalPurgeInventoryUseCase` (`scope=record`, `max_pages=2` por petición).
-3. Si captura incompleta o en conflicto: devolver sin HMAC (ver tratamientos).
-4. Acreditar tandas persistidas con el cliente HMAC (accept / status / seal). Mismo `mandate_id`. Mismo contenido. Índice remoto 0-based.
-5. Solo con `capture_complete=1`, todas las tandas acreditadas y `structural_retire_authorized`: TX local (imágenes + ops del inventario, registro, touch contenedor, `status=completed` de la corrida).
-6. Soltar locks.
+1. Access Policy (`authorize_identity` por `family_key`) + contenedor existente. El registro vivo **no** es requisito para Continuar si la corrida ya está capture-complete o sellada.
+2. Captura `scope=record`, `max_pages=2` por petición.
+3. Si captura incompleta o en conflicto: devolver sin HMAC. Conflicto previo a envío: `can_cancel` y cancelación local (conserva corrida+inventario; `status=cancelled`; libera escritores). Nueva eliminación abre **otra** corrida.
+4. Acreditar tandas persistidas (accept / status / seal). Intención de envío **antes** del POST. Mismo `mandate_id`, mismo `batch_seq`, mismos ítems. Índice remoto 0-based.
+5. Solo con cobertura completa y `structural_retire_authorized`: TX local (imágenes + ops del inventario, registro, touch contenedor, `status=completed`). Inventario y corrida se conservan.
+6. Soltar locks. `storage_quota` solo alrededor de la TX local.
 
-**AJAX:** `aa_delete_canonical_record` pasa a componer este UseCase. **No** llamar `WriteCanonicalShellRecordUseCase::delete` como camino productivo (ese delete no drena images/ops; RESTRICT lo impediría). Conservar la guarda de purge en `Write::delete` por si un caller de tests/producción antigua sigue existiendo.
+**AJAX:** `aa_delete_canonical_record` compone este UseCase. `retire_action=cancel` para abortar purga local. **No** llama `WriteCanonicalShellRecordUseCase::delete`. La guarda en `Write::delete` se conserva.
 
-**JS:** códigos `incomplete` + Continuar (mismo action, mismos `family_key` / `container_id` / `record_id`; el servidor rehidrata la corrida; **no** enviar `mandate_id` ni `batch_seq`). Conservar `uncertain` (bloquea retry ciego). `resource_busy` reintenta. No cron.
+**JS:** `incomplete` → Continuar (mismo POST, sin `mandate_id`). `conflict` → Reintentar + Cancelar eliminación si `can_cancel`. `uncertain` / `intervention_required` → Recargar; no retry ciego. Delete de contenedor **no** cableado.
 
 **No:** contenedor, cron, `is_ready=true`, worker, Expedientes, ledger físico WP, `POST /expediente/attachments/delete`.
 
-El detalle normativo del flujo, las dos comprobaciones del incremento 2, la matriz de pruebas y el veredicto están en **§6**.
+El detalle del flujo, numeración, cancelación segura y procedimiento manual están en **§6**.
 
 ### Incremento 4 — contenedor
 
@@ -349,7 +351,7 @@ No tocar migraciones PG, worker, Render, ni el state file de la prueba Storage.
 
 ---
 
-## 6. Incremento 3 — diseño (un registro)
+## 6. Incremento 3 — implementación (un registro)
 
 ### 6.1 Comprobación: numeración de tandas (incompatibilidad real)
 
@@ -362,17 +364,20 @@ Hay que distinguir **índice de tanda** (`batch_seq`) y **cantidad de tandas** (
 | 51 ítems → cantidad | `prepared_batch_count=2` | `expected_batch_count=2` |
 | Inventario vacío → cantidad | `0` (cero tandas; no hay fila vacía) | `seal(..., 0)` si se sellara |
 
-**Hecho reproducible sin HTTP remoto:**
+**Hecho reproducible sin HTTP remoto (incremento 2, ya corregido en el 3):**
 
-- Asignación: `includes/infrastructure/canonical/images/class-aa-canonical-purge-capture-store.php` (`$batch_seq = intdiv($index, $max) + 1`).
-- Rechazo de índice 0: `CanonicalPurgeInventoryItemsRepository::assign_batch_slot` y `list_prepared_batch` exigen `$batch_seq < 1` → error o lista vacía.
-- AC que lo fija: `tests/application/canonical/images/test-capture-canonical-purge-inventory-ac.php` — `tanda 1 persistida 1..50` exige `(int) $batch1[0]['batch_seq'] === 1`; `>50 completa en dos tandas` reconstruye con `list_prepared_batch(..., 1)` y `(..., 2)`.
-- Contrato backend: `accept_attachment_delete_batch` exige `p_batch_seq == contiguous_prefix_len` y el prefijo nace en **0** (`migrations/20260913_create_attachment_delete_mandates.sql`; cliente HMAC `batch_seq ≥ 0`, tests con `batch_seq: 0`). Primera tanda con `batch_seq=1` → `batch_seq_gap` / `expected_batch_seq=0`.
-- `expected_batch_count` del seal es la **cantidad** de tandas aceptadas (`contiguous_prefix_len`), no el último índice. Tras aceptar índices 0 y 1, el seal lleva `expected_batch_count=2`. `last_accepted_batch_seq` nullable distingue «ninguna acreditada» (`NULL`) de «la tanda 0 ya acreditada» (`0`).
+- Asignación vigente: `includes/infrastructure/canonical/images/class-aa-canonical-purge-capture-store.php` (`$batch_seq = intdiv($index, $max)`; `$batch_count = $batch_seq + 1` es **cantidad**).
+- `assign_batch_slot` / `list_prepared_batch` permiten `0` (`< 0` inválido).
+- AC: `tests/application/canonical/images/test-capture-canonical-purge-inventory-ac.php` y `test-retire-canonical-record-ac.php` (51 ítems → índices HMAC 0 y 1, seal `expected_batch_count=2`).
+- Contrato backend: primera tanda `batch_seq=0`. `last_accepted_batch_seq` nullable: `NULL` = ninguna acreditada; `0` = primera tanda acreditada.
 
-**No traducir en el POST** (`wp_seq - 1`) como parche improvisado: el cursor local `last_accepted_batch_seq`, `status` y el replay deben compartir el mismo entero que el backend.
+**No traducir en el POST** (`wp_seq - 1`): el cursor local, `status` y el replay comparten el mismo entero que el backend.
 
-**Corrección obligatoria en el incremento 3 (aplicación, sin bump de `DB_VERSION`):** persistir y reconstruir `batch_seq` 0-based (`intdiv($index, 50)`), permitir `0` en `assign_batch_slot` / `list_prepared_batch`, actualizar el AC de captura. No hay corridas de producto en instalaciones reales (el botón aún no dispara captura). `prepared_batch_count` permanece como cantidad.
+**Evidencia de que no había corridas de producto 1-based:** `CaptureCanonicalPurgeInventoryUseCase` no estaba cableado a ningún AJAX productivo (el delete usaba `WriteCanonicalShellRecordUseCase`). La captura solo se ejecutó en tests MySQL con prefijo temporal. No se migró WordPress compartido ni se renumeraron filas ajenas.
+
+**Compatibilidad mínima (no renumerar a ciegas):** si una corrida abierta tiene tandas asignadas con `MIN(batch_seq)=1` y ninguna tanda `0`, se trata como `legacy_batch_index`. No se envía HMAC ni se reescribe el índice. Si no hubo intención de envío, se puede **cancelar** la purga local. Si ya hubo envío/intención remota, `intervention_required` (formato o estado remoto desconocido).
+
+**Schema:** `DB_VERSION=29` (columnas `accept_intent_batch_seq`, `seal_intent_at`, `cancelled_at`). El diseño original del §6.5 decía «sin bump»; el prompt del incremento 3 autorizó versionar si la estructura cambia. `prepared_batch_count` / `expected_batch_count` siguen siendo cantidades.
 
 ### 6.2 Comprobación: `new Write…($gateway)` y guardas
 
@@ -406,16 +411,17 @@ GET_LOCK canonical_container
   si conflicto de captura → ver tratamientos; sin HMAC
   si prepared_batch_count=0 → skip HMAC → TX local
   si hay tandas:
+    persistir accept_intent_batch_seq **antes** del HTTP
     next_seq = last_accepted_batch_seq es NULL ? 0 : last_accepted_batch_seq+1
     si next_seq < prepared_batch_count:
-      status(mandate_id, next_seq) si hay duda de respuesta perdida
+      si ya hay intención de esa tanda: status(mandate_id, next_seq)
         found+can_credit_batch + ítems ≡ tanda local → acreditar next_seq
-        found+batch_found=false → accept idéntico (mismo seq, mismos ítems)
-        found=false → accept idéntico (no mintar mandate_id)
+        found+batch_found=false o found=false → accept idéntico (mismo seq, mismos ítems)
       si no hay duda: accept idéntico
       persistir last_accepted_batch_seq solo tras acreditar contra contenido local
       si aún quedan tandas → incomplete
     si todas acreditadas y sealed_at NULL:
+      persistir seal_intent_at **antes** del HTTP
       seal(mandate_id, expected_batch_count=prepared_batch_count)
       o status sin batch_seq si respuesta de seal perdida
       exigir structural_retire_authorized && inventory_status=sealed
@@ -455,18 +461,22 @@ Continuar = mismo POST `aa_delete_canonical_record`. El servidor abre/reanuda po
 | Dos Continuar simultáneos | `GET_LOCK`; el segundo espera el timeout (5 s) y recibe `resource_busy` 409. No segundo mandato. |
 | Reintento con registro ya retirado y corrida `completed` | `record_not_found` (igual que el delete actual al repetir). |
 | Continuar con registro ausente y corrida aún abierta | Autorizar por familia + contenedor (Access Policy no exige el registro). Reconciliar: si el inventario local ya no tiene filas vivas y el sello está acreditado → TX de cierre (`completed`) → `confirmed`. Si el contenedor también faltara (fuera de este alcance habitual) → persistencia/404 sin mintar mandato. |
-| Conflicto de captura (`item_metadata_conflict` / `item_incomplete`) | Sin HMAC. No borrar. `conflict` 409. La corrida sigue abierta (escritores de inventario siguen excluidos). Continuar reintenta captura. **Limitación:** el conflicto está en los datos y los escritores que podrían repararlos están bloqueados; no hay aborto de producto en este incremento. Operación: marcar `status` distinto de `in_progress\|incomplete` queda **fuera** (no improvisar un force-delete). |
+| Conflicto de captura (`item_metadata_conflict` / `item_incomplete`) **antes de cualquier envío** | Sin HMAC. No borrar imágenes/ops/registro. `conflict` 409 con `can_cancel`. **Cancelar purga local** (mismo lock): `status=cancelled`, conserva corrida+inventario, libera escritores. Continuar reintenta captura. Una nueva eliminación abre **otra** corrida. |
+| Intención de envío, aceptación, sello o resultado remoto desconocido | **No** cancelación simple. `cancel_rejected` + Continuar para recuperar el protocolo. Timeout ≠ cancelación segura. |
+| Formato 1-based persistido (`legacy_batch_index`) | No enviar ni renumerar. Cancelable solo si no hubo dispatch remoto; si lo hubo → `intervention_required`. |
+| Caso que no puede resolverse con Continuar | `intervention_required` 409 + Recargar. No se promete que Continuar lo arregle. Sin expiración automática ni limpieza física en WP. |
 
-### 6.5 Cambios mínimos de código y UI
+### 6.5 Cambios de código y UI (hechos)
 
-Sin bump de `DB_VERSION` (columnas remotas ya existen). Sin tabla nueva.
+`DB_VERSION=29`. Sin tabla nueva.
 
 - Persistencia 0-based de `batch_seq` + AC de captura.
-- Repos: acreditar `last_accepted_batch_seq` / `sealed_at` / `completed`; DELETE images/ops por `upload_operation_id` del inventario; fail-closed si queda inventario vivo del registro.
-- Store TX local de retiro (images + ops + record + touch + completed). Reutilizar `CanonicalRelationalAmbiguousOutcome` → `uncertain`.
-- `RetireCanonicalRecordUseCase` + cliente HMAC ya existente.
-- `CanonicalDeleteRecordAjax`: componer el UseCase; mapear `incomplete` 409, `resource_busy` 409, `conflict` 409; no JSON de `mandate_id`.
-- Modal/copy: mencionar que también se eliminarán las imágenes (§12.4). Botón Continuar ante `incomplete` (mismo submit). No cambiar `is_ready`. Compact/records form: el handler de delete del record-form.
+- Columnas de intención HMAC y `cancelled_at`.
+- Repos: acreditar `last_accepted_batch_seq` / `sealed_at` / `completed` / `cancelled`; DELETE images/ops por `upload_operation_id`; fail-closed si queda inventario vivo del registro.
+- Store TX local de retiro (images + ops + record + touch + completed). `CanonicalRelationalAmbiguousOutcome` → `uncertain`.
+- `RetireCanonicalRecordUseCase` + captura bajo lock ya adquirido + cliente HMAC existente.
+- `CanonicalDeleteRecordAjax`: UseCase de retiro; `incomplete`/`conflict`/`cancel_rejected`/`uncertain`/`intervention_required`/`resource_busy` 409; no JSON de `mandate_id`.
+- Modal: copy de imágenes; Continuar; Cancelar eliminación (purga local); Recargar; el botón gris es **Cerrar** (no cancela en servidor).
 
 ### 6.6 Matriz de pruebas automatizadas
 
@@ -490,30 +500,48 @@ PHP (`php tests/…-ac.php`; MySQL aislado con `AA_WP_ROOT` y prefijo temporal; 
 
 JS (`scripts/safe-node-test.sh tests/js/canonical-shell-record-form.test.js`, un archivo): `incomplete` deja Continuar (no `deleteBlocked`); `uncertain` sigue bloqueando; `confirmed` redirige; no aparece `mandate_id` en el body.
 
-### 6.7 Prueba manual posterior (no ejecutar ahora)
+### 6.7 Prueba manual posterior (propuesta; **no ejecutada** en este incremento)
 
-Requisitos: instalación de desarrollo del plugin en esta rama; cliente HMAC contra el backend `dev/backend-recovered` ya desplegado; **no** migrar la WP compartida; **no** activar worker Storage ni `is_ready`; un contenedor finance de prueba con (a) registro vacío, (b) registro con una imagen confirmada de prueba.
+**No usar datos reales. No migrar la WP compartida. No arrancar Supabase, Storage, Render, `npm start` ni workers.**
 
-Efectos a observar entonces: (a) redirect `confirmed`, sin filas accept/seal en backend para ese mandate local, registro ausente; (b) una tanda `batch_seq=0` accepted o already_accepted, seal `expected_batch_count=1`, `structural_retire_authorized`, filas WP images/ops/registro ausentes, inventario de purge presente, cuota informativa menor, modal Continuar si se corta la red entre accept y seal. Fuera de esta exploración.
+Requisitos cuando se autorice:
+
+1. Plugin en `dev/canonical-images-retire` con schema **29** aplicado **solo** en una instalación de desarrollo aislada (`AA_Schema::install()` / activación del plugin en esa instancia). Comprobar `aa_db_version=29` y columnas `accept_intent_batch_seq`, `seal_intent_at`, `cancelled_at` en `aa_canonical_purge_runs`.
+2. Cliente HMAC contra el backend `dev/backend-recovered` **ya desplegado** (RPCs `20260913` de mandatos). `images` sigue `is_ready=false`.
+3. Un contenedor **sintético** de familia `finance` (o archive de prueba) con:
+   - (a) un registro **sin** images ni ops;
+   - (b) un registro con **una** imagen confirmada de prueba (attach de desarrollo, no producción).
+
+Efectos a observar entonces:
+
+- (a) `confirmed` + redirect; **cero** POST accept/seal para ese `mandate_id` local (el id local queda como evidencia); registro ausente; corrida `completed` con `prepared_batch_count=0`.
+- (b) accept `batch_seq=0`; seal `expected_batch_count=1` y `structural_retire_authorized`; filas WP images/ops/registro ausentes; fila de inventario de purge **presente**; `SUM` de images menor; cuota informativa baja sin contador nuevo.
+- Cortar la red entre accept y seal: modal Continuar (no «eliminado»); al recuperar, mismo `mandate_id` y `batch_seq=0`.
+- Conflicto de captura **antes** de envío: Cancelar eliminación deja el registro; un nuevo Eliminar abre otra corrida.
+- Tras intención de envío: Cancelar eliminación → rechazo; Continuar recupera.
+
+Fuera de esta exploración: contenedores, worker físico, datos de clientes reales.
 
 ### 6.8 Veredicto
 
-**Listo para implementar** el incremento 3 acotado a un registro, con la corrección 0-based de `batch_seq` como primer parche del mismo incremento.
+**Incremento 3 implementado** para un registro, con `batch_seq` 0-based persistido, intención HMAC antes del POST, cancelación local previa al envío y TX local post-sello.
 
-**No es bloqueo:** backend, schema WP 28, cliente HMAC, captura, locks de inventario.
+**Límites (no sustituir por una afirmación de seguridad):**
 
-**Bloqueos / limitaciones reales (no sustituir por una afirmación de seguridad):**
+1. Continuar **no** garantiza resolver `intervention_required` (payload ajeno, filas vivas fuera de inventario, formato 1-based ya enviado).
+2. Create/update de título/amount del mismo registro no están guardados por purge; no mutan inventario.
+3. No hay expiración automática ni limpieza física en WordPress.
+4. Delete de contenedor sigue siendo el camino de shell (RESTRICT si hay images/ops).
+5. `physical_status` del worker no autoriza retiro WP. `structural_retire_authorized` no certifica el COMMIT local.
 
-1. Conflicto de captura deja la corrida abierta y a los escritores de inventario excluidos; Continuar reintenta y puede no terminar. No hay aborto de producto aquí.
-2. Create/update de título/amount del mismo registro no están guardados; no mutan inventario.
-3. El incremento 2 no debe usarse como índice de accept: enviar `batch_seq=1` como primera tanda **falla** (`batch_seq_gap`). Eso se corrige en el 3, no se oculta.
+**No cerrado:** incremento 4 (contenedores), validación integrada contra backend real, activación operativa (`is_ready`), cron/worker.
 
 ---
 
-## Fuera de alcance restante (tras el diseño del incremento 3)
+## Fuera de alcance restante (tras el incremento 3)
 
-- Implementar el incremento 3 (HTTP accept/seal, DELETE local, UI Continuar).
 - Eliminación de contenedores (incremento 4).
+- Validación integrada contra backend/Storage reales.
 - Activar polling del worker, cron o `is_ready`.
 - Cambiar TTL, tombstones o identidades de la fixture Storage.
 - Expedientes Ciclo B.

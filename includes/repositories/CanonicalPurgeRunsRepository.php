@@ -28,9 +28,12 @@ final class CanonicalPurgeRunsRepository {
 
     public const STATUS_IN_PROGRESS = 'in_progress';
     public const STATUS_INCOMPLETE = 'incomplete';
+    public const STATUS_CANCELLED = 'cancelled';
+    public const STATUS_COMPLETED = 'completed';
 
     public const CONFLICT_ITEM_METADATA = 'item_metadata_conflict';
     public const CONFLICT_ITEM_INCOMPLETE = 'item_incomplete';
+    public const CONFLICT_LEGACY_BATCH_INDEX = 'legacy_batch_index';
 
     /** @var object */
     private $wpdb;
@@ -426,6 +429,240 @@ final class CanonicalPurgeRunsRepository {
         if ($result === false || $this->wpdb->last_error !== '') {
             throw new CanonicalImageUploadPersistenceFailed('Failed to mark purge batches prepared.');
         }
+    }
+
+    /**
+     * Intención de accept persistida ANTES del HTTP. 0 es la primera tanda.
+     *
+     * @throws CanonicalImageUploadPersistenceFailed
+     * @throws CanonicalImageUploadSchemaNotReady
+     */
+    public function persist_accept_intent(int $purge_run_id, int $batch_seq, string $updated_at): void {
+        $table = AA_Canonical_Schema::purge_runs_table_name();
+        $this->assert_table_exists($table);
+
+        if ($purge_run_id < 1 || $batch_seq < 0) {
+            throw new CanonicalImageUploadPersistenceFailed('Invalid accept intent arguments.');
+        }
+
+        $this->clear_error_state();
+        $result = $this->wpdb->update(
+            $table,
+            [
+                'accept_intent_batch_seq' => $batch_seq,
+                'status' => self::STATUS_INCOMPLETE,
+                'updated_at' => $updated_at,
+            ],
+            ['id' => $purge_run_id],
+            ['%d', '%s', '%s'],
+            ['%d']
+        );
+
+        if ($result === false || $this->wpdb->last_error !== '') {
+            throw new CanonicalImageUploadPersistenceFailed('Failed to persist purge accept intent.');
+        }
+    }
+
+    /**
+     * Intención de seal persistida ANTES del HTTP.
+     *
+     * @throws CanonicalImageUploadPersistenceFailed
+     * @throws CanonicalImageUploadSchemaNotReady
+     */
+    public function persist_seal_intent(int $purge_run_id, string $updated_at): void {
+        $table = AA_Canonical_Schema::purge_runs_table_name();
+        $this->assert_table_exists($table);
+
+        if ($purge_run_id < 1) {
+            throw new CanonicalImageUploadPersistenceFailed('Invalid seal intent arguments.');
+        }
+
+        $this->clear_error_state();
+        $result = $this->wpdb->update(
+            $table,
+            [
+                'seal_intent_at' => $updated_at,
+                'status' => self::STATUS_INCOMPLETE,
+                'updated_at' => $updated_at,
+            ],
+            ['id' => $purge_run_id],
+            ['%s', '%s', '%s'],
+            ['%d']
+        );
+
+        if ($result === false || $this->wpdb->last_error !== '') {
+            throw new CanonicalImageUploadPersistenceFailed('Failed to persist purge seal intent.');
+        }
+    }
+
+    /**
+     * Acredita last_accepted_batch_seq. 0 = primera tanda acreditada.
+     *
+     * @throws CanonicalImageUploadPersistenceFailed
+     * @throws CanonicalImageUploadSchemaNotReady
+     */
+    public function credit_last_accepted_batch(int $purge_run_id, int $batch_seq, string $updated_at): void {
+        $table = AA_Canonical_Schema::purge_runs_table_name();
+        $this->assert_table_exists($table);
+
+        if ($purge_run_id < 1 || $batch_seq < 0) {
+            throw new CanonicalImageUploadPersistenceFailed('Invalid last_accepted_batch_seq.');
+        }
+
+        $this->clear_error_state();
+        $result = $this->wpdb->update(
+            $table,
+            [
+                'last_accepted_batch_seq' => $batch_seq,
+                'status' => self::STATUS_INCOMPLETE,
+                'updated_at' => $updated_at,
+            ],
+            ['id' => $purge_run_id],
+            ['%d', '%s', '%s'],
+            ['%d']
+        );
+
+        if ($result === false || $this->wpdb->last_error !== '') {
+            throw new CanonicalImageUploadPersistenceFailed('Failed to credit purge accepted batch.');
+        }
+    }
+
+    /**
+     * @throws CanonicalImageUploadPersistenceFailed
+     * @throws CanonicalImageUploadSchemaNotReady
+     */
+    public function mark_sealed(int $purge_run_id, string $sealed_at): void {
+        $table = AA_Canonical_Schema::purge_runs_table_name();
+        $this->assert_table_exists($table);
+
+        if ($purge_run_id < 1) {
+            throw new CanonicalImageUploadPersistenceFailed('Invalid purge_run_id for seal.');
+        }
+
+        $this->clear_error_state();
+        $result = $this->wpdb->update(
+            $table,
+            [
+                'sealed_at' => $sealed_at,
+                'status' => self::STATUS_INCOMPLETE,
+                'updated_at' => $sealed_at,
+            ],
+            ['id' => $purge_run_id],
+            ['%s', '%s', '%s'],
+            ['%d']
+        );
+
+        if ($result === false || $this->wpdb->last_error !== '') {
+            throw new CanonicalImageUploadPersistenceFailed('Failed to mark purge run sealed.');
+        }
+    }
+
+    /**
+     * Cancela una corrida local sin envío remoto. Conserva inventario.
+     *
+     * @throws CanonicalImageUploadPersistenceFailed
+     * @throws CanonicalImageUploadSchemaNotReady
+     */
+    public function mark_cancelled(int $purge_run_id, string $cancelled_at): void {
+        $table = AA_Canonical_Schema::purge_runs_table_name();
+        $this->assert_table_exists($table);
+
+        if ($purge_run_id < 1) {
+            throw new CanonicalImageUploadPersistenceFailed('Invalid purge_run_id for cancel.');
+        }
+
+        $this->clear_error_state();
+        $result = $this->wpdb->update(
+            $table,
+            [
+                'status' => self::STATUS_CANCELLED,
+                'cancelled_at' => $cancelled_at,
+                'updated_at' => $cancelled_at,
+            ],
+            ['id' => $purge_run_id],
+            ['%s', '%s', '%s'],
+            ['%d']
+        );
+
+        if ($result === false || $this->wpdb->last_error !== '') {
+            throw new CanonicalImageUploadPersistenceFailed('Failed to mark purge run cancelled.');
+        }
+    }
+
+    /**
+     * @throws CanonicalImageUploadPersistenceFailed
+     * @throws CanonicalImageUploadSchemaNotReady
+     */
+    public function mark_completed(int $purge_run_id, string $updated_at): void {
+        $table = AA_Canonical_Schema::purge_runs_table_name();
+        $this->assert_table_exists($table);
+
+        if ($purge_run_id < 1) {
+            throw new CanonicalImageUploadPersistenceFailed('Invalid purge_run_id for complete.');
+        }
+
+        $this->clear_error_state();
+        $result = $this->wpdb->update(
+            $table,
+            [
+                'status' => self::STATUS_COMPLETED,
+                'updated_at' => $updated_at,
+            ],
+            ['id' => $purge_run_id],
+            ['%s', '%s'],
+            ['%d']
+        );
+
+        if ($result === false || $this->wpdb->last_error !== '') {
+            throw new CanonicalImageUploadPersistenceFailed('Failed to mark purge run completed.');
+        }
+    }
+
+    /**
+     * True si ya hubo intención de envío, aceptación, sello o resultado remoto desconocido.
+     *
+     * @param array<string, mixed> $run
+     */
+    public static function has_attempted_remote_dispatch(array $run): bool {
+        if (self::nullable_int($run['accept_intent_batch_seq'] ?? null) !== null) {
+            return true;
+        }
+        if (self::nullable_string($run['seal_intent_at'] ?? null) !== null) {
+            return true;
+        }
+        if (self::nullable_int($run['last_accepted_batch_seq'] ?? null) !== null) {
+            return true;
+        }
+        if (self::nullable_string($run['sealed_at'] ?? null) !== null) {
+            return true;
+        }
+
+        return false;
+    }
+
+    public static function nullable_int($raw): ?int {
+        if ($raw === null || $raw === '') {
+            return null;
+        }
+        if (is_int($raw)) {
+            return $raw;
+        }
+        if (is_string($raw) && is_numeric($raw)) {
+            return (int) $raw;
+        }
+        if (is_numeric($raw)) {
+            return (int) $raw;
+        }
+
+        return null;
+    }
+
+    public static function nullable_string($raw): ?string {
+        if (!is_string($raw) || trim($raw) === '') {
+            return null;
+        }
+
+        return $raw;
     }
 
     /**

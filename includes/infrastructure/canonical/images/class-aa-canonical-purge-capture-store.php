@@ -109,7 +109,8 @@ final class AA_Canonical_Purge_Capture_Store {
     }
 
     /**
-     * Asigna tandas 1..50 tras captura completa. No-op si ya estaban preparadas.
+     * Asigna tandas de hasta 50 ítems tras captura completa. Índice 0-based
+     * (`batch_seq` 0 es la primera tanda). No-op si ya estaban preparadas.
      * Inventario vacío → cero tandas (ninguna fila de tanda vacía).
      *
      * @throws CanonicalImageUploadPersistenceFailed
@@ -146,10 +147,10 @@ final class AA_Canonical_Purge_Capture_Store {
                     throw new CanonicalImageUploadPersistenceFailed('Prepared batch slot already assigned.');
                 }
 
-                $batch_seq = intdiv($index, $max) + 1;
+                $batch_seq = intdiv($index, $max);
                 $position = ($index % $max) + 1;
                 $this->items->assign_batch_slot((int) $row['id'], $batch_seq, $position);
-                $batch_count = $batch_seq;
+                $batch_count = $batch_seq + 1;
                 $index++;
             }
 

@@ -1252,7 +1252,7 @@ $is_records_fill = $show_read_ui
                 </button>
             </div>
             <p id="aa-shell-delete-record-message" class="text-sm text-gray-600 mb-4">
-                Se eliminará permanentemente “<span id="aa-shell-delete-record-title"></span>”. Esta acción no se puede deshacer.
+                Se eliminará permanentemente “<span id="aa-shell-delete-record-title"></span>” y sus imágenes. Esta acción no se puede deshacer.
             </p>
 
             <div
@@ -1275,7 +1275,14 @@ $is_records_fill = $show_read_ui
                     id="aa-shell-delete-record-modal-cancel-btn"
                     class="px-4 py-2 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 >
-                    Cancelar
+                    Cerrar
+                </button>
+                <button
+                    type="button"
+                    id="aa-shell-delete-record-abort-btn"
+                    class="hidden px-4 py-2 text-xs font-medium text-amber-900 bg-amber-50 border border-amber-200 rounded-lg hover:bg-amber-100 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                >
+                    Cancelar eliminación
                 </button>
                 <button
                     type="button"

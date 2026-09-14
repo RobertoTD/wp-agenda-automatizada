@@ -103,11 +103,32 @@ final class CaptureCanonicalPurgeInventoryUseCase {
         }
 
         try {
-            $held = $this->lock->assert_held($lease);
-            if (is_wp_error($held)) {
-                return CanonicalPurgeCaptureResult::persistence_failed();
-            }
+            return $this->execute_with_held_lock($lease, $command);
+        } finally {
+            $this->lock->release($lease);
+        }
+    }
 
+    /**
+     * Captura reutilizando un GET_LOCK de contenedor ya adquirido.
+     * No adquiere ni libera el lock.
+     *
+     * @param AA_Expediente_Aggregate_Lock_Lease $lease
+     */
+    public function execute_with_held_lock($lease, CaptureCanonicalPurgeInventoryCommand $command): CanonicalPurgeCaptureResult {
+        if (!($lease instanceof AA_Expediente_Aggregate_Lock_Lease)
+            || $lease->scope_kind() !== AA_Expediente_Aggregate_Lock::SCOPE_CANONICAL_CONTAINER
+            || $lease->scope_id() !== $command->container_id()
+        ) {
+            return CanonicalPurgeCaptureResult::invalid_scope();
+        }
+
+        $held = $this->lock->assert_held($lease);
+        if (is_wp_error($held)) {
+            return CanonicalPurgeCaptureResult::persistence_failed();
+        }
+
+        try {
             $run = $this->open_or_resume($command);
             if ($run instanceof CanonicalPurgeCaptureResult) {
                 return $run;
@@ -182,8 +203,6 @@ final class CaptureCanonicalPurgeInventoryUseCase {
             }
 
             return CanonicalPurgeCaptureResult::persistence_failed();
-        } finally {
-            $this->lock->release($lease);
         }
     }
 

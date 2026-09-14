@@ -66,8 +66,8 @@ final class AA_Schema {
      * Independiente de la versión del plugin. Solo refleja el estado
      * de las tablas/columnas/índices.
      */
-    /** DB 28: inventario durable de purge canónico (IMG-5 inc. 2). */
-    public const DB_VERSION = '28';
+    /** DB 29: intención de envío HMAC y cancelación de purge canónico (IMG-5 inc. 3). */
+    public const DB_VERSION = '29';
 
     public const OPTION_INSTALLATION_INITIALIZED_AT = 'aa_installation_initialized_at';
 

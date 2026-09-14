@@ -141,6 +141,58 @@ final class CanonicalRecordImagesRepository {
     }
 
     /**
+     * DELETE por upload_operation_id. Sin commit propio. Devuelve filas afectadas (0|1).
+     *
+     * @throws CanonicalImageUploadPersistenceFailed
+     * @throws CanonicalImageUploadSchemaNotReady
+     */
+    public function delete_by_upload_operation_id(string $upload_operation_id): int {
+        $table = AA_Canonical_Schema::record_images_table_name();
+        $this->assert_table_exists($table);
+
+        $op = trim($upload_operation_id);
+        if ($op === '') {
+            throw new CanonicalImageUploadPersistenceFailed('upload_operation_id required for image delete.');
+        }
+
+        $this->clear_error_state();
+        $result = $this->wpdb->delete($table, ['upload_operation_id' => $op], ['%s']);
+        if ($result === false) {
+            throw new CanonicalImageUploadPersistenceFailed('Failed to DELETE record image by operation.');
+        }
+
+        return (int) $result;
+    }
+
+    /**
+     * @throws CanonicalImageUploadPersistenceFailed
+     * @throws CanonicalImageUploadSchemaNotReady
+     */
+    public function count_for_record(int $record_id): int {
+        $table = AA_Canonical_Schema::record_images_table_name();
+        $this->assert_table_exists($table);
+
+        if ($record_id < 1) {
+            return 0;
+        }
+
+        $this->clear_error_state();
+        $safe = str_replace('`', '``', $table);
+        $count = $this->wpdb->get_var(
+            $this->wpdb->prepare(
+                "SELECT COUNT(*) FROM `{$safe}` WHERE record_id = %d",
+                $record_id
+            )
+        );
+
+        if ($this->wpdb->last_error !== '') {
+            throw new CanonicalImageUploadPersistenceFailed('Failed to COUNT record images.');
+        }
+
+        return (int) $count;
+    }
+
+    /**
      * INSERT de imagen confirmada. Sin commit propio.
      *
      * @param array{
