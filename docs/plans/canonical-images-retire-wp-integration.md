@@ -1,6 +1,6 @@
 # Exploración: retiro canónico WP, mandatos de limpieza y cuota
 
-**Estado:** incrementos 1–3 implementados en `dev/canonical-images-retire`. Incremento 3: retiro de **un registro** vía mandatos (`aa_delete_canonical_record` → `RetireCanonicalRecordUseCase`). Todavía sin retiro de contenedores, validación integrada, cron/workers ni `is_ready`.
+**Estado:** incrementos 1–3 implementados en `dev/canonical-images-retire`. Incremento 3: retiro de **un registro** vía mandatos (`aa_delete_canonical_record` → `RetireCanonicalRecordUseCase`). Validación integrada en policyytest ejecutada el 2026-09-14: A y D **PASS** (AJAX HTTP, no clics de navegador); B **FAIL** en `authorize-upload` HTTP `canonical_v1`; C **pendiente** (sin inyección de fallo acotada). Todavía sin retiro de contenedores, cron/workers ni `is_ready`.
 **Fecha:** 2026-09-14.
 **Ámbito:** integración WordPress del retiro de registros/adjuntos canónicos y liberación de cuota, reutilizando `accept` / `seal` / `status` del backend.
 
@@ -10,7 +10,7 @@ No modifica el state de la prueba Backend 3 (worker local Storage, `docs/ops/att
 
 | Repo | Rama | HEAD |
 |------|------|------|
-| `wp-agenda-automatizada` | `dev/canonical-images-retire` | (SHA del commit de incremento 3; ver git) |
+| `wp-agenda-automatizada` | `dev/canonical-images-retire` | `752274ddc755be437b66b332246e6d8be92663e4` (código inc. 3; este documento se versiona aparte) |
 | `deoia-oauth-backend` (solo contratos) | `dev/backend-recovered` | `b4d868ced6ddedb4d81ab30ce0e746c91736ab1b` (untracked ajeno: `scripts/runner-from-pack.sh`) |
 
 **Backend Storage fixture (no reejecutada aquí):** immediate / later / reappear **PASS**. El caso reappear fue **sintético** (no un PUT tardío real del proveedor).
@@ -500,27 +500,84 @@ PHP (`php tests/…-ac.php`; MySQL aislado con `AA_WP_ROOT` y prefijo temporal; 
 
 JS (`scripts/safe-node-test.sh tests/js/canonical-shell-record-form.test.js`, un archivo): `incomplete` deja Continuar (no `deleteBlocked`); `uncertain` sigue bloqueando; `confirmed` redirige; no aparece `mandate_id` en el body.
 
-### 6.7 Prueba manual posterior (propuesta; **no ejecutada** en este incremento)
+### 6.7 Validación integrada policyytest (2026-09-14)
 
-**No usar datos reales. No migrar la WP compartida. No arrancar Supabase, Storage, Render, `npm start` ni workers.**
+Ejecutada contra WordPress local + Node local + Supabase remoto compartido. **No** se activó `is_ready`, **no** se desplegó Render, **no** se migró Supabase, **no** se arrancó el worker periódico, **no** se reutilizó la fixture Backend 3 (`wp_record_id=919901`, `upload_operation_id=1f5e50dc-9768-4adf-a7e9-a7dddaf59448`, `mandate_id=171419cc-1085-419a-8875-f1feca9dc2b4`).
 
-Requisitos cuando se autorice:
+#### Entorno comprobado
 
-1. Plugin en `dev/canonical-images-retire` con schema **29** aplicado **solo** en una instalación de desarrollo aislada (`AA_Schema::install()` / activación del plugin en esa instancia). Comprobar `aa_db_version=29` y columnas `accept_intent_batch_seq`, `seal_intent_at`, `cancelled_at` en `aa_canonical_purge_runs`.
-2. Cliente HMAC contra el backend `dev/backend-recovered` **ya desplegado** (RPCs `20260913` de mandatos). `images` sigue `is_ready=false`.
-3. Un contenedor **sintético** de familia `finance` (o archive de prueba) con:
-   - (a) un registro **sin** images ni ops;
-   - (b) un registro con **una** imagen confirmada de prueba (attach de desarrollo, no producción).
+| Dato | Valor |
+|------|--------|
+| Sitio | `http://localhost/deoia-platform/policyytest/agenda-app` |
+| Blog ID | **61** (path `/deoia-platform/policyytest/`) |
+| Prefijo | **`wp_61_`** (leído de `$wpdb->prefix` tras cargar el blog; coincidía con la hipótesis, no se asumió) |
+| Identidad HMAC (`X-Client-Id`) | `localhost/deoia-platform/policyytest` |
+| `AA_API_BASE_URL` efectiva | `http://localhost:3000` (regla `localhost` del plugin; no `https://api.deoia.com`) |
+| `aa_client_secret` | configurado (no se imprime) |
+| `installation_id` (backend) | `e49a26c8-c7db-4a8a-a84a-2643ddfb8b29` (HMAC → `agenda_clients`; WP no la envía) |
+| ¿Instalación compartida? | Un solo `agenda_clients.domain` apunta a ese UUID. **Sí se comparte** con las identidades Storage de la fixture Backend 3. Toda la prueba se acotó por IDs sintéticos nuevos. |
+| Schema | **antes = 29, después = 29**. Columnas `accept_intent_batch_seq`, `seal_intent_at`, `cancelled_at` ya presentes. **No se ejecutó** `AA_Schema::maybe_migrate()`. |
+| Alcance de una hipotética actualización | `maybe_migrate()` lee `get_option('aa_db_version')` del blog actual y `install()` usa `$wpdb->prefix`. Habría tocado **solo** tablas `wp_61_*` de este plugin (dbDelta completo de esas tablas, `flush_rewrite_rules` de ese blog, DROP `aa_finance_*` residuales de ese prefijo si existieran). Otros blogs muestreados siguen en versiones distintas (blog 1 → 22, 59 → 22, 60 → 13, 62 → 18) y **no** se visitaron en admin. |
+| `images` | catálogo `is_ready=false`; 0 filas `aa_canonical_container_capabilities` con `images` activas. `AA_CANONICAL_SHELL_PREVIEW=true` es demo in-memory de `shell_preview`, no habilita images. |
+| Node | **Arrancado para esta prueba** (`npm start` → `node index.js`, health `{"ok":true}`). No había proceso HTTP en `:3000` previo. Workers en `.env`: `REMINDERS_WORKER`, `PROVISIONING_WORKER`, `UPCOMING_CONFIRMED_PUSH_WORKER`, `TASK_EXECUTION_AVAILABLE_PUSH_WORKER`, `TRAINING_WELCOME_EMAIL_WORKER`, `ATTACHMENT_DELETE_WORKER` = `0`. Faltaban dependencias npm locales (`mailgun.js`); `npm install` añadió paquetes **sin** cambiar git. |
+| Plugin cargado | symlink `wp-content/plugins/wp-agenda-automatizada-feature-admin-ai-assistant` → este repo, HEAD `752274ddc755be437b66b332246e6d8be92663e4`. |
 
-Efectos a observar entonces:
+#### Fixtures sintéticos (conservar; no borrar el contenedor)
 
-- (a) `confirmed` + redirect; **cero** POST accept/seal para ese `mandate_id` local (el id local queda como evidencia); registro ausente; corrida `completed` con `prepared_batch_count=0`.
-- (b) accept `batch_seq=0`; seal `expected_batch_count=1` y `structural_retire_authorized`; filas WP images/ops/registro ausentes; fila de inventario de purge **presente**; `SUM` de images menor; cuota informativa baja sin contador nuevo.
-- Cortar la red entre accept y seal: modal Continuar (no «eliminado»); al recuperar, mismo `mandate_id` y `batch_seq=0`.
-- Conflicto de captura **antes** de envío: Cancelar eliminación deja el registro; un nuevo Eliminar abre otra corrida.
-- Tras intención de envío: Cancelar eliminación → rechazo; Continuar recupera.
+Lista finance **id=17** `INC3-RETIRE-20260914 policyytest` (`public_id=f5ee0b24-3be4-47f0-86db-0e23ecaba61c`). Capacidad de lista: solo `amount` activa.
 
-Fuera de esta exploración: contenedores, worker físico, datos de clientes reales.
+| Caso | Record id | Título | Notas |
+|------|-----------|--------|--------|
+| A | 31 | `INC3-A-empty` | retirado |
+| B | 32 | `INC3-B-image` | sigue vacío (subida no llegó a confirmar) |
+| D | 33 | `INC3-D-conflict` | imagen+op locales en conflicto; **corrida 3 `incomplete` abierta** para clics UI |
+
+URL de registros (iframe): `http://localhost/deoia-platform/policyytest/wp-admin/admin-post.php?action=aa_iframe_content&module=canonical_shell&family=finance&view=records&container_id=17`
+
+Create lista/registros y deletes se enviaron al `admin-ajax.php` de policyytest con cookie de `deoia_admin` (id 1) y nonce de la misma sesión: **AJAX HTTP real**, no el Use Case en proceso. **No** hubo navegador: los clics del modal quedan pendientes (instrucciones abajo). El JSON de create lista devuelve `container_id: null` y el id en `resource_id` (recibo de contenedor; no es un fallo del retiro).
+
+#### Resultados por caso
+
+| Caso | Resultado | Qué se probó |
+|------|-----------|----------------|
+| A vacío | **PASS** | AJAX `aa_delete_canonical_record` → `success.status=confirmed`, redirect al iframe de la lista. Registro 31 ausente. Contenedor 17 `updated_at` 17:43:26 → 17:43:40 UTC. Corrida `id=1` `status=completed`, `prepared_batch_count=0`, inventario 0, `accept_intent_batch_seq`/`seal_intent_at` NULL. `mandate_id` local `2aa5a8a0-98df-4d6e-b61d-af2710250d46` **ausente** en `attachment_delete_mandates`. |
+| B con imagen | **FAIL** | Producto: AJAX `aa_attach_canonical_record_image` **409 `capability_not_ready`** (esperado; `images` not-ready, sin bypass global). Desarrollo: `UploadCanonicalRecordImageUseCase` con registro `images` ready inyectado + validador de archivo legible (constructor de tests; catálogo de producto intacto) → authorize HMAC al Node local **HTTP 400 `error=path_contract_invalid`** (`ok=false`, sin token). Cuerpo canónico sin `wp_client_id`. No se confirmó imagen, no hay ops, no se retiró el registro 32. |
+| C interrupción accept→seal | **pendiente** | No hay gancho de fallo acotado a esta prueba. No se cortó Supabase ni se alteraron credenciales. Cobertura automatizada del incremento 3 (timeout de seal + Continuar) se conserva. |
+| D conflicto previo al envío | **PASS** | Fixture controlada en el registro 33: misma `upload_operation_id=240d8d55-c9cd-42a2-a567-69e30511a724`, SHA de imagen `aa…` vs op `admitted` `bb…`. AJAX delete → 409 `conflict` `can_cancel=true`, corrida 2 `item_metadata_conflict`, inventario 1, sin intención HMAC. Cancelar → 200 `cancelled`; registro/imagen/op intactos; corrida 2 `cancelled_at` set; inventario conservado. Nueva eliminación → corrida **3** `mandate_id=ab4e4fc3-ddb3-4298-ad29-017a7801c512` (distinta), otra vez `conflict`. Mandatos 2 y 3 **ausentes** en Supabase. |
+
+#### Evidencia del FAIL de B (no se amplió implementación)
+
+`POST http://localhost:3000/expediente/attachments/authorize-upload` con `path_contract=canonical_v1` (sin `wp_client_id` / `wp_expediente_id`) respondió **400 `path_contract_invalid`**.
+
+En `deoia-oauth-backend` `routes/expedienteAttachments.js` el adaptador HTTP **siempre** asigna `wpClientId: body.wp_client_id` (la clave existe aunque el body no traiga el campo). `resolveAuthorizeContract` trata `hasOwnProperty(wpClientId)` como campo legado y lanza `path_contract_invalid` para `canonical_v1`. Los tests de servicio **borran** esa clave en el input canónico (`tests/expedienteAttachments.test.js`); el cable HTTP no. `wpExpedienteId` sí se copia solo si viene en el body.
+
+Esto bloquea el attach canónico integrado (producto y el camino de desarrollo que sí habla con Node). No se habilitó `is_ready` ni se insertó una imagen fingida para simular el retiro B.
+
+La fixture Backend 3 sigue `attachment_delete_mandates.mandate_id=171419cc-1085-419a-8875-f1feca9dc2b4` `inventory_status=open`. Cero obligaciones remotas para las ops sintéticas de esta prueba.
+
+#### Residuos a conservar
+
+- Corridas WP `wp_61_aa_canonical_purge_runs` id 1 completed (vacío), id 2 cancelled (conflicto), id 3 **incomplete** (conflicto; bloquea purge del contenedor 17 vía `has_blocking_purge_for_container`).
+- Inventarios de las corridas 2 y 3.
+- Registro 33 + imagen local + op `admitted` (no hay objeto Storage de esa identidad; no se envió accept).
+- Registro 32 intacto, sin images/ops.
+- Lista 17: **no** eliminar el contenedor (incremento 4 no integrado).
+
+#### Node y workers
+
+Servidor creado para esta validación, workers apagados. Se **deja en marcha** porque quedan clics de UI. No arrancar un segundo `npm start`. Health: `GET http://localhost:3000/health`. Para detenerlo cuando terminen los clics: el proceso HTTP es el `node index.js` hijo de ese `npm start` (no detener otros Node ajenos).
+
+#### UI pendiente (no declarar PASS de modal)
+
+No hay navegador operativo en esta sesión. Los casos A/D se probaron por el mismo `admin-ajax.php` que usa `canonical-shell-record-form.js`, pero no se pulsó el modal.
+
+Clics sobre las identidades sintéticas, con Node en `:3000`:
+
+1. Entrar a `http://localhost/deoia-platform/policyytest/agenda-app` como administrador del blog.
+2. Abrir Finanzas → lista **id 17** (iframe de registros citado arriba). No usar «Todas las listas» de preview (`shell_preview`).
+3. **Registro 32** `INC3-B-image` (vacío): menú → Eliminar → **Eliminar registro**. Esperado: confirmed + recarga; nueva corrida `completed` inventario 0 sin POST remoto. Confirmar el id 32 en el DOM/`data-aa-record` antes de confirmar.
+4. **Registro 33** `INC3-D-conflict`: Eliminar. Esperado: texto de preparación fallida, **Continuar** visible, **Cancelar eliminación** visible, **Cerrar** no borra. Continuar debe repetir `conflict` sobre la corrida 3 (mismo `mandate_id` local, no visible en JSON). **Cancelar eliminación** debe dejar el registro y la imagen, marcar corrida 3 `cancelled`, y un Eliminar nuevo abriría la corrida 4.
+5. No pulsar Eliminar lista. No recargar para «limpiar» evidencias.
 
 ### 6.8 Veredicto
 
@@ -534,14 +591,15 @@ Fuera de esta exploración: contenedores, worker físico, datos de clientes real
 4. Delete de contenedor sigue siendo el camino de shell (RESTRICT si hay images/ops).
 5. `physical_status` del worker no autoriza retiro WP. `structural_retire_authorized` no certifica el COMMIT local.
 
-**No cerrado:** incremento 4 (contenedores), validación integrada contra backend real, activación operativa (`is_ready`), cron/worker.
+**No cerrado:** incremento 4 (contenedores); caso B integrado (authorize HTTP `canonical_v1`); caso C manual; clics de modal; activación operativa (`is_ready`); cron/worker.
 
 ---
 
 ## Fuera de alcance restante (tras el incremento 3)
 
 - Eliminación de contenedores (incremento 4).
-- Validación integrada contra backend/Storage reales.
+- Completar caso B (attach `canonical_v1` HTTP + retiro con imagen real) y caso C manual.
+- Clics de modal en navegador sobre los registros sintéticos (instrucciones en §6.7).
 - Activar polling del worker, cron o `is_ready`.
 - Cambiar TTL, tombstones o identidades de la fixture Storage.
 - Expedientes Ciclo B.
