@@ -12,6 +12,7 @@ final class CanonicalPurgeLocalRetireResult {
 
     public const STATE_CONFIRMED = 'confirmed';
     public const STATE_FAILED = 'failed';
+    public const STATE_INCOMPLETE = 'incomplete';
 
     /** @var string */
     private $state;
@@ -32,6 +33,10 @@ final class CanonicalPurgeLocalRetireResult {
         return new self(self::STATE_FAILED, $code);
     }
 
+    public static function incomplete(): self {
+        return new self(self::STATE_INCOMPLETE, null);
+    }
+
     public function state(): string {
         return $this->state;
     }
@@ -42,5 +47,9 @@ final class CanonicalPurgeLocalRetireResult {
 
     public function is_confirmed(): bool {
         return $this->state === self::STATE_CONFIRMED;
+    }
+
+    public function is_incomplete(): bool {
+        return $this->state === self::STATE_INCOMPLETE;
     }
 }

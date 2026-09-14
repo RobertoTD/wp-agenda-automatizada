@@ -259,6 +259,46 @@ final class CanonicalPurgeInventoryItemsRepository {
     }
 
     /**
+     * Página de inventario por id (keyset). No usa OFFSET.
+     *
+     * @return list<array<string, mixed>>
+     *
+     * @throws CanonicalImageUploadPersistenceFailed
+     * @throws CanonicalImageUploadSchemaNotReady
+     */
+    public function list_page_after_id(int $purge_run_id, int $after_id, int $limit): array {
+        $table = AA_Canonical_Schema::purge_inventory_items_table_name();
+        $this->assert_table_exists($table);
+
+        if ($purge_run_id < 1 || $after_id < 0 || $limit < 1) {
+            return [];
+        }
+
+        $this->clear_error_state();
+        $safe = str_replace('`', '``', $table);
+        $rows = $this->wpdb->get_results(
+            $this->wpdb->prepare(
+                "SELECT id, purge_run_id, upload_operation_id, wp_record_id, content_sha256,
+                        byte_size, storage_path, source, batch_seq, position_in_batch, created_at
+                 FROM `{$safe}`
+                 WHERE purge_run_id = %d AND id > %d
+                 ORDER BY id ASC
+                 LIMIT %d",
+                $purge_run_id,
+                $after_id,
+                $limit
+            ),
+            ARRAY_A
+        );
+
+        if ($this->wpdb->last_error !== '' || !is_array($rows)) {
+            throw new CanonicalImageUploadPersistenceFailed('Failed to LIST purge inventory page after id.');
+        }
+
+        return $rows;
+    }
+
+    /**
      * @throws CanonicalImageUploadPersistenceFailed
      * @throws CanonicalImageUploadSchemaNotReady
      */

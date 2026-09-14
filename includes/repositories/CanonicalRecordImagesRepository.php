@@ -193,6 +193,40 @@ final class CanonicalRecordImagesRepository {
     }
 
     /**
+     * @throws CanonicalImageUploadPersistenceFailed
+     * @throws CanonicalImageUploadSchemaNotReady
+     */
+    public function count_for_container(int $container_id): int {
+        $images_table = AA_Canonical_Schema::record_images_table_name();
+        $records_table = AA_Canonical_Schema::records_table_name();
+        $this->assert_table_exists($images_table);
+        $this->assert_table_exists($records_table);
+
+        if ($container_id < 1) {
+            return 0;
+        }
+
+        $this->clear_error_state();
+        $images_safe = str_replace('`', '``', $images_table);
+        $records_safe = str_replace('`', '``', $records_table);
+        $count = $this->wpdb->get_var(
+            $this->wpdb->prepare(
+                "SELECT COUNT(*)
+                 FROM `{$images_safe}` i
+                 INNER JOIN `{$records_safe}` r ON r.id = i.record_id
+                 WHERE r.container_id = %d",
+                $container_id
+            )
+        );
+
+        if ($this->wpdb->last_error !== '') {
+            throw new CanonicalImageUploadPersistenceFailed('Failed to COUNT container images.');
+        }
+
+        return (int) $count;
+    }
+
+    /**
      * INSERT de imagen confirmada. Sin commit propio.
      *
      * @param array{

@@ -156,6 +156,53 @@ $show_edit_container_on_records = $show_create_record_ui;
 
 $show_container_write_ui = $show_create_ui || $show_edit_container_on_records;
 
+$list_retire_in_progress = false;
+$orphan_container_purges = [];
+try {
+    if (!class_exists('CanonicalPurgeRunsRepository')) {
+        require_once dirname(__DIR__, 4) . '/repositories/CanonicalPurgeRunsRepository.php';
+    }
+    $purge_runs_ui = new CanonicalPurgeRunsRepository();
+    if ($is_records && $create_container_id >= 1) {
+        $open_list_purge = $purge_runs_ui->find_open_by_scope_target(
+            CanonicalPurgeRunsRepository::SCOPE_CONTAINER,
+            $create_container_id
+        );
+        $list_retire_in_progress = is_array($open_list_purge);
+    }
+    if (!$is_records && $show_read_ui && !$is_preview && $route_state === 'resolved'
+        && in_array($read_state, ['empty', 'resolved_page'], true)
+    ) {
+        if (!class_exists('CanonicalRelationalRepository')) {
+            require_once dirname(__DIR__, 4) . '/repositories/CanonicalRelationalRepository.php';
+        }
+        $rel_ui = new CanonicalRelationalRepository();
+        foreach ($purge_runs_ui->list_open_by_scope(CanonicalPurgeRunsRepository::SCOPE_CONTAINER) as $open_run) {
+            $run_family = (string) ($open_run['family_key'] ?? '');
+            if ($run_family === '') {
+                continue;
+            }
+            if (!$is_all_lists_scope && $create_family_key !== '' && $run_family !== $create_family_key) {
+                continue;
+            }
+            $run_cid = (int) ($open_run['container_id'] ?? 0);
+            if ($run_cid < 1) {
+                continue;
+            }
+            $run_fid = $rel_ui->resolve_family_id($run_family);
+            if ($run_fid === null || $rel_ui->find_container($run_fid, $run_cid) !== null) {
+                continue;
+            }
+            $orphan_container_purges[] = $open_run;
+        }
+    }
+} catch (\Throwable $e) {
+    $list_retire_in_progress = false;
+    $orphan_container_purges = [];
+}
+
+$show_record_fab = $show_create_record_ui && !$list_retire_in_progress;
+
 $is_records_fill = $show_read_ui
     && !$is_preview
     && $is_records
@@ -322,6 +369,18 @@ $is_records_fill = $show_read_ui
                                             data-aa-container="<?php echo $edit_list_payload_attr; ?>"
                                             aria-label="<?php echo esc_attr('Editar lista: ' . $list_heading); ?>"
                                         >Editar lista</button>
+                                        <button
+                                            type="button"
+                                            class="aa-shell-delete-container-btn text-sm font-medium text-red-700 hover:underline focus:outline-none focus:ring-2 focus:ring-red-500 rounded"
+                                            data-aa-container="<?php echo $edit_list_payload_attr; ?>"
+                                            aria-label="<?php echo esc_attr('Eliminar lista: ' . $list_heading); ?>"
+                                        >Eliminar lista</button>
+                                        <button
+                                            type="button"
+                                            class="aa-shell-delete-container-btn text-sm font-medium text-red-700 hover:underline focus:outline-none focus:ring-2 focus:ring-red-500 rounded"
+                                            data-aa-container="<?php echo $edit_list_payload_attr; ?>"
+                                            aria-label="<?php echo esc_attr('Eliminar lista: ' . $list_heading); ?>"
+                                        >Eliminar lista</button>
                                     <?php endif; ?>
                                     <?php if ($parent_has_details_block) : ?>
                                         <button
@@ -335,7 +394,12 @@ $is_records_fill = $show_read_ui
                                 </div>
                             </div>
                         </header>
-                        <div class="aa-shell-list-panel-body p-4<?php echo $show_create_record_ui ? ' aa-shell-list-panel-body--fab' : ''; ?>">
+                        <div class="aa-shell-list-panel-body p-4<?php echo $show_record_fab ? ' aa-shell-list-panel-body--fab' : ''; ?>">
+                            <?php if ($list_retire_in_progress) : ?>
+                                <div class="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900" role="status">
+                                    Esta lista se está eliminando. Los registros que aún ves no están listos; no se puede añadir contenido. Pulsa Eliminar lista y Continuar para terminar. No está borrada del todo.
+                                </div>
+                            <?php endif; ?>
                             <?php if ($parent_has_details_block) : ?>
                                 <div
                                     id="aa-shell-list-details"
@@ -375,7 +439,7 @@ $is_records_fill = $show_read_ui
                                         $card_capabilities = isset($item['capabilities']) && is_array($item['capabilities'])
                                             ? $item['capabilities']
                                             : null;
-                                        $show_edit_record = $show_create_record_ui;
+                                        $show_edit_record = $show_record_fab;
                                         $shell_record_presentation = 'compact';
                                         require __DIR__ . '/partials/record-card.php';
                                         ?>
@@ -460,6 +524,12 @@ $is_records_fill = $show_read_ui
                                     data-aa-container="<?php echo $edit_list_payload_attr; ?>"
                                     aria-label="<?php echo esc_attr('Editar lista: ' . $list_heading); ?>"
                                 >Editar lista</button>
+                                <button
+                                    type="button"
+                                    class="aa-shell-delete-container-btn shrink-0 text-sm font-medium text-red-700 hover:underline focus:outline-none focus:ring-2 focus:ring-red-500 rounded"
+                                    data-aa-container="<?php echo $edit_list_payload_attr; ?>"
+                                    aria-label="<?php echo esc_attr('Eliminar lista: ' . $list_heading); ?>"
+                                >Eliminar lista</button>
                             <?php endif; ?>
                         </div>
                         <?php if ($parent_has_details_text) : ?>
@@ -471,6 +541,11 @@ $is_records_fill = $show_read_ui
                             </p>
                         <?php endif; ?>
                     </section>
+                    <?php if ($list_retire_in_progress) : ?>
+                        <div class="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900" role="status">
+                            Esta lista se está eliminando. Los registros que aún ves no están listos; no se puede añadir contenido. Pulsa Eliminar lista y Continuar para terminar. No está borrada del todo.
+                        </div>
+                    <?php endif; ?>
 
                     <?php if ($read_state === 'empty') : ?>
                         <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-8 text-center" role="status">
@@ -490,7 +565,7 @@ $is_records_fill = $show_read_ui
                                 $card_capabilities = isset($item['capabilities']) && is_array($item['capabilities'])
                                     ? $item['capabilities']
                                     : null;
-                                $show_edit_record = $show_create_record_ui;
+                                $show_edit_record = $show_record_fab;
                                 $shell_record_presentation = 'card';
                                 require __DIR__ . '/partials/record-card.php';
                                 ?>
@@ -530,6 +605,38 @@ $is_records_fill = $show_read_ui
             <?php endif; ?>
 
         <?php else : ?>
+
+            <?php if ($orphan_container_purges !== []) : ?>
+                <div class="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-3 text-sm text-amber-900" role="status">
+                    <p class="m-0 mb-2">Una eliminación de lista no terminó y el recurso ya no está en el listado. Pulsa Continuar para cerrar la corrida. No se restauran datos.</p>
+                    <?php foreach ($orphan_container_purges as $orphan_run) : ?>
+                        <?php
+                        $orphan_cid = (int) ($orphan_run['container_id'] ?? 0);
+                        $orphan_fk = (string) ($orphan_run['family_key'] ?? '');
+                        if ($orphan_cid < 1 || $orphan_fk === '') {
+                            continue;
+                        }
+                        $orphan_payload = wp_json_encode(
+                            [
+                                'id' => $orphan_cid,
+                                'title' => 'Lista en eliminación',
+                                'details' => '',
+                                'family_key' => $orphan_fk,
+                            ],
+                            JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT
+                        );
+                        if (!is_string($orphan_payload) || $orphan_payload === '') {
+                            continue;
+                        }
+                        ?>
+                        <button
+                            type="button"
+                            class="aa-shell-delete-container-btn mt-1 inline-flex items-center px-3 py-1.5 text-xs font-semibold text-amber-900 bg-white border border-amber-300 rounded-lg hover:bg-amber-100 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                            data-aa-container="<?php echo esc_attr($orphan_payload); ?>"
+                        >Continuar</button>
+                    <?php endforeach; ?>
+                </div>
+            <?php endif; ?>
 
             <?php if ($read_state === 'contract_error') : ?>
                 <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-8 text-center" role="alert">
@@ -714,7 +821,7 @@ $is_records_fill = $show_read_ui
 </div>
 <?php endif; ?>
 
-<?php if ($show_create_record_ui) : ?>
+<?php if ($show_record_fab) : ?>
 <div id="aa-shell-fab-stack" class="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-3">
     <button
         type="button"
@@ -1052,7 +1159,14 @@ $is_records_fill = $show_read_ui
                     id="aa-shell-delete-container-modal-cancel-btn"
                     class="px-4 py-2 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 >
-                    Cancelar
+                    Cerrar
+                </button>
+                <button
+                    type="button"
+                    id="aa-shell-delete-container-abort-btn"
+                    class="hidden px-4 py-2 text-xs font-medium text-amber-900 bg-amber-50 border border-amber-200 rounded-lg hover:bg-amber-100 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                >
+                    Cancelar eliminación
                 </button>
                 <button
                     type="button"
@@ -1091,7 +1205,7 @@ $is_records_fill = $show_read_ui
         : esc_url((defined('AA_PLUGIN_URL') ? AA_PLUGIN_URL : '') . 'includes/admin/ui/modules/canonical_shell/canonical-shell-container-form.js'); ?>"></script>
 <?php endif; ?>
 
-<?php if ($show_create_record_ui) : ?>
+<?php if ($show_record_fab) : ?>
     <?php
     if (!class_exists('CanonicalCreateRecordAjax')) {
         require_once dirname(__DIR__, 4) . '/http/ajax/CanonicalCreateRecordAjax.php';

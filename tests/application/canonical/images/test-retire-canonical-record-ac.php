@@ -56,19 +56,22 @@ $ajax_src = (string) file_get_contents($ajax_file);
 $capture_src = (string) file_get_contents($capture_uc);
 $cstore_src = (string) file_get_contents($capture_store);
 
+$adv_file = $plugin_root . '/includes/application/canonical/images/CanonicalPurgeRemoteMandateAdvancer.php';
+$adv_src = (string) file_get_contents($adv_file);
+
 ac_assert('archivos del incremento 3 existen', is_file($uc_file) && is_file($store_file));
 ac_assert('AJAX solo cablea Retire de registro', strpos($ajax_src, 'RetireCanonicalRecordUseCase') !== false
     && strpos($ajax_src, 'WriteCanonicalShellRecordUseCase') === false
     && strpos($ajax_src, "'mandate_id'") === false
     && strpos($ajax_src, '"mandate_id"') === false);
-ac_assert('contenedor no cableado a Retire', strpos((string) file_get_contents($plugin_root . '/includes/http/ajax/CanonicalDeleteContainerAjax.php'), 'RetireCanonicalRecordUseCase') === false);
+ac_assert('contenedor no cableado a Retire de registro', strpos((string) file_get_contents($plugin_root . '/includes/http/ajax/CanonicalDeleteContainerAjax.php'), 'RetireCanonicalRecordUseCase') === false);
 ac_assert('captura bajo lock ya adquirido, sin acquire interno', strpos($capture_src, 'function execute_with_held_lock') !== false
     && strpos($uc_src, 'execute_with_held_lock') !== false
     && strpos($uc_src, 'START TRANSACTION') === false);
-ac_assert('intención de envío antes de HMAC', strpos($uc_src, 'persist_accept_intent') !== false
-    && strpos($uc_src, 'persist_accept_intent') < strpos($uc_src, 'accept_delete_batch')
-    && strpos($uc_src, 'persist_seal_intent') !== false
-    && strpos($uc_src, 'persist_seal_intent') < strpos($uc_src, 'seal_delete_mandate'));
+ac_assert('intención de envío antes de HMAC', strpos($adv_src, 'persist_accept_intent') !== false
+    && strpos($adv_src, 'persist_accept_intent') < strpos($adv_src, 'accept_delete_batch')
+    && strpos($adv_src, 'persist_seal_intent') !== false
+    && strpos($adv_src, 'persist_seal_intent') < strpos($adv_src, 'seal_delete_mandate'));
 ac_assert('tandas 0-based en preparación', strpos($cstore_src, 'intdiv($index, $max) + 1') === false
     && strpos($cstore_src, 'intdiv($index, $max)') !== false);
 ac_assert('TX local DELETE+touch+completed', strpos($store_src, 'delete_by_upload_operation_id') !== false

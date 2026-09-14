@@ -619,6 +619,80 @@ final class CanonicalPurgeRunsRepository {
     }
 
     /**
+     * Checkpoints de retiro local (keyset). 0 = aún no se retiró esa fase.
+     * Misma TX que los DELETE del chunk (el caller abre/cierra).
+     *
+     * @throws CanonicalImageUploadPersistenceFailed
+     * @throws CanonicalImageUploadSchemaNotReady
+     */
+    public function persist_local_retire_checkpoints(
+        int $purge_run_id,
+        int $after_inventory_id,
+        int $after_record_id,
+        string $updated_at
+    ): void {
+        $table = AA_Canonical_Schema::purge_runs_table_name();
+        $this->assert_table_exists($table);
+
+        if ($purge_run_id < 1 || $after_inventory_id < 0 || $after_record_id < 0) {
+            throw new CanonicalImageUploadPersistenceFailed('Invalid local retire checkpoint arguments.');
+        }
+
+        $this->clear_error_state();
+        $result = $this->wpdb->update(
+            $table,
+            [
+                'local_retire_after_inventory_id' => $after_inventory_id,
+                'local_retire_after_record_id' => $after_record_id,
+                'status' => self::STATUS_INCOMPLETE,
+                'updated_at' => $updated_at,
+            ],
+            ['id' => $purge_run_id],
+            ['%d', '%d', '%s', '%s'],
+            ['%d']
+        );
+
+        if ($result === false || $this->wpdb->last_error !== '') {
+            throw new CanonicalImageUploadPersistenceFailed('Failed to persist local retire checkpoints.');
+        }
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     *
+     * @throws CanonicalImageUploadPersistenceFailed
+     * @throws CanonicalImageUploadSchemaNotReady
+     */
+    public function list_open_by_scope(string $scope): array {
+        $table = AA_Canonical_Schema::purge_runs_table_name();
+        $this->assert_table_exists($table);
+
+        if ($scope !== self::SCOPE_RECORD && $scope !== self::SCOPE_CONTAINER) {
+            return [];
+        }
+
+        $this->clear_error_state();
+        $safe = str_replace('`', '``', $table);
+        $rows = $this->wpdb->get_results(
+            $this->wpdb->prepare(
+                "SELECT * FROM `{$safe}`
+                 WHERE scope = %s AND status IN (%s, %s)
+                 ORDER BY id ASC",
+                $scope,
+                self::STATUS_IN_PROGRESS,
+                self::STATUS_INCOMPLETE
+            ),
+            ARRAY_A
+        );
+
+        if ($this->wpdb->last_error !== '' || !is_array($rows)) {
+            throw new CanonicalImageUploadPersistenceFailed('Failed to LIST open purge runs by scope.');
+        }
+
+        return $rows;
+    }
+
+    /**
      * True si ya hubo intención de envío, aceptación, sello o resultado remoto desconocido.
      *
      * @param array<string, mixed> $run

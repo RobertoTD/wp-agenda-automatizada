@@ -285,6 +285,40 @@ final class CanonicalImageUploadOperationsRepository {
     }
 
     /**
+     * @throws CanonicalImageUploadPersistenceFailed
+     * @throws CanonicalImageUploadSchemaNotReady
+     */
+    public function count_for_container(int $container_id): int {
+        $ops_table = AA_Canonical_Schema::image_upload_operations_table_name();
+        $records_table = AA_Canonical_Schema::records_table_name();
+        $this->assert_table_exists($ops_table);
+        $this->assert_table_exists($records_table);
+
+        if ($container_id < 1) {
+            return 0;
+        }
+
+        $this->clear_error_state();
+        $ops_safe = str_replace('`', '``', $ops_table);
+        $records_safe = str_replace('`', '``', $records_table);
+        $count = $this->wpdb->get_var(
+            $this->wpdb->prepare(
+                "SELECT COUNT(*)
+                 FROM `{$ops_safe}` o
+                 INNER JOIN `{$records_safe}` r ON r.id = o.record_id
+                 WHERE r.container_id = %d",
+                $container_id
+            )
+        );
+
+        if ($this->wpdb->last_error !== '') {
+            throw new CanonicalImageUploadPersistenceFailed('Failed to COUNT container image upload operations.');
+        }
+
+        return (int) $count;
+    }
+
+    /**
      * Suma byte_size de reservas admitted vigentes del blog actual.
      * $exclude_operation_id solo descuenta si esa fila es reserva válida ahora.
      *

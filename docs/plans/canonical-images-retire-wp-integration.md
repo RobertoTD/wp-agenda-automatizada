@@ -1,6 +1,6 @@
 # Exploración: retiro canónico WP, mandatos de limpieza y cuota
 
-**Estado:** incrementos 1–3 implementados en `dev/canonical-images-retire`. Incremento 3 cerrado en validación policyytest (A/D/B + UI vacío/Cancelar; Continuar no PASS; C integrado pendiente). **Incremento 4 (retiro de lista) — diseño en este documento; sin implementación.** Todavía sin retiro de contenedores en código, cron/workers ni `is_ready`. Retiro de **una imagen** conservando el registro: pendiente como incremento aparte (§8).
+**Estado:** incrementos 1–4 implementados en `dev/canonical-images-retire`. Incremento 3 cerrado en validación policyytest (A/D/B + UI vacío/Cancelar; Continuar no PASS; C integrado pendiente). **Incremento 4 (retiro de lista) — código y AC aislados; prueba manual no ejecutada.** Todavía sin cron/workers ni `is_ready`. Retiro de **una imagen** conservando el registro: pendiente como incremento aparte (§8).
 **Fecha:** 2026-09-14.
 **Ámbito:** integración WordPress del retiro de registros/adjuntos canónicos y liberación de cuota, reutilizando `accept` / `seal` / `status` del backend.
 
@@ -10,7 +10,7 @@ No modifica el state de la prueba Backend 3 (worker local Storage, `docs/ops/att
 
 | Repo | Rama | HEAD |
 |------|------|------|
-| `wp-agenda-automatizada` | `dev/canonical-images-retire` | `7ec4078c7a891159a277101f91a9842dc6172dee` (diseño inc. 4; código inc. 3 = `752274d…`) |
+| `wp-agenda-automatizada` | `dev/canonical-images-retire` | (SHA del commit de implementación; se anota al cerrar) |
 | `deoia-oauth-backend` (solo contratos) | `dev/backend-recovered` | `26452b3ba4ceb24b7bf46271fd30a0c58318ceed` (parche `authorize-upload`; untracked ajeno: `scripts/runner-from-pack.sh`) |
 
 **Backend Storage fixture (no reejecutada aquí):** immediate / later / reappear **PASS**. El caso reappear fue **sintético** (no un PUT tardío real del proveedor).
@@ -321,9 +321,9 @@ El orquestador posterior es dueño de identidades y recuperación. Debe cumplir:
 
 El detalle del flujo, numeración, cancelación segura y procedimiento manual están en **§6**.
 
-### Incremento 4 — contenedor / lista completa — **diseño (§7); no implementado**
+### Incremento 4 — contenedor / lista completa — **completado** (`DB_VERSION=30`)
 
-Sustituye el delete de shell productivo de lista por orquestación de mandatos (`scope=container`). Captura `scope=container` y overlap ya existen; falta UseCase/Ajax/JS/store local. Detalle: **§7**.
+`aa_delete_canonical_container` orquesta mandatos `scope=container` (`RetireCanonicalContainerUseCase`). Seal obligatorio (incl. `expected_batch_count=0`). Chunks locales post-sello. Detalle: **§7**.
 
 ### Incremento 5 — retiro de **una imagen** (registro vivo) — **pendiente, fuera del 4**
 
@@ -336,17 +336,17 @@ WP-Cron Continuar; alinear Expedientes a mandatos (**fuera** de este hito).
 ### Archivos canónicos afectados (visión completa, no un solo patch)
 
 ```
-includes/infrastructure/backend/class-aa-expediente-attachments-backend-client.php  # ya (inc. 1)
-includes/infrastructure/wp/CanonicalSchema.php          # posible bump si checkpoint local de lista
+includes/infrastructure/backend/class-aa-expediente-attachments-backend-client.php  # inc. 1
+includes/infrastructure/wp/CanonicalSchema.php          # DB 30 checkpoints lista
 includes/repositories/CanonicalRecordImagesRepository.php
 includes/repositories/CanonicalImageUploadOperationsRepository.php
 includes/repositories/CanonicalPurgeRunsRepository.php
-includes/application/canonical/images/                  # RetireCanonicalContainer* o generalización
-includes/http/ajax/CanonicalDeleteRecordAjax.php        # hecho (inc. 3)
-includes/http/ajax/CanonicalDeleteContainerAjax.php     # inc. 4: cablear Retire
-assets/js/ (forms shell delete)                         # container-form Continuar/cancel
+includes/application/canonical/images/                  # RetireCanonicalContainer* + advancer HMAC
+includes/http/ajax/CanonicalDeleteRecordAjax.php        # inc. 3
+includes/http/ajax/CanonicalDeleteContainerAjax.php     # inc. 4: Retire
+includes/admin/ui/modules/canonical_shell/canonical-shell-container-form.js
 tests/application|http|js correspondientes
-docs/plans/shell-canonical-base-v1.md                   # decisión 40 al implementar
+docs/plans/shell-canonical-base-v1.md                   # decisión 40
 ```
 
 No tocar migraciones PG, worker, Render, ni el state file de la prueba Storage.
@@ -593,7 +593,7 @@ A y D no se reejecutaron (el parche no los toca). C sigue cubierto por tests aut
 - Inventarios de las corridas 2, 3 y 4 (inventario vacío en 1 y 5).
 - Registro 33 + imagen id=1 + op `admitted` `240d8d55-…` (sin objeto Storage ni mandato remoto de esas corridas).
 - Registro 32 ausente; registro 34 ausente; objetos Storage de la op B2 **sí** existen (worker off).
-- Lista 17: **no** eliminar el contenedor (incremento 4 no integrado). Bloqueo de escritores en contenedor 17: **0** corridas `in_progress|incomplete`.
+- Lista 17: **conservar**; no usarla para probar borrado de contenedores. Bloqueo de escritores en contenedor 17 al cierre del 3: **0** corridas `in_progress|incomplete`.
 - Mandato/obligación remotos B2 (`6764dd13-…` / `523c3b81-…`) y fixture Backend 3.
 
 #### Node y workers
@@ -619,130 +619,99 @@ Caso B integrado (AJAX/HTTP, registro 34): **PASS** previo (ver retoma arriba). 
 
 **Re-verificación solo lectura (2026-09-14, post-Cancelar del propietario):** blog 61 / `wp_61_`; registro 33 + imagen id=1 + op `admitted` conservados; corrida 3 `cancelled` / `cancelled_at=2026-09-14 18:40:50`; `accept_intent_batch_seq`/`seal_intent_at`/`last_accepted_batch_seq`/`sealed_at` NULL; mandato `ab4e4fc3-…` ausente en Supabase; `blocking_runs` en contenedor 17 = **0**. Sin discrepancia con lo documentado.
 
-**No cerrado tras el 3:** incremento 4; retiro de una imagen (§8); Continuar UI; C integrado; `is_ready`; cron/worker.
+**No cerrado tras el 3:** retiro de una imagen (§8); Continuar UI; C integrado; `is_ready`; cron/worker. El incremento 4 está en código (§7); su prueba manual en policyytest **no** se ejecutó en el turno de implementación.
 
 ---
 
-## 7. Incremento 4 — diseño: retiro de una lista completa
+## 7. Incremento 4 — retiro de una lista completa — **completado** (`DB_VERSION=30`)
 
-**Estado:** solo diseño. **No implementado.** Sin cambio de runtime/schema en este turno.
+**Estado:** implementado en código + AC MySQL aislado / Ajax / JS. **Prueba manual no ejecutada.** No se migró policyytest. No se tocó backend ni Storage.
 
-**Clasificación:** capability `images` + runtime WP (mismo hito IMG-5).
+**Clasificación:** capability `images` + runtime WP (IMG-5).
 
-### 7.1 Camino actual (hecho)
+**Paradigma:** capa nueva Application (`RetireCanonicalContainerUseCase`); Ajax/JS solo cablean; HMAC compartido en `CanonicalPurgeRemoteMandateAdvancer` (el retiro de registro delega ahí; no se copió el protocolo). Schema `DB_VERSION=30`.
 
-`aa_delete_canonical_container` → `WriteCanonicalShellContainerUseCase::delete` → gateway → `CanonicalRelationalRepository::delete_container` (DELETE del contenedor). Bajo lock + `has_blocking_purge_for_container`. Registros por **CASCADE**; `aa_canonical_container_capabilities` **CASCADE**; `aa_canonical_record_amount` **CASCADE** vía records. Images/ops → records **RESTRICT**: lista con images/ops **falla** el delete de shell. JS contenedor: solo `confirmed` / `uncertain`; **sin** Continuar/cancel de mandatos.
+### 7.1 Flujo conectado
 
-### 7.2 Reutilizado del 1–3 (sin reabrir)
+`aa_delete_canonical_container` → `RetireCanonicalContainerUseCase` (no `WriteCanonicalShellContainerUseCase::delete`; Write sigue como red de seguridad RESTRICT + purge guard).
 
-| Pieza | Estado |
-|-------|--------|
-| Cliente HMAC accept/seal/status | listo |
-| `CaptureCanonicalPurgeInventoryUseCase` `scope=container` | listo (páginas images+ops JOIN records; checkpoints; `prepare_batches`) |
-| Overlap contenedor↔registro hijo (ambos órdenes) | listo (`find_overlapping_open_run` → `SCOPE_OVERLAP`) |
-| Tandas 0-based ≤50, intención remota antes del HTTP | listo (patrón del 3) |
-| Cancelación segura previa al envío | listo (patrón del 3) |
-| Evidencia de corrida/inventario sin FK a records | listo |
+Bajo `GET_LOCK` `canonical_container` **toda** la petición, **sin** TX SQL durante HMAC:
 
-### 7.3 Extensión mínima
+1. Access Policy (`authorize_identity` por `family_key`). El contenedor vivo **no** es requisito para Continuar si la corrida ya está capture-complete o sellada; la corrida conserva `family_key` / `scope` / `target_id` / `container_id`.
+2. Captura `scope=container`, `max_pages=2`. Overlap lista↔registro hijo → `scope_overlap`.
+3. Conflicto / captura incompleta: sin HMAC. Cancelación local solo si `!has_attempted_remote_dispatch`.
+4. HMAC vía `CanonicalPurgeRemoteMandateAdvancer`: intención persistida **antes** del POST. **Siempre** seal, también con `prepared_batch_count=0` → `expected_batch_count=0`. Fail-closed si hay images/ops vivas con inventario vacío.
+5. Post-sello: `retire_container_chunk` (presupuesto local acotado). `storage_quota` solo alrededor de esa TX.
+6. `confirmed` solo si el contenedor quedó retirado y la corrida `completed` en la misma TX final. Nunca `confirmed` con trabajo restante.
 
-Nuevo orquestador (p. ej. `RetireCanonicalContainerUseCase`) o generalización parametrizada por scope — **no** reutilizar a ciegas `RetireCanonicalRecordUseCase` (hardcodea `SCOPE_RECORD`, skip HMAC si inventario vacío, TX de un registro).
+### 7.2 Chunks, FKs y cuota
 
-Cablear `CanonicalDeleteContainerAjax` al Retire; conservar `Write::delete` como red de seguridad (RESTRICT + purge guard).
+Orden real (RESTRICT images/ops → records; CASCADE records/amount/capabilities → container):
 
-JS: `canonical-shell-container-form.js` — mismos estados que el modal de registro (`incomplete` Continuar, `conflict`+Cancelar, `uncertain` Recargar, `cancel_rejected`, `intervention_required`).
+1. DELETE images/ops del inventario por `upload_operation_id`, página keyset `id > local_retire_after_inventory_id` (no OFFSET), tamaño por defecto 50.
+2. Checkpoint `local_retire_after_inventory_id` **en la misma TX** que esos DELETE. Si la página llenó el presupuesto → COMMIT + `incomplete`.
+3. Fail-closed: images/ops vivas del contenedor fuera del inventario → rollback + `intervention_required`.
+4. DELETE registros keyset `id > local_retire_after_record_id` (evita CASCADE ilimitado al borrar el contenedor). Checkpoint `local_retire_after_record_id` misma TX. Si quedan registros → `incomplete`.
+5. DELETE contenedor + `mark_completed` misma TX. Inventario y corrida **no** se borran.
 
-Store local nuevo o extensión de `AA_Canonical_Purge_Local_Retire_Store`: post-sello, retirar images/ops del inventario y luego el contenedor.
+Una petición nueva reanuda desde los checkpoints. Respuesta de COMMIT ambigua → `uncertain`; no avanzar a ciegas. Cuota = SUM de filas images/ops que **aún existen**; baja al COMMIT de cada chunk de identidades. No hay contadores nuevos.
 
-**Schema posible (`DB_VERSION` bump solo si hace falta):** checkpoint de retiro local post-sello, p. ej. `local_retire_after_item_id` / `local_retire_ops_done` (nullable). Si la lista cabe en el presupuesto de una petición, puede omitirse el bump y completar en una TX; el diseño exige el checkpoint **cuando** el presupuesto no baste (listas grandes). Justificación abajo.
+No hay operación de producto que cambie la pertenencia de un registro entre listas. Un `UPDATE container_id` sintético tras la captura no saca las identidades del inventario: esas images/ops se retiran; el registro ya no anclado a la lista no se borra con ella.
 
-### 7.4 A. Inventario y autorización
-
-1. **Lista vacía** (0 records o records sin images/ops): captura completa, `prepared_batch_count=0`. A diferencia del registro, el producto exige **sellar** con `expected_batch_count=0` (cierre de recepción) **antes** de cualquier DELETE del contenedor. No skip HMAC.
-2. **Mezcla:** records vacíos + imágenes confirmadas + ops `admitted|cleanup_needed` → inventario deduplicado por `upload_operation_id` (ya); metadata coherente o `conflict`/`can_cancel` como en el 3.
-3. Aceptar **todas** las tandas (0..N-1) y **seal** con `structural_retire_authorized` antes de SQL destructivo del alcance.
-4. Ningún DELETE de images/ops/records/contenedor del alcance sin sello (o, solo para lista vacía, sello `expected_batch_count=0` acreditado).
-5. No esperar Storage; obligación durable = limpieza física (worker off hoy).
-
-### 7.5 B. Concurrencia
-
-| Escenario | Comportamiento |
-|-----------|----------------|
-| Purga lista vs registro hijo (ambos órdenes) | Overlap ya implementado; un solo mandato abierto por conflicto de alcance. |
-| Create/update título/amount durante captura | No mutan inventario; permitidos bajo política actual del 3 (opcional endurecer en el 4: fuera de inventario). |
-| Attach / confirm imagen | Bloqueados por `has_blocking_purge` (record o container scope) mientras `in_progress\|incomplete`. |
-| Nuevo registro + imagen tras `capture_complete` | Bloqueado por purge abierta; si escapara: fail-closed post-sello (`live_rows_outside_inventory` a nivel contenedor). |
-| Doble Continuar | Mismo `GET_LOCK` contenedor; segundo → `resource_busy`. |
-| Cancelar vs envío remoto | Igual que el 3: cancel solo sin intención/accept/seal; si hay duda → `cancel_rejected`. |
-| Locks / TX | `GET_LOCK canonical_container` toda la petición HTTP; **sin** `START TRANSACTION` durante HMAC; `storage_quota` solo en TX local post-HTTP. |
-
-### 7.6 C. Retiro local, FKs y escala
-
-**Relaciones del contenedor (schema):**
-
-| Tabla | FK | ON DELETE |
-|-------|-----|-----------|
-| records → containers | CASCADE | |
-| container_capabilities → containers | CASCADE | |
-| record_amount → records | CASCADE | |
-| record_images → records | **RESTRICT** | |
-| image_upload_operations → records | **RESTRICT** | |
-| purge_runs / inventory | sin FK a container/record | evidencia |
-
-No desactivar FKs. Orden post-sello:
-
-1. DELETE images/ops cuyas identidades están en el inventario (por `upload_operation_id`).
-2. Fail-closed: cualquier image/op viva del contenedor fuera del inventario → `intervention_required` (rollback).
-3. Cuando images/ops del alcance = 0: `delete_container` (CASCADE records + amount + capabilities).
-4. Misma TX o última tanda: `status=completed`. Inventario/corrida **no** se borran.
-5. Cuota: solo SUM; cada DELETE de image/op baja confirmed/reserved al COMMIT. Retiro parcial confirmado (unas ops ya borradas, corrida aún `incomplete`) → cuota ya refleja filas ausentes; no declarar `confirmed` al usuario mientras queden images/ops o el contenedor.
-
-**Listas grandes — presupuesto por petición (obligatorio definir en implementación):**
-
-- Captura: reutilizar `max_pages` (p. ej. 2) → `incomplete` + Continuar.
-- HMAC: ≤1 accept (+ status de esa tanda) y seal cuando toque (igual que el 3).
-- Local post-sello: si el número de ítems de inventario (o de records) supera un tope acotado (p. ej. una tanda de 50 identidades, o un deadline), **chunk**:
-  - Persistir checkpoint (`local_retire_*`) **antes** de soltar el lock tras COMMIT parcial.
-  - Cada Continuar: lock → verificar sello → DELETE siguiente página de identidades → COMMIT → si quedan filas → `incomplete` (no `confirmed`).
-  - Solo cuando images/ops=0 y `delete_container` OK → `completed` + `confirmed`.
-- Si el inventario cabe en una TX: una sola petición post-sello sin checkpoint nuevo (sin bump schema).
-- No `confirmed` con trabajo restante; UI «Eliminación incompleta» + Continuar (§12.4).
-
-### 7.7 D. Recuperación y UX
+### 7.3 Recuperación, acceso y cancelación
 
 | Caso | Comportamiento |
 |------|----------------|
-| Accept/seal perdidos | `status` / replay idéntico (mismo mandate/seq/count); nunca otro mandato. |
-| Fallo local tras sello | `incomplete`; reintento idempotente (0 filas = ya retirado). |
-| Commit ambiguo | `uncertain` 409; Recargar; SELECT; no Continuar ciego. |
-| Hijos/contenedor ya ausentes | Si sello acreditado e inventario local sin filas vivas → cerrar `completed` / `confirmed`. |
-| Auth con contenedor ausente y corrida abierta | Autorizar por familia (Access Policy); reconciliar como arriba; no mintar mandato nuevo. |
-| incomplete + Continuar | Mismo POST `aa_delete_canonical_container`; rehidrata por `(scope=container, target_id)`. |
-| Cancelación | Solo segura sin envío remoto (como el 3). |
-| Lista incompleta visible | Misma lista en UI; modal incompleto; no afirmar borrado total. |
+| Accept/seal perdidos | `status` / replay idéntico; nunca otro mandato ni cancel. |
+| Backend inaccesible | `incomplete`; Continuar. |
+| Fallo local tras sello | `incomplete`; reintento idempotente. |
+| Interrupción tras chunk | checkpoints; Continuar misma corrida. |
+| Commit ambiguo | `uncertain` 409; Recargar; no Continuar ciego. |
+| Hijos/contenedor ya ausentes | sello acreditado + 0 filas vivas → `completed` / `confirmed`. |
+| Auth con contenedor ausente | Access Policy + corrida; no mandato nuevo. |
+| Familia distinta a la corrida | `forbidden`. |
+| Cancelación | solo sin envío remoto. Tras intención/sello/retiro local: `cancel_rejected` (no promete restaurar). |
+| Doble Continuar | segunda conexión → `resource_busy`. |
 
-### 7.8 Archivos que cambiarían (implementación futura)
+Tras sello o retiro local **no** se ofrece una cancelación que restaure datos.
 
-- `RetireCanonicalContainerUseCase` (+ Command/Result) o refactor compartido con el de registro
-- `AA_Canonical_Purge_Local_Retire_Store` (retiro de contenedor / chunks)
-- `CanonicalPurgeRunsRepository` (+ columnas checkpoint si bump)
-- `CanonicalSchema` / `AA_Schema` solo si bump
-- `CanonicalDeleteContainerAjax`
-- `canonical-shell-container-form.js` (+ tests JS)
-- AC PHP MySQL aislado + HTTP Ajax
-- Decisión 40 en `shell-canonical-base-v1.md` al completar código
+### 7.4 UI de lista
 
-### 7.9 Matriz de pruebas propuesta
+Modal reutiliza el protocolo del registro: `confirmed` → listado de listas; `incomplete` → Continuar (mismo POST, sin `mandate_id`); `uncertain` → Recargar; conflicto previo al envío → Cancelar eliminación si `can_cancel`; `intervention_required` → mensaje explícito sin resolución automática. **Cerrar** solo cierra el modal.
 
-**Automatizadas (MySQL aislado + dobles HMAC):** lista vacía (seal 0 + delete container); solo records vacíos; 1 imagen; ops no confirmadas; 51+ ítems (tandas 0/1 + incomplete); overlap record↔container; cancel pre-envío; cancel_rejected post-intención; accept/seal perdidos; fail-closed fila viva extra; uncertain COMMIT; chunk local post-sello (si se implementa); doble lock → resource_busy; Ajax mapeo de estados; JS Continuar/Cancelar contenedor.
+Lista parcialmente retirada: banner «No está borrada del todo»; se ocultan FAB y mutaciones de registros; **Eliminar lista** permanece para Continuar. Si la fila del contenedor ya no existe y la corrida `scope=container` sigue abierta, el listado muestra aviso + Continuar. No se afirma terminada ni se permiten acciones que rompan la exclusión.
 
-**Manuales (policyytest, sin `is_ready` global):** lista sintética nueva (no borrar la 17 como único fixture si aún conserva evidencia); vacío; con imagen vía camino de desarrollo acotado; Continuar tras incomplete; Cancelar conflicto; no tocar Backend 3 / Storage worker.
+Nonce `aa_delete_canonical_container` en eliminar / continuar / cancelar.
 
-### 7.10 Bloqueos
+### 7.5 Schema
 
-Ningún bloqueo de contrato backend para el 4 (mandatos `canonical_v1` ya cubren inventario multi-ítem). Worker periódico sigue apagado (residuos Storage esperables). **No** reabrir diseño de subida. Fixture lista 17 / registro 33 se conservan como evidencia; no son prerequisito del diseño.
+`DB_VERSION=30`: `aa_canonical_purge_runs.local_retire_after_inventory_id` y `local_retire_after_record_id` (`bigint unsigned NOT NULL DEFAULT 0`). `ensure_purge_container_local_retire_v30()` es idempotente. No se migró policyytest en este turno.
 
-**Listo para implementar** el incremento 4 según este §7 cuando se autorice código.
+### 7.6 Pruebas automatizadas (este turno)
+
+MySQL prefijo temporal + HMAC simulado; lock con **segunda conexión** real. Cubierto: lista vacía seal 0; registros sin imágenes; images+ops no confirmadas; 51 identidades (tandas 0/1); accept/seal/status perdidos; overlap ambos órdenes; writers bloqueados; chunks + cuota SUM; commit ambiguo; reintento con contenedor ya ausente; corrida/inventario conservados; `resource_busy`; acceso indebido; fail-closed fila extra; Ajax estados; JS Continuar/Cancelar/Cerrar.
+
+### 7.7 Límites (no declarar de más)
+
+- Prueba **manual** de lista **no ejecutada**.
+- Continuar UI del incremento 3 y caso C integrado: **siguen sin PASS** (no se reabrieron).
+- No hay garantía de que un `UPDATE` de pertenencia hecho a mano conserve imágenes del registro movido (las identidades inventariadas se retiran).
+- Worker periódico apagado: residuos Storage esperables.
+- `Write::delete` no es el camino productivo; sigue fallando por RESTRICT si alguien lo llama con images/ops.
+
+### 7.8 Procedimiento manual propuesto — **LISTA SINTÉTICA NUEVA** (no ejecutar aún)
+
+No usar la lista **17** ni los registros 32/33/34. Worker periódico **apagado**. Sin `is_ready=true`. Sin `npm start` extra ni Storage real. Sin migrar policyytest salvo lo que el propietario haga luego.
+
+1. En finance, **crear una lista nueva** (título inequívoco, p. ej. `INC4-empty`).
+2. **Vacía:** Eliminar lista → confirmar. Esperado: `confirmed`, redirect a listas, corrida `completed`, `prepared_batch_count=0`, `seal_intent_at` y `sealed_at` no NULL, inventario 0, contenedor ausente. Si el modal pide Continuar, pulsar hasta `confirmed`. **No** Cancelar tras el primer intento si ya hubo red.
+3. **Otra lista nueva** (`INC4-records`) con 1–2 registros sin imagen. Eliminar lista. Esperado: igual, seal 0, registros y contenedor ausentes.
+4. **Otra lista nueva** (`INC4-image`) con un registro y **una** imagen por el camino de desarrollo acotado (mismo que B del 3). Eliminar lista. Continuar si `incomplete`. Esperado: contenedor/registro/imagen/op locales ausentes; corrida+inventario conservados; cuota SUM baja. **No** tocar Backend 3 ni worker.
+5. Conservar evidencia SQL (ids de lista/corrida/mandato). No borrar la 17.
+
+### 7.9 Bloqueos
+
+Ninguno de contrato backend para el 4. Fixture lista 17 / registro 33 se conservan. Incremento 5 = una imagen con registro vivo (§8).
 
 ---
 
@@ -760,8 +729,8 @@ Ningún bloqueo de contrato backend para el 4 (mandatos `canonical_v1` ya cubren
 
 | Capa | Pendiente |
 |------|-----------|
-| **Implementación** | Inc. 4 lista (§7); inc. 5 una imagen (§8) |
-| **Validación** | Continuar UI (sin evidencia); C integrado; pruebas del 4 cuando exista código |
+| **Implementación** | Inc. 5 una imagen (§8) |
+| **Validación** | Continuar UI (sin evidencia); C integrado; **manual del 4** (lista sintética nueva, §7.8) |
 | **Activación** | `is_ready` / seeds / UI galería — **fuera** hasta cerrar recorridos de borrado acordados |
 | **Ops** | Worker periódico Storage; no WP ledger físico |
 
@@ -769,8 +738,8 @@ Ningún bloqueo de contrato backend para el 4 (mandatos `canonical_v1` ya cubren
 
 ## Fuera de alcance restante
 
-- Implementar incremento 4 / 5 (este turno solo diseño).
-- Caso C integrado; Continuar UI sin evidencia.
+- Implementar incremento 5 (una imagen, §8).
+- Prueba manual del 4; caso C integrado; Continuar UI sin evidencia.
 - Activar polling del worker, cron o `is_ready`.
 - Cambiar TTL, tombstones o identidades Storage Backend 3.
 - Expedientes Ciclo B; reabrir subida.

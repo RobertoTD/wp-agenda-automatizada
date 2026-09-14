@@ -363,6 +363,70 @@ final class CanonicalRelationalRepository {
     }
 
     /**
+     * Ids de registro del contenedor posteriores a $after_id (keyset). No usa OFFSET.
+     *
+     * @return list<int>
+     * @throws CanonicalRelationalQueryFailed
+     */
+    public function list_record_ids_after(int $container_id, int $after_id, int $limit): array {
+        if ($container_id < 1 || $after_id < 0 || $limit < 1) {
+            return [];
+        }
+
+        $table = $this->records_table();
+        $this->clear_error_state();
+        $rows = $this->wpdb->get_col(
+            $this->wpdb->prepare(
+                "SELECT id FROM `{$table}`
+                 WHERE container_id = %d AND id > %d
+                 ORDER BY id ASC
+                 LIMIT %d",
+                $container_id,
+                $after_id,
+                $limit
+            )
+        );
+
+        if ($rows === false || $this->wpdb->last_error !== '') {
+            throw new CanonicalRelationalQueryFailed('list_record_ids_after query failed.');
+        }
+
+        $ids = [];
+        foreach ((array) $rows as $raw) {
+            $id = (int) $raw;
+            if ($id >= 1) {
+                $ids[] = $id;
+            }
+        }
+
+        return $ids;
+    }
+
+    /**
+     * @throws CanonicalRelationalQueryFailed
+     */
+    public function count_records_in_container(int $container_id): int {
+        if ($container_id < 1) {
+            return 0;
+        }
+
+        $table = $this->records_table();
+        $this->clear_error_state();
+        $count = $this->wpdb->get_var(
+            $this->wpdb->prepare(
+                "SELECT COUNT(*) FROM `{$table}` WHERE container_id = %d",
+                $container_id
+            )
+        );
+
+        if ($this->wpdb->last_error !== '') {
+            throw new CanonicalRelationalQueryFailed('count_records_in_container query failed.');
+        }
+
+        return (int) $count;
+    }
+
+    /**
      * @param list<CanonicalContainerCapabilityEffect> $effects
      * @return array{id:int,public_id:string,family_id:int,title:string,details:?string,created_at:string,updated_at:string}
      * @throws CanonicalRelationalQueryFailed

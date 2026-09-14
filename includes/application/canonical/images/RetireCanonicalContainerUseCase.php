@@ -1,10 +1,11 @@
 <?php
 /**
- * Retire Canonical Record — retiro de UN registro vía mandatos HMAC (IMG-5 inc. 3).
+ * Retire Canonical Container — retiro de una lista vía mandatos HMAC (IMG-5 inc. 4).
  *
  * Lock del contenedor durante toda la petición (incluido HTTP). Sin TX SQL
- * abierta durante HMAC. Presupuesto: hasta 2 páginas de captura, un accept
- * (+ status de esa tanda) y un seal. Skip HMAC si el inventario está vacío.
+ * abierta durante HMAC. Seal obligatorio incluso con inventario vacío
+ * (expected_batch_count=0). Presupuesto: hasta 2 páginas de captura, un accept
+ * (+ status) y un seal; post-sello un chunk local keyset.
  *
  * @package WP_Agenda_Automatizada
  * @subpackage Application\Canonical\Images
@@ -54,11 +55,11 @@ if (!class_exists('CaptureCanonicalPurgeInventoryCommand')) {
 if (!class_exists('CanonicalPurgeCaptureResult')) {
     require_once __DIR__ . '/CanonicalPurgeCaptureResult.php';
 }
-if (!class_exists('RetireCanonicalRecordCommand')) {
-    require_once __DIR__ . '/RetireCanonicalRecordCommand.php';
+if (!class_exists('RetireCanonicalContainerCommand')) {
+    require_once __DIR__ . '/RetireCanonicalContainerCommand.php';
 }
-if (!class_exists('RetireCanonicalRecordResult')) {
-    require_once __DIR__ . '/RetireCanonicalRecordResult.php';
+if (!class_exists('RetireCanonicalContainerResult')) {
+    require_once __DIR__ . '/RetireCanonicalContainerResult.php';
 }
 if (!class_exists('CanonicalPurgeLocalRetireResult')) {
     require_once __DIR__ . '/CanonicalPurgeLocalRetireResult.php';
@@ -76,7 +77,7 @@ if (!class_exists('CanonicalImageUploadSchemaNotReady')) {
     require_once dirname(__DIR__, 2) . '/storage/CanonicalImageUploadSchemaNotReady.php';
 }
 
-final class RetireCanonicalRecordUseCase {
+final class RetireCanonicalContainerUseCase {
 
     /** @var CanonicalRelationalRepository */
     private $relational;
@@ -148,16 +149,11 @@ final class RetireCanonicalRecordUseCase {
         );
     }
 
-    public function execute(RetireCanonicalRecordCommand $command): RetireCanonicalRecordResult {
+    public function execute(RetireCanonicalContainerCommand $command): RetireCanonicalContainerResult {
         try {
             $family_id = $this->relational->resolve_family_id($command->family_key());
             if ($family_id === null) {
-                return RetireCanonicalRecordResult::container_not_found($command->container_id());
-            }
-
-            $container = $this->relational->find_container($family_id, $command->container_id());
-            if ($container === null) {
-                return RetireCanonicalRecordResult::container_not_found($command->container_id());
+                return RetireCanonicalContainerResult::container_not_found($command->container_id());
             }
 
             $lease = $this->lock->acquire(
@@ -168,16 +164,16 @@ final class RetireCanonicalRecordUseCase {
             if (is_wp_error($lease)) {
                 $code = $lease->get_error_code();
                 if ($code === AA_Expediente_Aggregate_Lock::ERROR_RESOURCE_BUSY) {
-                    return RetireCanonicalRecordResult::resource_busy();
+                    return RetireCanonicalContainerResult::resource_busy();
                 }
 
-                return RetireCanonicalRecordResult::persistence_failed();
+                return RetireCanonicalContainerResult::persistence_failed();
             }
 
             try {
                 $held = $this->lock->assert_held($lease);
                 if (is_wp_error($held)) {
-                    return RetireCanonicalRecordResult::persistence_failed();
+                    return RetireCanonicalContainerResult::persistence_failed();
                 }
 
                 if ($command->is_cancel()) {
@@ -189,11 +185,11 @@ final class RetireCanonicalRecordUseCase {
                 $this->lock->release($lease);
             }
         } catch (CanonicalRelationalQueryFailed $e) {
-            return RetireCanonicalRecordResult::persistence_failed();
+            return RetireCanonicalContainerResult::persistence_failed();
         } catch (CanonicalImageUploadSchemaNotReady $e) {
-            return RetireCanonicalRecordResult::persistence_failed();
+            return RetireCanonicalContainerResult::persistence_failed();
         } catch (CanonicalImageUploadPersistenceFailed $e) {
-            return RetireCanonicalRecordResult::persistence_failed();
+            return RetireCanonicalContainerResult::persistence_failed();
         }
     }
 
@@ -201,33 +197,32 @@ final class RetireCanonicalRecordUseCase {
      * @param AA_Expediente_Aggregate_Lock_Lease $lease
      */
     private function retire_under_lock(
-        RetireCanonicalRecordCommand $command,
+        RetireCanonicalContainerCommand $command,
         int $family_id,
         $lease
-    ): RetireCanonicalRecordResult {
-        $record_id = $command->record_id();
+    ): RetireCanonicalContainerResult {
         $container_id = $command->container_id();
 
         $open = $this->runs->find_open_by_scope_target(
-            CanonicalPurgeRunsRepository::SCOPE_RECORD,
-            $record_id
+            CanonicalPurgeRunsRepository::SCOPE_CONTAINER,
+            $container_id
         );
         if ($open !== null && !$this->run_matches_command($open, $command)) {
-            return RetireCanonicalRecordResult::forbidden();
+            return RetireCanonicalContainerResult::forbidden();
         }
 
-        $record = $this->relational->find_record($container_id, $record_id);
+        $container = $this->relational->find_container($family_id, $container_id);
 
-        if ($open === null && $record === null) {
-            return RetireCanonicalRecordResult::record_not_found($container_id, $record_id);
+        if ($open === null && $container === null) {
+            return RetireCanonicalContainerResult::container_not_found($container_id);
         }
 
         $capture_complete = $open !== null && (int) ($open['capture_complete'] ?? 0) === 1;
         $already_sealed = $open !== null && CanonicalPurgeRunsRepository::nullable_string($open['sealed_at'] ?? null) !== null;
 
-        if ($record === null && !$capture_complete && !$already_sealed) {
-            return RetireCanonicalRecordResult::intervention_required($record_id, $container_id, [
-                'conflict_code' => 'record_missing_before_capture_complete',
+        if ($container === null && !$capture_complete && !$already_sealed) {
+            return RetireCanonicalContainerResult::intervention_required($container_id, [
+                'conflict_code' => 'container_missing_before_capture_complete',
             ]);
         }
 
@@ -235,8 +230,8 @@ final class RetireCanonicalRecordUseCase {
             $captured = $this->capture->execute_with_held_lock(
                 $lease,
                 new CaptureCanonicalPurgeInventoryCommand(
-                    CanonicalPurgeRunsRepository::SCOPE_RECORD,
-                    $record_id,
+                    CanonicalPurgeRunsRepository::SCOPE_CONTAINER,
+                    $container_id,
                     $container_id,
                     $command->family_key(),
                     2
@@ -247,104 +242,96 @@ final class RetireCanonicalRecordUseCase {
                 return $mapped;
             }
             $open = $this->runs->find_open_by_scope_target(
-                CanonicalPurgeRunsRepository::SCOPE_RECORD,
-                $record_id
+                CanonicalPurgeRunsRepository::SCOPE_CONTAINER,
+                $container_id
             );
             if ($open === null) {
-                return RetireCanonicalRecordResult::persistence_failed();
+                return RetireCanonicalContainerResult::persistence_failed();
             }
         } elseif ($open === null) {
-            return RetireCanonicalRecordResult::persistence_failed();
+            return RetireCanonicalContainerResult::persistence_failed();
         }
 
         if (!$this->run_matches_command($open, $command)) {
-            return RetireCanonicalRecordResult::forbidden();
+            return RetireCanonicalContainerResult::forbidden();
         }
 
         $cancellable = !CanonicalPurgeRunsRepository::has_attempted_remote_dispatch($open);
 
         if ($this->inventory->has_legacy_one_based_batches((int) $open['id'])) {
             if ($cancellable) {
-                return RetireCanonicalRecordResult::conflict($record_id, $container_id, [
+                return RetireCanonicalContainerResult::conflict($container_id, [
                     'conflict_code' => CanonicalPurgeRunsRepository::CONFLICT_LEGACY_BATCH_INDEX,
                     'can_cancel' => true,
                 ]);
             }
 
-            return RetireCanonicalRecordResult::intervention_required($record_id, $container_id, [
+            return RetireCanonicalContainerResult::intervention_required($container_id, [
                 'conflict_code' => CanonicalPurgeRunsRepository::CONFLICT_LEGACY_BATCH_INDEX,
             ]);
         }
 
         if ((string) ($open['capture_status'] ?? '') === AA_Canonical_Schema::PURGE_CAPTURE_STATUS_CONFLICT) {
-            return RetireCanonicalRecordResult::conflict($record_id, $container_id, [
+            return RetireCanonicalContainerResult::conflict($container_id, [
                 'conflict_code' => (string) ($open['capture_conflict_code'] ?? ''),
                 'can_cancel' => $cancellable,
             ]);
         }
 
         if ((int) ($open['capture_complete'] ?? 0) !== 1) {
-            return RetireCanonicalRecordResult::incomplete($record_id, $container_id);
+            return RetireCanonicalContainerResult::incomplete($container_id);
         }
 
         $prepared = (int) ($open['prepared_batch_count'] ?? 0);
         if ($prepared === 0) {
-            if ($this->images->count_for_record($record_id) > 0
-                || $this->operations->count_for_record($record_id) > 0
+            if ($this->images->count_for_container($container_id) > 0
+                || $this->operations->count_for_container($container_id) > 0
             ) {
-                return RetireCanonicalRecordResult::intervention_required($record_id, $container_id, [
+                return RetireCanonicalContainerResult::intervention_required($container_id, [
                     'conflict_code' => 'live_rows_outside_empty_inventory',
                 ]);
             }
-
-            return $this->commit_local($family_id, $container_id, $record_id, (int) $open['id']);
         }
 
         $sealed_at = CanonicalPurgeRunsRepository::nullable_string($open['sealed_at'] ?? null);
         if ($sealed_at === null) {
-            $hmac = $this->advance_remote($open, $record_id, $container_id);
-            if ($hmac instanceof RetireCanonicalRecordResult) {
+            $hmac = $this->advance_remote($open, $container_id);
+            if ($hmac instanceof RetireCanonicalContainerResult) {
                 return $hmac;
             }
             $open = $this->runs->find_by_id((int) $open['id']);
             if ($open === null) {
-                return RetireCanonicalRecordResult::persistence_failed();
+                return RetireCanonicalContainerResult::persistence_failed();
             }
             $sealed_at = CanonicalPurgeRunsRepository::nullable_string($open['sealed_at'] ?? null);
         }
 
         if ($sealed_at === null) {
-            return RetireCanonicalRecordResult::incomplete($record_id, $container_id);
+            return RetireCanonicalContainerResult::incomplete($container_id);
         }
 
-        return $this->commit_local($family_id, $container_id, $record_id, (int) $open['id']);
+        return $this->commit_local($family_id, $container_id, (int) $open['id']);
     }
 
-    private function cancel_open_run(RetireCanonicalRecordCommand $command): RetireCanonicalRecordResult {
+    private function cancel_open_run(RetireCanonicalContainerCommand $command): RetireCanonicalContainerResult {
         $open = $this->runs->find_open_by_scope_target(
-            CanonicalPurgeRunsRepository::SCOPE_RECORD,
-            $command->record_id()
+            CanonicalPurgeRunsRepository::SCOPE_CONTAINER,
+            $command->container_id()
         );
         if ($open === null) {
-            return RetireCanonicalRecordResult::record_not_found(
-                $command->container_id(),
-                $command->record_id()
-            );
+            return RetireCanonicalContainerResult::container_not_found($command->container_id());
         }
         if (!$this->run_matches_command($open, $command)) {
-            return RetireCanonicalRecordResult::forbidden();
+            return RetireCanonicalContainerResult::forbidden();
         }
         if (CanonicalPurgeRunsRepository::has_attempted_remote_dispatch($open)) {
-            return RetireCanonicalRecordResult::cancel_rejected(
-                $command->record_id(),
-                $command->container_id()
-            );
+            return RetireCanonicalContainerResult::cancel_rejected($command->container_id());
         }
 
         $now = gmdate('Y-m-d H:i:s');
         $this->runs->mark_cancelled((int) $open['id'], $now);
 
-        return RetireCanonicalRecordResult::cancelled($command->record_id(), $command->container_id());
+        return RetireCanonicalContainerResult::cancelled($command->container_id());
     }
 
     /**
@@ -352,35 +339,34 @@ final class RetireCanonicalRecordUseCase {
      */
     private function map_capture_result(
         CanonicalPurgeCaptureResult $captured,
-        RetireCanonicalRecordCommand $command,
+        RetireCanonicalContainerCommand $command,
         ?array $open_before
-    ): ?RetireCanonicalRecordResult {
-        $record_id = $command->record_id();
+    ): ?RetireCanonicalContainerResult {
         $container_id = $command->container_id();
 
         if ($captured->state() === CanonicalPurgeCaptureResult::STATE_RESOURCE_BUSY) {
-            return RetireCanonicalRecordResult::resource_busy();
+            return RetireCanonicalContainerResult::resource_busy();
         }
         if ($captured->state() === CanonicalPurgeCaptureResult::STATE_SCOPE_OVERLAP) {
-            return RetireCanonicalRecordResult::scope_overlap($record_id, $container_id);
+            return RetireCanonicalContainerResult::scope_overlap($container_id);
         }
         if ($captured->state() === CanonicalPurgeCaptureResult::STATE_INVALID_SCOPE
             || $captured->state() === CanonicalPurgeCaptureResult::STATE_SCHEMA_NOT_READY
             || $captured->state() === CanonicalPurgeCaptureResult::STATE_PERSISTENCE_FAILED
         ) {
-            return RetireCanonicalRecordResult::persistence_failed();
+            return RetireCanonicalContainerResult::persistence_failed();
         }
         if ($captured->state() === CanonicalPurgeCaptureResult::STATE_CONFLICT) {
             $cancellable = $open_before === null
                 || !CanonicalPurgeRunsRepository::has_attempted_remote_dispatch($open_before);
 
-            return RetireCanonicalRecordResult::conflict($record_id, $container_id, [
+            return RetireCanonicalContainerResult::conflict($container_id, [
                 'conflict_code' => $captured->capture_conflict_code() ?: CanonicalPurgeRunsRepository::CONFLICT_ITEM_METADATA,
                 'can_cancel' => $cancellable,
             ]);
         }
         if ($captured->state() === CanonicalPurgeCaptureResult::STATE_CAPTURE_PROGRESS) {
-            return RetireCanonicalRecordResult::incomplete($record_id, $container_id);
+            return RetireCanonicalContainerResult::incomplete($container_id);
         }
 
         return null;
@@ -388,31 +374,30 @@ final class RetireCanonicalRecordUseCase {
 
     /**
      * @param array<string, mixed> $run
-     * @return RetireCanonicalRecordResult|null null si el sello quedó acreditado
+     * @return RetireCanonicalContainerResult|null null si el sello quedó acreditado
      */
-    private function advance_remote(array $run, int $record_id, int $container_id): ?RetireCanonicalRecordResult {
+    private function advance_remote(array $run, int $container_id): ?RetireCanonicalContainerResult {
         $outcome = $this->remote->advance($run);
         if ($outcome->is_sealed()) {
             return null;
         }
         if ($outcome->state() === CanonicalPurgeRemoteAdvanceResult::STATE_INCOMPLETE) {
-            return RetireCanonicalRecordResult::incomplete($record_id, $container_id);
+            return RetireCanonicalContainerResult::incomplete($container_id);
         }
         if ($outcome->state() === CanonicalPurgeRemoteAdvanceResult::STATE_INTERVENTION) {
-            return RetireCanonicalRecordResult::intervention_required($record_id, $container_id, [
+            return RetireCanonicalContainerResult::intervention_required($container_id, [
                 'conflict_code' => $outcome->conflict_code() ?: 'remote_payload_invalid',
             ]);
         }
 
-        return RetireCanonicalRecordResult::persistence_failed();
+        return RetireCanonicalContainerResult::persistence_failed();
     }
 
     private function commit_local(
         int $family_id,
         int $container_id,
-        int $record_id,
         int $purge_run_id
-    ): RetireCanonicalRecordResult {
+    ): RetireCanonicalContainerResult {
         $quota = $this->lock->acquire(
             AA_Expediente_Aggregate_Lock::SCOPE_STORAGE_QUOTA,
             AA_Expediente_Aggregate_Lock::STORAGE_QUOTA_SCOPE_ID,
@@ -420,32 +405,35 @@ final class RetireCanonicalRecordUseCase {
         );
         if (is_wp_error($quota)) {
             if ($quota->get_error_code() === AA_Expediente_Aggregate_Lock::ERROR_RESOURCE_BUSY) {
-                return RetireCanonicalRecordResult::incomplete($record_id, $container_id);
+                return RetireCanonicalContainerResult::incomplete($container_id);
             }
 
-            return RetireCanonicalRecordResult::persistence_failed();
+            return RetireCanonicalContainerResult::persistence_failed();
         }
 
         try {
             $held = $this->lock->assert_held($quota);
             if (is_wp_error($held)) {
-                return RetireCanonicalRecordResult::persistence_failed();
+                return RetireCanonicalContainerResult::persistence_failed();
             }
 
-            $local = $this->local_store->retire_record($family_id, $container_id, $record_id, $purge_run_id);
+            $local = $this->local_store->retire_container_chunk($family_id, $container_id, $purge_run_id);
+            if ($local->is_incomplete()) {
+                return RetireCanonicalContainerResult::incomplete($container_id);
+            }
             if (!$local->is_confirmed()) {
                 if ($local->code() === 'live_rows_outside_inventory') {
-                    return RetireCanonicalRecordResult::intervention_required($record_id, $container_id, [
+                    return RetireCanonicalContainerResult::intervention_required($container_id, [
                         'conflict_code' => 'live_rows_outside_inventory',
                     ]);
                 }
 
-                return RetireCanonicalRecordResult::incomplete($record_id, $container_id);
+                return RetireCanonicalContainerResult::incomplete($container_id);
             }
 
-            return RetireCanonicalRecordResult::confirmed($record_id, $container_id);
+            return RetireCanonicalContainerResult::confirmed($container_id);
         } catch (CanonicalRelationalAmbiguousOutcome $e) {
-            return RetireCanonicalRecordResult::uncertain($record_id, $container_id);
+            return RetireCanonicalContainerResult::uncertain($container_id);
         } finally {
             $this->lock->release($quota);
         }
@@ -454,11 +442,10 @@ final class RetireCanonicalRecordUseCase {
     /**
      * @param array<string, mixed> $run
      */
-    private function run_matches_command(array $run, RetireCanonicalRecordCommand $command): bool {
+    private function run_matches_command(array $run, RetireCanonicalContainerCommand $command): bool {
         return (int) ($run['container_id'] ?? 0) === $command->container_id()
             && (string) ($run['family_key'] ?? '') === $command->family_key()
-            && (string) ($run['scope'] ?? '') === CanonicalPurgeRunsRepository::SCOPE_RECORD
-            && (int) ($run['target_id'] ?? 0) === $command->record_id();
+            && (string) ($run['scope'] ?? '') === CanonicalPurgeRunsRepository::SCOPE_CONTAINER
+            && (int) ($run['target_id'] ?? 0) === $command->container_id();
     }
-
 }

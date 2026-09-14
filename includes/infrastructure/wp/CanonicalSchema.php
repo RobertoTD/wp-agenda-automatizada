@@ -26,7 +26,10 @@
  * IMG-5 incremento 3 (DB 29): intención de envío HMAC (`accept_intent_batch_seq`,
  * `seal_intent_at`) y marca de cancelación local (`cancelled_at`) en purge_runs.
  *
- * Patrón técnico: dbDelta → ensure columnas v27/v28/v29 → migración v25 repertorio → ALTER FK → verify() fail-closed.
+ * IMG-5 incremento 4 (DB 30): checkpoints de retiro local post-sello de lista
+ * (`local_retire_after_inventory_id`, `local_retire_after_record_id`) en purge_runs.
+ *
+ * Patrón técnico: dbDelta → ensure columnas v27/v28/v29/v30 → migración v25 repertorio → ALTER FK → verify() fail-closed.
  * No escribe timestamps ni genera public_id (salvo copia de filas en migración v25).
  *
  * @package WP_Agenda_Automatizada
@@ -381,6 +384,8 @@ final class AA_Canonical_Schema {
             accept_intent_batch_seq int unsigned DEFAULT NULL,
             seal_intent_at datetime DEFAULT NULL,
             cancelled_at datetime DEFAULT NULL,
+            local_retire_after_inventory_id bigint(20) unsigned NOT NULL DEFAULT 0,
+            local_retire_after_record_id bigint(20) unsigned NOT NULL DEFAULT 0,
             created_at datetime NOT NULL,
             updated_at datetime NOT NULL,
             PRIMARY KEY  (id),
@@ -423,6 +428,7 @@ final class AA_Canonical_Schema {
         self::ensure_image_upload_operations_credentials_v27();
         self::ensure_purge_capture_v28();
         self::ensure_purge_retire_intent_v29();
+        self::ensure_purge_container_local_retire_v30();
         self::ensure_family_capabilities_v25();
         self::ensure_containers_family_scope_v22();
         self::ensure_named_indexes();
@@ -520,6 +526,31 @@ final class AA_Canonical_Schema {
         self::ensure_column_definition($runs, 'accept_intent_batch_seq', 'int unsigned DEFAULT NULL');
         self::ensure_column_definition($runs, 'seal_intent_at', 'datetime DEFAULT NULL');
         self::ensure_column_definition($runs, 'cancelled_at', 'datetime DEFAULT NULL');
+    }
+
+    /**
+     * IMG-5 inc. 4 / DB 30: checkpoints de retiro local post-sello (lista).
+     * 0 = ninguna identidad/registro de inventario aún retirado en esta corrida.
+     * Keyset, no OFFSET: id de inventario / id de registro ya procesado.
+     *
+     * @throws \RuntimeException
+     */
+    public static function ensure_purge_container_local_retire_v30(): void {
+        $runs = self::purge_runs_table_name();
+        if (!self::physical_table_exists($runs)) {
+            return;
+        }
+
+        self::ensure_column_definition(
+            $runs,
+            'local_retire_after_inventory_id',
+            'bigint(20) unsigned NOT NULL DEFAULT 0'
+        );
+        self::ensure_column_definition(
+            $runs,
+            'local_retire_after_record_id',
+            'bigint(20) unsigned NOT NULL DEFAULT 0'
+        );
     }
 
     /**
@@ -1536,6 +1567,7 @@ final class AA_Canonical_Schema {
             'capture_complete', 'batches_prepared', 'prepared_batch_count',
             'last_accepted_batch_seq', 'sealed_at', 'capture_conflict_code',
             'accept_intent_batch_seq', 'seal_intent_at', 'cancelled_at',
+            'local_retire_after_inventory_id', 'local_retire_after_record_id',
             'created_at', 'updated_at',
         ];
         foreach ($expected as $field) {
@@ -1573,6 +1605,8 @@ final class AA_Canonical_Schema {
         self::assert_int_unsigned_nullable($table, $cols['accept_intent_batch_seq'], 'accept_intent_batch_seq');
         self::assert_datetime_nullable($table, $cols['seal_intent_at'], 'seal_intent_at');
         self::assert_datetime_nullable($table, $cols['cancelled_at'], 'cancelled_at');
+        self::assert_bigint_unsigned_not_null($table, $cols['local_retire_after_inventory_id'], 'local_retire_after_inventory_id');
+        self::assert_bigint_unsigned_not_null($table, $cols['local_retire_after_record_id'], 'local_retire_after_record_id');
         self::assert_datetime_not_null_no_default($table, $cols['created_at'], 'created_at');
         self::assert_datetime_not_null_no_default($table, $cols['updated_at'], 'updated_at');
 

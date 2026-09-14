@@ -1,9 +1,11 @@
 <?php
 /**
- * Canonical Delete Container AJAX — eliminación productiva de contenedores universales (SB1-5B6).
+ * Canonical Delete Container AJAX — retiro productivo de una lista (IMG-5 inc. 4).
  *
- * Transporte + composition root de escritura. Sin SQL directo.
- * Los registros contenidos se eliminan exclusivamente por FK ON DELETE CASCADE.
+ * Transporte + composition root. Delega en RetireCanonicalContainerUseCase.
+ * Sin SQL directo. Sin mandate_id ni batch_seq en JSON.
+ * WriteCanonicalShellContainerUseCase::delete permanece como red de seguridad
+ * (RESTRICT + purge guard) y no es el camino productivo.
  *
  * @package WP_Agenda_Automatizada
  * @subpackage HTTP\AJAX
@@ -34,21 +36,30 @@ final class CanonicalDeleteContainerAjax {
 
         $family_key_raw = isset($_POST['family_key']) ? wp_unslash($_POST['family_key']) : null;
         $container_id_raw = isset($_POST['container_id']) ? wp_unslash($_POST['container_id']) : null;
+        $retire_action_raw = array_key_exists('retire_action', $_POST) ? wp_unslash($_POST['retire_action']) : '';
 
         if (is_array($family_key_raw) || is_object($family_key_raw)
             || is_array($container_id_raw) || is_object($container_id_raw)
+            || is_array($retire_action_raw) || is_object($retire_action_raw)
         ) {
             self::error('invalid_payload', 'La solicitud contiene campos no válidos.', 400);
         }
 
-        if (!is_string($family_key_raw) || $family_key_raw === ''
-        ) {
+        if (!is_string($family_key_raw) || $family_key_raw === '') {
             self::error('invalid_payload', 'La solicitud contiene campos no válidos.', 400);
         }
 
         $container_id = CanonicalShellWriteAjaxSupport::parse_positive_int($container_id_raw);
         if ($container_id === null) {
             self::error('invalid_container_id', 'La lista no es válida.', 400);
+        }
+
+        $intent = RetireCanonicalContainerCommand::INTENT_RETIRE;
+        if (is_string($retire_action_raw) && $retire_action_raw !== '') {
+            if ($retire_action_raw !== RetireCanonicalContainerCommand::INTENT_CANCEL) {
+                self::error('invalid_payload', 'La solicitud contiene campos no válidos.', 400);
+            }
+            $intent = RetireCanonicalContainerCommand::INTENT_CANCEL;
         }
 
         $family_key = sanitize_key($family_key_raw);
@@ -63,7 +74,11 @@ final class CanonicalDeleteContainerAjax {
         $resolved_family_key = $family->key();
 
         try {
-            $command = new CanonicalDeleteContainerCommand($container_id);
+            $command = new RetireCanonicalContainerCommand(
+                $resolved_family_key,
+                $container_id,
+                $intent
+            );
         } catch (\InvalidArgumentException $e) {
             $msg = $e->getMessage();
             if (strpos($msg, '[invalid_container_id]') === 0) {
@@ -72,25 +87,10 @@ final class CanonicalDeleteContainerAjax {
             self::error('invalid_payload', 'La solicitud contiene campos no válidos.', 400);
         }
 
-        $identity = new CanonicalReadIdentity($resolved_family_key);
-        $manifest = new CanonicalShellManifest($identity, $family);
+        $use_case = new RetireCanonicalContainerUseCase();
 
         try {
-            $gateway = CanonicalShellWriteAjaxSupport::build_write_gateway();
-        } catch (CanonicalShellWriteAjaxRejection $e) {
-            self::error($e->error_code(), $e->error_message(), $e->http_status());
-        }
-
-        $use_case = new WriteCanonicalShellContainerUseCase(
-            $gateway,
-            null,
-            null,
-            new CanonicalPurgeRunsRepository(),
-            AA_Expediente_Aggregate_Lock::create_default()
-        );
-
-        try {
-            $result = $use_case->delete($manifest, $command);
+            $result = $use_case->execute($command);
         } catch (\InvalidArgumentException $e) {
             self::error('persistence_failed', 'No se pudo eliminar la lista.', 500);
         } catch (\Throwable $e) {
@@ -119,22 +119,22 @@ final class CanonicalDeleteContainerAjax {
             ($redirect_page !== null && $redirect_page > 1) ? $redirect_page : null
         );
 
-        if ($state === CanonicalShellMutationResult::STATE_WRITE_ADAPTER_PENDING) {
-            self::error('write_adapter_pending', 'La escritura canónica aún no está disponible.', 409);
-        }
-        if ($state === CanonicalShellMutationResult::STATE_CONTAINER_NOT_FOUND) {
+        if ($state === RetireCanonicalContainerResult::STATE_CONTAINER_NOT_FOUND) {
             self::error('container_not_found', 'La lista solicitada no existe o no está disponible.', 404);
         }
-        if ($state === CanonicalShellMutationResult::STATE_PERSISTENCE_FAILED) {
+        if ($state === RetireCanonicalContainerResult::STATE_FORBIDDEN) {
+            self::error('forbidden', 'No tienes permiso para esta operación.', 403);
+        }
+        if ($state === RetireCanonicalContainerResult::STATE_PERSISTENCE_FAILED) {
             self::error('persistence_failed', 'No se pudo eliminar la lista.', 500);
         }
-        if ($state === CanonicalShellMutationResult::STATE_PURGE_IN_PROGRESS) {
-            self::error('purge_in_progress', 'Hay una eliminación en curso sobre este recurso.', 409);
-        }
-        if ($state === CanonicalShellMutationResult::STATE_RESOURCE_BUSY) {
+        if ($state === RetireCanonicalContainerResult::STATE_RESOURCE_BUSY) {
             self::error('resource_busy', 'El recurso está ocupado. Inténtalo de nuevo.', 409);
         }
-        if ($state === CanonicalShellMutationResult::STATE_UNCERTAIN) {
+        if ($state === RetireCanonicalContainerResult::STATE_SCOPE_OVERLAP) {
+            self::error('scope_overlap', 'Hay otra eliminación en curso sobre este recurso.', 409);
+        }
+        if ($state === RetireCanonicalContainerResult::STATE_UNCERTAIN) {
             self::error(
                 'uncertain',
                 'No fue posible confirmar si la lista se eliminó. Recarga el listado para verificarlo antes de intentarlo nuevamente.',
@@ -142,19 +142,67 @@ final class CanonicalDeleteContainerAjax {
                 ['redirect_url' => $redirect_url]
             );
         }
-        if ($state !== CanonicalShellMutationResult::STATE_CONFIRMED) {
-            self::error('persistence_failed', 'No se pudo eliminar la lista.', 500);
+        if ($state === RetireCanonicalContainerResult::STATE_INCOMPLETE) {
+            self::error(
+                'incomplete',
+                'La eliminación no terminó. Pulsa Continuar para seguir.',
+                409,
+                [
+                    'can_continue' => true,
+                    'can_cancel' => false,
+                ]
+            );
         }
-
-        $receipt = $result->receipt();
-        if (!$receipt instanceof CanonicalMutationReceipt) {
+        if ($state === RetireCanonicalContainerResult::STATE_CONFLICT) {
+            self::error(
+                'conflict',
+                'No se pudo preparar la eliminación. Puedes cancelarla para desbloquear la lista, o reintentar.',
+                409,
+                [
+                    'can_continue' => true,
+                    'can_cancel' => $result->can_cancel(),
+                ]
+            );
+        }
+        if ($state === RetireCanonicalContainerResult::STATE_CANCEL_REJECTED) {
+            self::error(
+                'cancel_rejected',
+                'Ya hubo comunicación remota. No se puede cancelar. Pulsa Continuar para recuperar el protocolo.',
+                409,
+                [
+                    'can_continue' => true,
+                    'can_cancel' => false,
+                ]
+            );
+        }
+        if ($state === RetireCanonicalContainerResult::STATE_INTERVENTION_REQUIRED) {
+            self::error(
+                'intervention_required',
+                'Esta eliminación no puede continuar sola. Recarga el listado. Si el problema persiste, hace falta una revisión.',
+                409,
+                [
+                    'can_continue' => false,
+                    'can_cancel' => false,
+                    'redirect_url' => $redirect_url,
+                ]
+            );
+        }
+        if ($state === RetireCanonicalContainerResult::STATE_CANCELLED) {
+            wp_send_json_success([
+                'status' => 'cancelled',
+                'resource_id' => $result->container_id(),
+                'container_id' => $result->container_id(),
+                'family_key' => $resolved_family_key,
+            ]);
+        }
+        if ($state !== RetireCanonicalContainerResult::STATE_CONFIRMED) {
             self::error('persistence_failed', 'No se pudo eliminar la lista.', 500);
         }
 
         wp_send_json_success([
             'status' => 'confirmed',
-            'resource_id' => $receipt->resource_id(),
-            'container_id' => $receipt->container_id(),
+            'resource_id' => $result->container_id(),
+            'container_id' => $result->container_id(),
             'family_key' => $resolved_family_key,
             'redirect_url' => $redirect_url,
         ]);
@@ -167,29 +215,14 @@ final class CanonicalDeleteContainerAjax {
         if (!class_exists('CanonicalShellWriteAjaxSupport')) {
             require_once __DIR__ . '/CanonicalShellWriteAjaxSupport.php';
         }
-        if (!class_exists('CanonicalDeleteContainerCommand')) {
-            require_once dirname(__DIR__, 2) . '/application/canonical/CanonicalDeleteContainerCommand.php';
+        if (!class_exists('RetireCanonicalContainerCommand')) {
+            require_once dirname(__DIR__, 2) . '/application/canonical/images/RetireCanonicalContainerCommand.php';
         }
-        if (!class_exists('CanonicalReadIdentity')) {
-            require_once dirname(__DIR__, 2) . '/application/canonical/CanonicalReadIdentity.php';
+        if (!class_exists('RetireCanonicalContainerResult')) {
+            require_once dirname(__DIR__, 2) . '/application/canonical/images/RetireCanonicalContainerResult.php';
         }
-        if (!class_exists('CanonicalShellManifest')) {
-            require_once dirname(__DIR__, 2) . '/application/canonical/CanonicalShellManifest.php';
-        }
-        if (!class_exists('WriteCanonicalShellContainerUseCase')) {
-            require_once dirname(__DIR__, 2) . '/application/canonical/WriteCanonicalShellContainerUseCase.php';
-        }
-        if (!class_exists('CanonicalPurgeRunsRepository')) {
-            require_once dirname(__DIR__, 2) . '/repositories/CanonicalPurgeRunsRepository.php';
-        }
-        if (!class_exists('AA_Expediente_Aggregate_Lock')) {
-            require_once dirname(__DIR__, 2) . '/infrastructure/wp/class-aa-expediente-aggregate-lock.php';
-        }
-        if (!class_exists('CanonicalShellMutationResult')) {
-            require_once dirname(__DIR__, 2) . '/application/canonical/CanonicalShellMutationResult.php';
-        }
-        if (!class_exists('CanonicalMutationReceipt')) {
-            require_once dirname(__DIR__, 2) . '/application/canonical/CanonicalMutationReceipt.php';
+        if (!class_exists('RetireCanonicalContainerUseCase')) {
+            require_once dirname(__DIR__, 2) . '/application/canonical/images/RetireCanonicalContainerUseCase.php';
         }
         if (!class_exists('AA_Canonical_Shell_Base_Url_Policy')) {
             require_once dirname(__DIR__, 2) . '/infrastructure/wp/class-aa-canonical-shell-base-url-policy.php';

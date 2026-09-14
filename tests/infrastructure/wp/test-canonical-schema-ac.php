@@ -55,7 +55,7 @@ $canonical_src = file_get_contents($canonical_schema_file);
 
 ac_assert('Schema.php es legible', is_string($schema_src) && $schema_src !== '');
 ac_assert('CanonicalSchema.php es legible', is_string($canonical_src) && $canonical_src !== '');
-ac_assert("AA_Schema::DB_VERSION es '29'", strpos($schema_src, "DB_VERSION = '29'") !== false);
+ac_assert("AA_Schema::DB_VERSION es '30'", strpos($schema_src, "DB_VERSION = '30'") !== false);
 ac_assert('Schema.php delega en AA_Canonical_Schema::install()', strpos($schema_src, 'AA_Canonical_Schema::install()') !== false);
 ac_assert(
     'Sin AA_Finance_Schema::install()',
@@ -120,6 +120,9 @@ ac_assert('TABLE_PURGE_RUNS', strpos($canonical_src, "TABLE_PURGE_RUNS = 'aa_can
 ac_assert('TABLE_PURGE_INVENTORY_ITEMS', strpos($canonical_src, "TABLE_PURGE_INVENTORY_ITEMS = 'aa_canonical_purge_inventory_items'") !== false);
 ac_assert('ensure_purge_capture_v28', strpos($canonical_src, 'ensure_purge_capture_v28') !== false);
 ac_assert('ensure_purge_retire_intent_v29', strpos($canonical_src, 'ensure_purge_retire_intent_v29') !== false);
+ac_assert('ensure_purge_container_local_retire_v30', strpos($canonical_src, 'ensure_purge_container_local_retire_v30') !== false);
+ac_assert('checkpoints locales de lista default 0', strpos($canonical_src, 'local_retire_after_inventory_id bigint(20) unsigned NOT NULL DEFAULT 0') !== false
+    && strpos($canonical_src, 'local_retire_after_record_id bigint(20) unsigned NOT NULL DEFAULT 0') !== false);
 ac_assert('intención HMAC y cancelación locales nulas hasta evidencia', strpos($canonical_src, 'accept_intent_batch_seq int unsigned DEFAULT NULL') !== false
     && strpos($canonical_src, 'seal_intent_at datetime DEFAULT NULL') !== false
     && strpos($canonical_src, 'cancelled_at datetime DEFAULT NULL') !== false);
@@ -419,6 +422,8 @@ if ($has_real_wp) {
         $accept_intent_col = $wpdb->get_row($wpdb->prepare("SHOW COLUMNS FROM `{$pr1}` LIKE %s", 'accept_intent_batch_seq'), ARRAY_A);
         $seal_intent_col = $wpdb->get_row($wpdb->prepare("SHOW COLUMNS FROM `{$pr1}` LIKE %s", 'seal_intent_at'), ARRAY_A);
         $cancelled_col = $wpdb->get_row($wpdb->prepare("SHOW COLUMNS FROM `{$pr1}` LIKE %s", 'cancelled_at'), ARRAY_A);
+        $after_inv_col = $wpdb->get_row($wpdb->prepare("SHOW COLUMNS FROM `{$pr1}` LIKE %s", 'local_retire_after_inventory_id'), ARRAY_A);
+        $after_rec_col = $wpdb->get_row($wpdb->prepare("SHOW COLUMNS FROM `{$pr1}` LIKE %s", 'local_retire_after_record_id'), ARRAY_A);
         ac_assert(
             'MySQL: columnas remotas de mandato son NULLABLE',
             is_array($mandate_col) && strtoupper((string) $mandate_col['Null']) === 'YES'
@@ -428,6 +433,47 @@ if ($has_real_wp) {
             && is_array($seal_intent_col) && strtoupper((string) $seal_intent_col['Null']) === 'YES'
             && is_array($cancelled_col) && strtoupper((string) $cancelled_col['Null']) === 'YES'
         );
+        ac_assert(
+            'MySQL: checkpoints locales de lista NOT NULL DEFAULT 0',
+            is_array($after_inv_col) && strtoupper((string) $after_inv_col['Null']) === 'NO'
+            && (string) ($after_inv_col['Default'] ?? '') === '0'
+            && is_array($after_rec_col) && strtoupper((string) $after_rec_col['Null']) === 'NO'
+            && (string) ($after_rec_col['Default'] ?? '') === '0'
+        );
+
+        $wpdb->insert(
+            $pr1,
+            [
+                'scope' => 'container',
+                'target_id' => 17,
+                'family_key' => 'finance',
+                'status' => 'incomplete',
+                'cursor_kind' => 'source_keyset',
+                'cursor_id' => 0,
+                'deleted_ok' => 0,
+                'failed_count' => 0,
+                'mandate_id' => 'bbbbbbbb-bbbb-4ccc-8ddd-111111111111',
+                'container_id' => 17,
+                'capture_status' => 'pending',
+                'created_at' => $now_preserve,
+                'updated_at' => $now_preserve,
+            ]
+        );
+        $upgrade_run_id = (int) $wpdb->insert_id;
+        $wpdb->query("ALTER TABLE `{$pr1}` DROP COLUMN local_retire_after_inventory_id");
+        $wpdb->query("ALTER TABLE `{$pr1}` DROP COLUMN local_retire_after_record_id");
+        AA_Canonical_Schema::install();
+        AA_Canonical_Schema::verify();
+        $after_inv_col2 = $wpdb->get_row($wpdb->prepare("SHOW COLUMNS FROM `{$pr1}` LIKE %s", 'local_retire_after_inventory_id'), ARRAY_A);
+        $after_rec_col2 = $wpdb->get_row($wpdb->prepare("SHOW COLUMNS FROM `{$pr1}` LIKE %s", 'local_retire_after_record_id'), ARRAY_A);
+        ac_assert(
+            'MySQL: reaplicar v30 restaura checkpoints y conserva corrida',
+            is_array($after_inv_col2)
+            && is_array($after_rec_col2)
+            && (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM `{$pr1}` WHERE id = %d", $upgrade_run_id)) === 1
+            && (int) $wpdb->get_var($wpdb->prepare("SELECT local_retire_after_inventory_id FROM `{$pr1}` WHERE id = %d", $upgrade_run_id)) === 0
+        );
+        $wpdb->query($wpdb->prepare("DELETE FROM `{$pr1}` WHERE id = %d", $upgrade_run_id));
 
         $idx_count = (int) $wpdb->get_var(
             $wpdb->prepare(
@@ -911,7 +957,7 @@ if ($has_real_wp) {
             update_option('aa_db_version', '20');
             AA_Schema::install();
             $stored = (string) get_option('aa_db_version', '0');
-            ac_assert("MySQL: AA_Schema::install deja aa_db_version=29", $stored === '29');
+            ac_assert("MySQL: AA_Schema::install deja aa_db_version=30", $stored === '30');
             $uf = $wpdb->prefix . AA_Canonical_Schema::TABLE_FAMILIES;
             $uc = $wpdb->prefix . AA_Canonical_Schema::TABLE_CONTAINERS;
             $ur = $wpdb->prefix . AA_Canonical_Schema::TABLE_RECORDS;

@@ -67,6 +67,7 @@
     var deleteCancelBtn = document.getElementById('aa-shell-delete-container-modal-cancel-btn');
     var deleteConfirmBtn = document.getElementById('aa-shell-delete-container-confirm-btn');
     var deleteReloadBtn = document.getElementById('aa-shell-delete-container-reload-btn');
+    var deleteAbortBtn = document.getElementById('aa-shell-delete-container-abort-btn');
     var deleteTitleEl = document.getElementById('aa-shell-delete-container-title');
     var deleteStatusEl = document.getElementById('aa-shell-delete-container-status');
 
@@ -89,6 +90,7 @@
     var deleteBlocked = false;
     var deletePreviousFocus = null;
     var deleteRedirectUrl = null;
+    var deleteConfirmDefaultLabel = deleteConfirmBtn ? deleteConfirmBtn.textContent : 'Eliminar lista';
 
     function appendReturnContext(body) {
         if (listsScope === 'all') {
@@ -681,6 +683,9 @@
                 deleteConfirmBtn.removeAttribute('aria-busy');
             }
         }
+        if (deleteAbortBtn) {
+            deleteAbortBtn.disabled = busy || deleteBlocked;
+        }
         if (deleteCancelBtn) {
             deleteCancelBtn.disabled = busy;
         }
@@ -705,6 +710,24 @@
         } else {
             deleteReloadBtn.classList.add('hidden');
         }
+    }
+
+    function showDeleteAbort(show) {
+        if (!deleteAbortBtn) {
+            return;
+        }
+        if (show) {
+            deleteAbortBtn.classList.remove('hidden');
+        } else {
+            deleteAbortBtn.classList.add('hidden');
+        }
+    }
+
+    function setDeleteConfirmLabel(label) {
+        if (!deleteConfirmBtn) {
+            return;
+        }
+        deleteConfirmBtn.textContent = label || deleteConfirmDefaultLabel;
     }
 
     function openDeleteModal(containerId, titleValue, triggerEl, nextFamilyKey) {
@@ -734,6 +757,8 @@
         deleteBlocked = false;
         setDeleteStatus('', false);
         showDeleteReload(false);
+        showDeleteAbort(false);
+        setDeleteConfirmLabel(deleteConfirmDefaultLabel);
         deleteTitleEl.textContent = typeof titleValue === 'string' ? titleValue : '';
         if (deleteConfirmBtn) {
             deleteConfirmBtn.disabled = false;
@@ -759,6 +784,8 @@
         deleteModal.setAttribute('aria-hidden', 'true');
         setDeleteStatus('', false);
         showDeleteReload(false);
+        showDeleteAbort(false);
+        setDeleteConfirmLabel(deleteConfirmDefaultLabel);
         deleteContainerId = null;
         deleteFamilyKey = null;
         deleteRedirectUrl = null;
@@ -770,7 +797,7 @@
         }
     }
 
-    function submitDelete() {
+    function submitDelete(retireAction) {
         if (!deleteModal || deleteInFlight || deleteBlocked) {
             return;
         }
@@ -788,6 +815,9 @@
         body.append('nonce', deleteNonce);
         body.append('family_key', deleteFamilyKey);
         body.append('container_id', String(deleteContainerId));
+        if (retireAction === 'cancel') {
+            body.append('retire_action', 'cancel');
+        }
         appendReturnContext(body);
 
         fetch(ajaxUrl, {
@@ -817,6 +847,12 @@
                 return;
             }
 
+            if (payload.success === true && payload.data && payload.data.status === 'cancelled') {
+                setDeleteBusy(false);
+                closeDeleteModal(true);
+                return;
+            }
+
             var err = payload.data || {};
             var code = typeof err.code === 'string' ? err.code : '';
             var message = typeof err.message === 'string' ? err.message : '';
@@ -829,8 +865,58 @@
                 if (deleteConfirmBtn) {
                     deleteConfirmBtn.disabled = true;
                 }
+                showDeleteAbort(false);
                 setDeleteStatus(
                     message || 'No fue posible confirmar si la lista se eliminó. Recarga el listado para verificarlo antes de intentarlo nuevamente.',
+                    false
+                );
+                showDeleteReload(true);
+                return;
+            }
+
+            if (code === 'incomplete') {
+                setDeleteBusy(false);
+                setDeleteConfirmLabel('Continuar');
+                showDeleteAbort(false);
+                setDeleteStatus(
+                    message || 'La eliminación no terminó. Pulsa Continuar para seguir.',
+                    false
+                );
+                return;
+            }
+
+            if (code === 'conflict') {
+                setDeleteBusy(false);
+                setDeleteConfirmLabel('Reintentar');
+                showDeleteAbort(err.can_cancel !== false);
+                setDeleteStatus(
+                    message || 'No se pudo preparar la eliminación. Puedes cancelarla para desbloquear la lista, o reintentar.',
+                    false
+                );
+                return;
+            }
+
+            if (code === 'cancel_rejected') {
+                setDeleteBusy(false);
+                setDeleteConfirmLabel('Continuar');
+                showDeleteAbort(false);
+                setDeleteStatus(
+                    message || 'Ya hubo comunicación remota. No se puede cancelar. Pulsa Continuar para recuperar el protocolo.',
+                    false
+                );
+                return;
+            }
+
+            if (code === 'intervention_required') {
+                deleteRedirectUrl = errRedirect !== '' ? errRedirect : null;
+                setDeleteBusy(false);
+                setDeleteConfirmLabel(deleteConfirmDefaultLabel);
+                showDeleteAbort(false);
+                if (deleteConfirmBtn) {
+                    deleteConfirmBtn.disabled = true;
+                }
+                setDeleteStatus(
+                    message || 'Esta eliminación no puede continuar sola. Recarga el listado. Si el problema persiste, hace falta una revisión.',
                     false
                 );
                 showDeleteReload(true);
@@ -937,6 +1023,11 @@
     if (deleteConfirmBtn) {
         deleteConfirmBtn.addEventListener('click', function () {
             submitDelete();
+        });
+    }
+    if (deleteAbortBtn) {
+        deleteAbortBtn.addEventListener('click', function () {
+            submitDelete('cancel');
         });
     }
     if (deleteReloadBtn) {
