@@ -10,7 +10,7 @@ No modifica el state de la prueba Backend 3 (worker local Storage, `docs/ops/att
 
 | Repo | Rama | HEAD |
 |------|------|------|
-| `wp-agenda-automatizada` | `dev/canonical-images-retire` | `9247acf53e7d07a2bbf724e3284fed9f0f9171dc` (docs UI cancel; código inc. 3 = `752274d…`) |
+| `wp-agenda-automatizada` | `dev/canonical-images-retire` | `7ec4078c7a891159a277101f91a9842dc6172dee` (diseño inc. 4; código inc. 3 = `752274d…`) |
 | `deoia-oauth-backend` (solo contratos) | `dev/backend-recovered` | `26452b3ba4ceb24b7bf46271fd30a0c58318ceed` (parche `authorize-upload`; untracked ajeno: `scripts/runner-from-pack.sh`) |
 
 **Backend Storage fixture (no reejecutada aquí):** immediate / later / reappear **PASS**. El caso reappear fue **sintético** (no un PUT tardío real del proveedor).
