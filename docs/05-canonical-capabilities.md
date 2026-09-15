@@ -12,7 +12,7 @@
 - **Estado implementado** — lo que existe hoy en el repositorio.
 - **Mecanismo técnico pendiente** — diseño o código aún no aprobado o no construido.
 
-Hoy (tras IMG-5 etapa de eliminaciones cerrada / DB 31): schema `DB_VERSION=31`; repertorio familiar en `aa_canonical_family_capabilities`; selección explícita de capacidades por lista en create/update del shell; familia canónica `finance` y capability `amount` (`is_ready=true`) sobre `aa_canonical_*`; escritura/lectura/UI amount operativas; único normalizador `AA_Canonical_Amount_Normalizer`; tablas físicas `images`/ops/purge + inventario de captura de retiro + checkpoints de retiro de lista + `record_id` durable en purge_runs; helper de consumo de instalación; attach Application/AJAX canónico (`aa_attach_canonical_record_image`) implementado; cliente HMAC de mandatos + captura durable de purge (IMG-5 inc. 1–2); retiro de un registro, de una lista y de **una imagen** vía mandatos (`aa_delete_canonical_record` / `aa_delete_canonical_container` / `aa_delete_canonical_record_image`) — **desarrollo de eliminaciones cerrado** (plan §9); capability `images` **registrada `is_ready=false`** (sin seeds ni UI de producto/galería). Observaciones residuales Continuar/Cerrar/banner conservadas sin PASS. **Exploración documental** del enchufe modular amount↔images: plan §10 (parcialmente enchufable; ruta seeds → UI attach → galería legacy → `is_ready`). Siguiente dirección CAP: implementar esa ruta; worker ops antes de producción. El módulo Finance legacy (`module=canonical`, `aa_finance_*`) está **retirado**.
+Hoy (tras IMG-5 etapa de eliminaciones cerrada / DB 31): schema `DB_VERSION=31`; repertorio familiar en `aa_canonical_family_capabilities`; selección explícita de capacidades por lista en create/update del shell; familia canónica `finance` y capability `amount` (`is_ready=true`) sobre `aa_canonical_*`; escritura/lectura/UI amount operativas; único normalizador `AA_Canonical_Amount_Normalizer`; tablas físicas `images`/ops/purge + inventario de captura de retiro + checkpoints de retiro de lista + `record_id` durable en purge_runs; helper de consumo de instalación; attach Application/AJAX canónico (`aa_attach_canonical_record_image`) implementado; cliente HMAC de mandatos + captura durable de purge (IMG-5 inc. 1–2); retiro de un registro, de una lista y de **una imagen** vía mandatos (`aa_delete_canonical_record` / `aa_delete_canonical_container` / `aa_delete_canonical_record_image`) — **desarrollo de eliminaciones cerrado** (plan §9); capability `images` **registrada `is_ready=false`** (sin seeds ni UI de producto/galería). Matriz normativa de repertorio/defaults `images` para `archive`/`finance`/`catalog`/`contact`: §12.1 (aún **no** materializada en BD). Observaciones residuales Continuar/Cerrar/banner conservadas sin PASS. **Exploración documental** amount↔images + primera etapa visible: plan §§10–11 (parcialmente enchufable; propuesta **no autorizada**). Worker ops antes de producción. El módulo Finance legacy (`module=canonical`, `aa_finance_*`) está **retirado**.
 
 ---
 
@@ -238,10 +238,22 @@ Las alternativas exploradas en sesiones de diseño no obligan al diseño final s
 - Clave estable: **`images`**.
 - Independiente de Expedientes/Clientes y de cualquier familia concreta; reutilizable mediante el shell.
 - Configuración efectiva **por lista** (mismas cuatro capas §2–4.1).
-- Repertorio: presente en **`finance`** y **`archive`**.
-- Defaults al crear lista **sin** selección explícita: `finance` → **desactivada**; `archive` → **activada**.
-- Listas existentes: **sin** cambio retroactivo al introducir o alterar defaults.
+- Label de producto del checkbox en «Campos y funciones»: **«Imágenes»**.
+- Repertorio y defaults al crear lista **sin** selección explícita (`family_key` reales del registry):
+
+| `family_key` | Label de producto | En repertorio | `is_default` (crear lista sin selección explícita) |
+|---|---|---|---|
+| `archive` | Archivo | sí | **1** (marcada) |
+| `finance` | Finanzas | sí | **0** (desmarcada) |
+| `catalog` | Catálogos | sí | **0** (desmarcada) |
+| `contact` | Contactos | sí | **0** (desmarcada) |
+
+- La asignación a familia, el default y la activación efectiva usan el **modelo común** (repertorio + `is_default` + `container_capabilities` + wire `scope`/`selection`). No hay condiciones especiales por familia en el frontend.
+- En **editar** lista se muestra la elección **persistida** de esa lista. No reaplicar defaults sobre decisiones guardadas.
+- Listas existentes: **sin** cambio retroactivo al introducir o alterar defaults (lifecycle insert-if-missing; nunca UPDATE de `is_default` ya guardado).
 - `amount` conserva su comportamiento; ambas pueden coexistir activas en la misma lista.
+
+**Estado implementado (no confundir con la matriz normativa):** al cierre de esta actualización documental, el catálogo registra `images` con `is_ready=false` y **no** hay seeds de repertorio para `images` en ninguna familia. La matriz de arriba es decisión aceptada; su materialización en BD/UI requiere el ciclo de producto autorizado (seeds + disponibilidad; ver plan).
 
 ### 12.2 Lectura, subida y conservación
 
@@ -262,6 +274,8 @@ La conservación reversible al desactivar es el criterio general de capabilities
 - Galería: miniatura en cabecera, imagen principal en panel expandido, tira/contador cuando corresponda, visor ampliado; selección/orden de sesión como en el legado útil, **sin** portada ni orden persistidos en v1.
 - No copiar contratos base del legacy (p. ej. `details` sigue opcional en el canon).
 - **Pospuesto:** selección múltiple en una operación; añadir imágenes desde la galería.
+
+La **primera etapa visible** planificada en `docs/plans/canonical-images-retire-wp-integration.md` §11 es un **subconjunto provisional de presentación** hacia esta experiencia (p. ej. representación sencilla de la última imagen confirmada), **sin** cambiar el modelo de almacenamiento ni convertir “una sola imagen por registro” en regla. No sustituye ni reduce esta §12.3.
 
 ### 12.4 Borrado deliberado
 

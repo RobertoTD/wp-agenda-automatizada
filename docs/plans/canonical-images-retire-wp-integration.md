@@ -1,8 +1,8 @@
 # Exploración: retiro canónico WP, mandatos de limpieza y cuota
 
-**Estado:** **etapa de desarrollo de eliminaciones IMG-5 cerrada** (alcances imagen / registro / contenedor). Incrementos 1–5 implementados en `dev/canonical-images-retire`. Integración HTTP policyytest de los tres alcances **PASS**. Observación del propietario: Eliminar imagen (registro 190 / imagen 5) **acreditada** (§8.12 / §8.13). Observaciones visuales residuales del 3/4 **conservadas sin PASS ni fallo de producto** (§9). `images` sigue `is_ready=false`. Worker periódico **apagado** (pendiente ops antes de producción). **§10 explorado (solo docs):** contraste amount/images + ruta mínima de integración modular / subida / galería legacy — **sin** implementación ni `is_ready=true`.
-**Fecha:** 2026-09-14 (cierre validación 5 / clics propietario: 2026-09-15 UTC; exploración integración capabilities: 2026-09-15).
-**Ámbito:** integración WordPress del retiro de registros/adjuntos canónicos y liberación de cuota, reutilizando `accept` / `seal` / `status` del backend; más exploración documental de enchufe modular de `images` al sistema común de capabilities.
+**Estado:** **etapa de desarrollo de eliminaciones IMG-5 cerrada** (alcances imagen / registro / contenedor). Incrementos 1–5 implementados en `dev/canonical-images-retire`. Integración HTTP policyytest de los tres alcances **PASS**. Observación del propietario: Eliminar imagen (registro 190 / imagen 5) **acreditada** (§8.12 / §8.13). Observaciones visuales residuales del 3/4 **conservadas sin PASS ni fallo de producto** (§9). `images` sigue `is_ready=false`. Worker periódico **apagado** (pendiente ops antes de producción). **§§10–11 (solo docs):** contraste amount/images + matriz de cuatro familias + plan propuesto de **primera etapa visible** — **sin** implementación ni `is_ready=true`; la propuesta de §11 **no está autorizada** hasta revisión del propietario.
+**Fecha:** 2026-09-14 (cierre validación 5 / clics propietario: 2026-09-15 UTC; exploración integración capabilities: 2026-09-15; planeación primera etapa visible: 2026-09-15).
+**Ámbito:** integración WordPress del retiro de registros/adjuntos canónicos y liberación de cuota, reutilizando `accept` / `seal` / `status` del backend; más exploración documental de enchufe modular de `images` al sistema común de capabilities y alcance de la primera etapa visible.
 
 No modifica el state de la prueba Backend 3 (worker local Storage, `docs/ops/attachment-delete-worker-local-storage-state.json`).
 
@@ -10,7 +10,7 @@ No modifica el state de la prueba Backend 3 (worker local Storage, `docs/ops/att
 
 | Repo | Rama | HEAD |
 |------|------|------|
-| `wp-agenda-automatizada` | `dev/canonical-images-retire` | (este commit: exploración §10 amount↔images; base previa `b3c6a727e5b1a6b614a5c38a7438f22bc5ebca0d`) |
+| `wp-agenda-automatizada` | `dev/canonical-images-retire` | (este commit docs: §§10–11 primera etapa visible; base `f9aee8299ee6c986426a3427859b87db3a896528`) |
 | `deoia-oauth-backend` (solo consulta; sin cambios) | `dev/backend-recovered` | `26452b3ba4ceb24b7bf46271fd30a0c58318ceed` (untracked ajeno: `scripts/runner-from-pack.sh`) |
 
 **Backend Storage fixture (no reejecutada aquí):** immediate / later / reappear **PASS**. El caso reappear fue **sintético** (no un PUT tardío real del proveedor).
@@ -1205,7 +1205,14 @@ Instancia arrancada para estas pruebas: `node index.js` **pid 63173**, `:3000`, 
 
 **Naturaleza:** solo lectura y documentación. No se activó `is_ready`, no se tocaron schema/runtime/datos, no se reabrieron eliminaciones ni fixtures de miniaturas. Norma vinculante: `docs/05-canonical-capabilities.md` §§2–5 y §12. Canon amount comprobado en código; `images` contrastada contra el mismo recorrido.
 
-**HEAD comprobados al explorar:** plugin `b3c6a727e5b1a6b614a5c38a7438f22bc5ebca0d` (`dev/canonical-images-retire`); backend `26452b3ba4ceb24b7bf46271fd30a0c58318ceed` (`dev/backend-recovered`, solo consulta).
+**HEAD comprobados:**
+
+| Momento | Plugin | Backend |
+|---------|--------|---------|
+| §10 inicial | `b3c6a727e5b1a6b614a5c38a7438f22bc5ebca0d` | `26452b3ba4ceb24b7bf46271fd30a0c58318ceed` |
+| §11 (esta sesión) | `f9aee8299ee6c986426a3427859b87db3a896528` (`dev/canonical-images-retire`; sin avance respecto al SHA conocido) | `26452b3ba4ceb24b7bf46271fd30a0c58318ceed` (`dev/backend-recovered`; sin avance; untracked ajeno `scripts/runner-from-pack.sh`) |
+
+Locales ajenos en plugin: `.cursor/hooks/__pycache__/` (no tocar).
 
 ### 10.1 Canon comprobado mediante `amount`
 
@@ -1218,29 +1225,43 @@ Cuatro capas (no confundir):
 | Activación por lista | Asignada + `is_active` | `aa_canonical_container_capabilities`; materializer o `scope`+`selection` |
 | Datos en registros | Valor tipado | `aa_canonical_record_amount` |
 
+**Familias reales** (`AA_Canonical_Core_Bootstrap`): `finance`, `archive`, `catalog`, `contact` (labels Finanzas / Archivo / Catálogos / Contactos).
+
 Recorrido real:
 
 1. **Registro:** `AA_Canonical_Capability_Definition` + registry freeze (`includes/infrastructure/canonical/class-aa-canonical-capability-registry-bootstrap.php`).
-2. **Repertorio:** `AA_Canonical_Capability_Defaults_Lifecycle::declared_seeds()` insert-if-missing; Ops/`SetFamilyCapabilityDefaultUseCase` pueden asignar `amount` a **otra** familia sin duplicar el handler.
-3. **Defaults → lista nueva:** `AA_Canonical_Capability_Defaults_Materializer` + `AA_Canonical_Materialize_Family_Defaults_Effect` (solo ready + `is_default`) cuando create **omite** selección; el modal «Campos y funciones» suele enviar selección explícita (`canonical-shell-container-form.js`).
-4. **Checkbox «Importe»:** opciones = repertorio ∩ ready (`index.php` ~1055–1067); label especial `amount`→«Importe»; montaje `#aa-shell-container-capabilities`.
-5. **Validación servidor:** `CanonicalContainerCapabilitySelectionPreparer` (selection ⊆ scope; known+ready; create ⊆ repertorio; update ⊆ repertorio ∪ ya asignada). Escritura de valor: `AA_Canonical_Amount_Write_Handler` exige fila activa → `CanonicalCapabilityInactive`.
-6. **Escritura/lectura:** WriteBag `amount` → normalizer → set/clear effects en TX del registro; enricher + `CanonicalAmountRecordsPageContributor` → presenters/card/form JS.
-7. **Desactivar/reactivar:** solo `is_active` en `container_capabilities`; **no** toca `aa_canonical_record_amount`. Reactivar recupera UI y lecturas. Clear de valor es escritura deliberada, no efecto de desactivación.
+2. **Repertorio:** `AA_Canonical_Capability_Defaults_Lifecycle::declared_seeds()` insert-if-missing; Ops/`SetFamilyCapabilityDefaultUseCase` pueden asignar `amount` a **otra** familia sin duplicar el handler. Lifecycle **omite** seeds de capacidades `!is_ready`.
+3. **Defaults → lista nueva:** `AA_Canonical_Capability_Defaults_Materializer` + `AA_Canonical_Materialize_Family_Defaults_Effect` (solo ready + `is_default`) cuando create **omite** selección.
+4. **UI create/edit lista:** el modal «Campos y funciones» con mount operativo **envía siempre** `capability_selection_scope` + `capability_selection` (`canonical-shell-container-form.js` `collectCapabilitySelectionFields`). Create con checkboxes pinta `checked = is_default`; edit pinta la elección persistida ∩ repertorio ready. Por tanto el camino omit→materializer **no** es el habitual del modal operativo; el habitual es selección **explícita**.
+5. **Checkbox «Importe»:** opciones = repertorio ∩ ready (`index.php` ~1055–1067); label especial `amount`→«Importe»; montaje `#aa-shell-container-capabilities`.
+6. **Validación servidor:** `CanonicalContainerCapabilitySelectionPreparer` (selection ⊆ scope; known+ready; create ⊆ repertorio; update ⊆ repertorio ∪ ya asignada). Escritura de valor: `AA_Canonical_Amount_Write_Handler` exige fila activa → `CanonicalCapabilityInactive`.
+7. **Escritura/lectura:** WriteBag `amount` → normalizer → set/clear effects en TX del registro; enricher + `CanonicalAmountRecordsPageContributor` → presenters/card/form JS (`AA_CANONICAL_SHELL_CAPABILITY_MODULES.amount`).
+8. **Desactivar/reactivar:** solo `is_active` en `container_capabilities`; **no** toca `aa_canonical_record_amount`. Reactivar recupera UI y lecturas. Clear de valor es escritura deliberada, no efecto de desactivación.
 
-`variant_key` retirado; ausente en este camino. Hardcode a `finance` limitado al **seed** de repertorio, no a la implementación de la capability.
+#### Omitir vs vacío (evidencia; no confundir con reaplicar defaults)
+
+| Caso | Transporte | Create | Update |
+|------|------------|--------|--------|
+| Ambos campos **ausentes** | `null` | Materializa defaults ready+`is_default` | No toca capacidades |
+| `scope=[]` / `selection=[]` **presentes** | instancia | **Sustituye** materializer → 0 caps | No-op de activaciones (mapa vacío) |
+| `scope=["amount"]` / `selection=[]` | instancia | amount asignada inactiva | Desactiva amount |
+| Lectura setup fallida (edit) | UI `unavailable` | — | **Omite** campos → conserva |
+
+Create con repertorio vacío + mount operativo también envía `[]`/`[]` (bloquea materializer). Eso es fricción UI distinta de “reaplicar defaults”; no es norma deseada para images.
+
+`variant_key` retirado; ausente en este camino. Hardcode a `finance` limitado al **seed** de repertorio de amount, no a la implementación de la capability.
 
 ### 10.2 Contraste `images` (tabla)
 
 | Punto | `amount` | `images` hoy | Estado |
 |-------|----------|--------------|--------|
 | Catálogo | `is_ready=true` | `is_ready=false` | Conectado; producto bloqueado a propósito |
-| Repertorio familia | Seed `finance` default on | **Sin seeds**; norma §12.1 pide finance off / archive on | Mecanismo común listo; seeds **pendientes** |
+| Repertorio familia | Seed `finance` default on | **Sin seeds**; norma §12.1 = cuatro familias (ver matriz abajo) | Mecanismo común listo; seeds **pendientes** |
 | Defaults materializer | Copia ready+default | Nunca emite `images` (not ready + sin filas) | Pendiente tras ready+seeds |
 | Activación por lista | UI + filas | Mismo upsert `is_active`; 0 filas producto | Mecanismo OK; UI oculta no-ready |
-| Checkbox «Campos y funciones» | «Importe» | Filtrado por `!is_ready` | Pendiente label + aparición tras ready |
+| Checkbox «Campos y funciones» | «Importe» | Filtrado por `!is_ready` | Pendiente label «Imágenes» + aparición tras ready |
 | Validación selección | Preparer común | Mismo preparer (rechaza not-ready en scope) | Conectado |
-| Gate escritura | Handler WriteBag | `UploadCanonicalRecordImageUseCase::assert_fresh_capability` (`capability_not_ready` / `capability_inactive`) | Conectado; **post-save attach**, no WriteBag (norma §12.3) |
+| Gate escritura | Handler WriteBag | `UploadCanonicalRecordImageUseCase::assert_fresh_capability` (`capability_not_ready` / `capability_inactive`) **solo en `run_fresh`** | Conectado; **post-save attach**, no WriteBag (§12.3) |
 | Gate lectura firmada | N/A (valor local) | `GetCanonicalRecordImageReadUrlUseCase` exige ready+active | Conectado |
 | Persistencia tipada | `aa_canonical_record_amount` | `aa_canonical_record_images` + ops | Implementado; identidad canónica |
 | Contributor página | Offered si lista activa | `CanonicalImagesRecordsPageContributor` → `not_offered` mientras `!is_ready` | Conectado; producto no ofrece |
@@ -1248,92 +1269,190 @@ Recorrido real:
 | Desactivar | Conserva valores | Conserva filas/cuota; rechaza nuevas subidas/firmas | Alineado §5/§12.2; **no** auto-borrado |
 | Delete deliberado | N/A | Mandatos IMG-5 **sin** gate `is_ready` | Cumple §12.4; cerrado §9 |
 
-**Comprobaciones explícitas:**
+**Matriz normativa `images` (docs/05 §12.1) vs implementado:**
 
-- Asignar `images` a otra familia: **no** exige duplicar código de capability — fila en `aa_canonical_family_capabilities` (+ seed cuando se autorice). Implementación keyed por `'images'`.
-- Dos listas misma familia, distinta activación: **sí** (`UNIQUE(container_id, capability_key)`).
-- Servidor respeta activación: **sí** en attach y sign-read (hoy también bloquea `is_ready`).
-- Lectura/escritura identidad canónica: **sí** (`aa_canonical_record_images`, `path_contract=canonical_v1`). Helpers en carpetas `expediente*` son **nombre histórico** / utilidades compartidas, no CRUD de `aa_expediente_adjuntos` en el camino canónico.
-- Eliminación con capability inactiva: **permitida** (AJAX/UC sin gate ready/active).
-- Desactivar ≠ borrar imágenes: **confirmado** en capa de config.
+| `family_key` | Norma repertorio | Norma `is_default` | Implementado |
+|---|---|---|---|
+| `archive` | sí | 1 | **sin fila** |
+| `finance` | sí | 0 | **sin fila** |
+| `catalog` | sí | 0 | **sin fila** |
+| `contact` | sí | 0 | **sin fila** |
 
-**Acoplamientos / divergencias (evidencia):**
+**Comprobaciones explícitas del checkbox (qué implica):**
 
-1. **Producto no enchufable aún:** `is_ready=false` + ausencia de seeds → checkbox y contributor no ofrecen `images` (`registry-bootstrap.php` 30–36; `declared_seeds()` solo amount; `index.php` 1060–1061).
-2. **Escritura fuera de WriteBag:** attach AJAX dedicado (`aa_attach_canonical_record_image`) — **divergencia deliberada** respecto a amount; alineada con §12.3 (guardar registro → luego adjuntar).
-3. **Card delete bypass:** listado de imágenes para «Eliminar imagen» lee repositorio sin exigir offered — correcto para §12.4; **no** es galería de producto.
-4. **Access Policy ambient:** `AA_Canonical_Access_Policy` exige `manage_options` si `family_key !== 'finance'` — no es propiedad de `images`, pero afecta la prueba de modularidad sobre `archive`.
-5. **Sin rutas legacy de datos en camino canónico de images:** no `aa_expediente_adjuntos` ni `POST /expediente/attachments/delete` en Application/Ajax canónicos de images; HMAC de mandatos reutiliza cliente de adjuntos solo como transporte.
+- **Activa:** lista con fila `images` `is_active=1` + catálogo ready → contributor `offered`; registros hijos pueden iniciar **nuevas** admisiones (`run_fresh`) y **nuevas** firmas de lectura; representación ofrecida.
+- **Desactiva:** controles/representación dejan de ofrecerse; **nuevas** subidas y **nuevas** firmas → rechazo; filas `aa_canonical_record_images`, objetos Storage y cuota **permanecen**; delete de imagen/registro/lista **sigue** (§12.4).
+- **Operación ya admitida:** `run_resume` / `confirm_after_transfer` **no** re-chequean ready/active (alineado §5: admisión ya admitida puede completar). Ocultar el picker **no** basta: el servidor es la guarda.
 
-**Veredicto:** `images` es **parcialmente enchufable**. El mecanismo común (catálogo, config por lista, gates de activación, contributor registry, persistencia tipada, delete por mandatos) ya está cableado. Falta el **cierre de producto** (seeds + `is_ready` + UI de activación visible + subida en formularios + galería). No hay acoplamiento funcional que obligue a forkar por familia ni a depender de tablas/endpoints de Expedientes para datos canónicos. No reintroducir `variant_key`.
+**Capas de madurez:**
 
-### 10.3 Reutilización de la galería legacy (dirección; sin rediseño)
+| Pieza | Implementado | Conectado a UI normal | Probado con stubs | Disponible con `is_ready=false` |
+|-------|--------------|----------------------|-------------------|----------------------------------|
+| Schema images/ops/purge | sí | N/A | sí | sí (infra) |
+| Attach AJAX/UC | sí | **no** (sin módulo JS shell) | sí (registry ready in-memory) | producto → 409 `capability_not_ready` |
+| Sign-read AJAX/UC | sí | **no** (sin cliente shell) | sí | 409 not_ready |
+| Contributor | sí | no ofrece | — | `not_offered` |
+| Delete 1 imagen | sí | sí (mínimo) | sí | **sí** (sin gate ready) |
+| Galería/picker | no | no | no | no |
 
-**Fuente visual/interacción:** `includes/admin/ui/modules/clients/expediente-registros.js` + CSS `admin.source.css` (bloques adjunto/galería/viewer).
+**Acoplamientos / divergencias:** ver §10.2 previa: escritura fuera de WriteBag; card delete bypass; Access Policy `manage_options` si `family_key !== 'finance'`; helpers `expediente*` = transporte/utilidades.
 
-| Pieza | Ubicación aproximada | Uso canónico previsto |
-|-------|----------------------|------------------------|
-| Miniatura cabecera | thumbs ~1285–1529; header ~2598+ | Sign-read variante summary vía `aa_sign_canonical_record_image_read` |
-| Imagen principal + tira + contador | `buildRecordGallery` ~1778–1880 | Alimentar con `known_collection` / DTO público canónico (`id` = image canónico) |
-| Selección de sesión | `selectedByRecord` ~496–504 | Conservar semántica de sesión; sin portada/orden persistidos (norma §12.3) |
-| Ampliación / lightbox | `openAdjuntoViewer` ~2249+ | Misma UX; URLs firmadas canónicas |
-| Control borrar | `confirmAndDeleteAdjunto` ~1924+ → sync Expedientes | **Sustituir** por `aa_delete_canonical_record_image` (mandatos); no `POST /expediente/attachments/delete` |
+**Veredicto:** `images` es **parcialmente enchufable**. Falta cierre de producto (seeds + label + UI attach + presentación + decisión de `is_ready`). No reintroducir `variant_key`.
 
-**Cómo enchufar sin contaminar:**
+### 10.3 Reutilización de la galería legacy (mapa; sin implementar)
 
-- Presentación = contributor/módulo shell keyed por `images`, no por `family_key=finance`.
-- No duplicar el shell por familia; no hacer la galería código fijo de finance.
-- Datos y mutaciones: endpoints canónicos ya existentes; no identidades de Expedientes.
-- Delete: protocolo IMG-5; no el delete síncrono legacy.
-- Extracción a módulo compartido vs adaptación in-situ: **decisión de implementación** (no de producto de datos); priorizar conservar la experiencia del propietario.
+**Fuente:** `includes/admin/ui/modules/clients/expediente-registros.js` + CSS `admin.source.css` / `admin.css` (`.aa-expediente-adjunto-*`, `.aa-expediente-galeria-*`).
 
-### 10.4 Ruta mínima de implementación (único plan; no rehacer lo correcto)
+| Concern | Funciones / clases | Reutilizable (A) | Acoplado legacy (B) |
+|---------|-------------------|------------------|---------------------|
+| Picker + preview local | `openRegistroForm`, `prepareExpedienteImage`, `renderPendingPreview` | Markup/CSS, resize JPEG cliente, object URLs, flowState | Caps `attach`, IDs expediente |
+| Post-save attach | `postAttach`, `flowState` saving→uploading | Orden texto→imagen, retry, mensaje parcial | Actions `aa_attach_expediente_*`, tabla `aa_expediente_adjuntos` |
+| Progreso | Texto botón «Subiendo imagen...» | Patrón mínimo (sin %) | — |
+| Thumb / main / strip / counter / viewer | `buildRecordGallery`, `openAdjuntoViewer`, IntersectionObserver | Presentación visual preferida del propietario | Sign-read variantes legacy, DTO `adjuntos[]` |
+| Delete sync legacy | `confirmAndDeleteAdjunto` | Confirm UX | **No copiar:** delete síncrono Expedientes; usar mandatos canónicos |
 
-Orden propuesto (un solo hilo; no reabrir IMG-5):
+Init/destroy: `ExpedienteRegistros.init`/`destroy`; observer al abrir `<details>`; cleanup object URLs al cerrar modal.
 
-1. **Cerrar enchufe modular (sin flip prematuro de ready):** seeds `finance`/`images` `is_default=0` y `archive`/`images` `is_default=1` vía lifecycle insert-if-missing; label de checkbox («Imágenes» o copy acordado); verificar que selección por lista y preparer ya aplican.
-2. **Cablear subida/confirmación existentes a UI de registro:** picker post-save → `aa_attach_canonical_record_image` (fresh/resume ya en UC); conservar registro si falla la imagen (§12.3).
-3. **Adaptar presentación legacy:** contributor `known_collection` + sign-read alimentan galería; delete control → mandato de una imagen; conservar miniatura/principal/tira/contador/visor.
-4. **Solo entonces** `is_ready=true` (norma §12.5: no ready sin seeds; no seeds como sustituto de bloqueo).
-5. **Validar recorrido completo** (propuesto; no sobre datos reales de producción ahora): ver §10.5.
-6. **Antes de producción (ops):** worker periódico Storage; residuales Continuar/Cerrar/banner (§9.2–9.3); sin Render ni activación ops sin encargo.
+### 10.4 Ruta histórica mínima (§10; supersedida en detalle por §11)
 
-**No tocar en esta ruta:** schema de purge/mandatos ya cerrado; contrato HMAC; conservación al desactivar; Access Policy salvo encargo aparte.
+Orden explorado el 2026-09-15 (aún válido como dirección amplia; el **alcance autorizado pendiente** es §11):
+
+1. Seeds + label «Imágenes».
+2. Cablear picker post-save → `aa_attach_canonical_record_image`.
+3. Adaptar presentación legacy (galería completa).
+4. `is_ready=true`.
+5. Validar modularidad.
+6. Ops worker antes de producción.
+
+§11 acota la **primera etapa visible** a un subconjunto provisional de (2)+(presentación sencilla), sin galería completa.
 
 ### 10.5 Prueba futura de modularidad (propuesta; no ejecutar ahora)
 
 Demostrar sin código por familia:
 
-1. `images` en repertorio de **dos** familias (p. ej. `finance` y `archive`) solo con filas + catálogo ready.
-2. Dos listas de la **misma** familia: una con `images` activa, otra inactiva — UI y servidor divergen solo por `container_capabilities`.
-3. Mismo attach / sign-read / galería / delete de imagen sin ramas `if (family_key === …)` en la capability.
-4. `amount` e `images` activas a la vez en una lista finance: coexistencia sin interferencia de valores.
-5. Desactivar `images` → controles/galería/offered desaparecen; filas y cuota permanecen; attach/sign nuevos → `capability_inactive`; reactivar → mismas imágenes; delete de registro/lista/imagen sigue permitido con inactive (§12.4).
+1. `images` en repertorio de las **cuatro** familias solo con filas + catálogo ready (§12.1).
+2. Dos listas de la **misma** familia: una con `images` activa, otra inactiva.
+3. Mismo attach / sign-read / presentación / delete sin ramas `if (family_key === …)` en la capability.
+4. `amount` e `images` coexistentes en finance.
+5. Desactivar → offered/off; datos/cuota intactos; attach/sign nuevos → `capability_inactive`; delete sigue; reactivar → mismas imágenes.
 
-### 10.6 Decisiones de producto realmente pendientes
+### 10.6 Decisiones de producto
 
-**Ya decididas (no reabrir):** conservación al desactivar; delete deliberado aunque inactive; post-save attach; repertorio finance off / archive on al materializar; galería estilo Expedientes; no migrar adjuntos legacy; `is_ready` solo al cerrar recorrido; worker apagado hasta ops.
+**Ya decididas (no reabrir):** conservación al desactivar; delete deliberado aunque inactive; post-save attach; matriz §12.1 de cuatro familias; no migrar adjuntos legacy; no `variant_key`; worker apagado hasta ops; galería estilo Expedientes como destino (§12.3).
 
-**Pendientes de producto/implementación:**
-
-| Tema | Nota |
-|------|------|
-| Copy del checkbox `images` | Hoy el fallback genérico mostraría la clave cruda; falta label de producto |
-| Momento exacto del flip `is_ready` | Tras UI subida+galería cableada y seeds; no en esta exploración |
-| Extracción vs adaptación in-situ de JS/CSS de galería | Conservar UX; detalle de módulo compartido es táctica |
-| Residuales Continuar/Cerrar/banner | Conservados sin PASS (§9.2); no bloquean el diseño de enchufe |
-| Activación worker / Render | Ops obligatoria antes de producción (§9.3); no parte del enchufe UI |
-
-**No inventar:** borrado automático al desactivar (ni norma ni código lo hacen).
+**Pendientes que cambian materialmente la etapa (ver §11.6):** momento del flip `is_ready`; detalle táctico de extracción vs adaptación in-situ del JS/CSS de thumb principal.
 
 ---
 
-## Fuera de alcance restante (post-eliminaciones + post-exploración §10)
+## 11. Primera etapa visible — hallazgos y propuesta (2026-09-15)
+
+**Naturaleza:** documentación. **Propuesta de implementación NO autorizada** hasta revisión del propietario. No se modificó runtime, schema instalado, catálogo, activaciones, datos, `.env` ni fixtures.
+
+**Clasificación:** capability (`images`) + superficies shell existentes (formulario lista, formulario registro, card).
+
+### 11.1 Objetivo aceptado para planear (criterios de terminado)
+
+1. Crear/editar lista y elegir **Imágenes** según matriz §12.1 y modelo común (sin `if` por familia en frontend).
+2. En un **registro** de lista con `images` activa: seleccionar y subir **una** imagen vía flujo canónico (`aa_attach_canonical_record_image`).
+3. Ver representación **sencilla** de la **última** imagen confirmada de ese registro.
+4. Recargar y seguir viéndola.
+5. Otra lista con `images` desactivada respeta la política común.
+6. Desactivar/reactivar **sin** borrar datos; eliminación deliberada permanece (§12.4).
+
+**«Última»:** orden estable ya implementado en lectura por lote — `ORDER BY i.record_id ASC, i.id DESC` → primer ítem del array por registro = `id` más alto (`CanonicalRecordImagesRepository::find_public_rows_by_record_ids_for_container`). No usar estado temporal del navegador. No borrar ni reemplazar imágenes anteriores al mostrar solo la última. No imponer “una imagen por registro”.
+
+**Fuera de esta etapa:** galería completa (tira/contador/visor), nuevas funciones de `amount`, agregados de lista, framework general de insertables JS, cambios de permisos ajenos a images, despliegue/activación de workers, Render.
+
+### 11.2 Qué se reutiliza directamente
+
+| Pieza | Evidencia |
+|-------|-----------|
+| Modelo común de selección lista | `CanonicalContainerCapabilitySelection*` + `canonical-shell-container-form.js` |
+| Attach Application/AJAX | `UploadCanonicalRecordImageUseCase`, `CanonicalAttachRecordImageAjax` |
+| Lectura por lote + DTO | `CanonicalImagesRecordsPageContributor`, `CanonicalRecordImagePublicDto` |
+| Sign-read | `aa_sign_canonical_record_image_read` / `GetCanonicalRecordImageReadUrlUseCase` |
+| Delete imagen | `aa_delete_canonical_record_image` + UI mínima card |
+| Superficie módulos capability registro | `AA_CANONICAL_SHELL_CAPABILITY_MODULES` + `canonical-shell-record-form.js` (patrón amount) |
+| Presentación principal legacy (CSS/patrón thumb) | `.aa-expediente-adjunto-thumb` / main gallery styles — adaptar, no rediseñar |
+| Prepare JPEG cliente (patrón) | `prepareExpedienteImage` (canon validator = JPEG) |
+
+### 11.3 Conexiones que faltan
+
+1. Seeds `images` en las cuatro familias + bump `DEFAULTS_VERSION` (insert-if-missing; no UPDATE).
+2. Label «Imágenes» junto a «Importe» en boot de opciones (`index.php`).
+3. Módulo JS shell `images` (picker post-save → attach; preview/retry) registrado en `AA_CANONICAL_SHELL_CAPABILITY_MODULES`.
+4. Presentación sencilla en card/panel cuando contributor `offered` + `known_collection` (sign-read de la primera fila = última por `id`).
+5. Flip `is_ready=true` **solo** tras cumplir criterios y con **aprobación explícita** (§11.5).
+6. Gates: sin ready, checkbox no aparece, preparer rechaza scope, attach/sign/contributor bloquean producto.
+
+**Persistir matriz sin sobrescribir:** lifecycle `insert_family_capability_if_missing`; seeds nuevos no tocan `is_default` existentes ni `container_capabilities` de listas ya creadas. Create/edit con selección explícita no reaplican defaults.
+
+**Restricción lifecycle:** `run_ensure` **salta** seeds si `!is_ready`. Ops `SetFamilyCapabilityDefault` con `enabled=true` (`is_default=1`) también exige ready. Por tanto `archive`/`images` default on **no** puede aterrizar en BD hasta ready (o un cambio de mecanismo no propuesto aquí). Seeds pueden **declararse** en código antes del flip; la inserción efectiva acompaña al ready + bump de versión.
+
+### 11.4 Cambios mínimos previstos por componente (propuesta)
+
+| Componente | Cambio mínimo |
+|------------|---------------|
+| `AA_Canonical_Capability_Defaults_Lifecycle` | Declarar 4 seeds `images`; bump `DEFAULTS_VERSION` |
+| Registry bootstrap | `images` → `is_ready=true` **solo** en el paso de disponibilidad aprobado |
+| `index.php` boot labels | `images` → «Imágenes» |
+| Nuevo `canonical-shell-images-field.js` (o nombre acorde) | Picker + prepare + post-save attach + retry; `offered` gate |
+| `canonical-shell-record-form.js` | Orquestar módulo images como amount (sin framework nuevo) |
+| Card / presenter images | Mostrar última confirmada (thumb/main legacy si viable) + conservar delete |
+| Tests | AC seeds/label/selection; JS módulo; attach UI; deactivate; «última» por `id` |
+
+**No tocar:** schema purge/mandatos; Access Policy (salvo encargo); worker; amount; galería completa.
+
+### 11.5 Orden de trabajo, dependencias e `is_ready`
+
+```text
+A. Declarar seeds + label + módulo UI + presentación sencilla (código)
+   └─ Validar con stubs/dev (registry ready in-memory) como IMG-5 — NO producto
+B. Criterios 1–6 en entorno de desarrollo con stub
+C. Aprobación del propietario: flip is_ready + bump DEFAULTS_VERSION
+D. Validación producto real (checkbox visible, attach, última imagen, deactivate)
+E. Galería completa (§12.3 / §10.4 paso 3) = etapa posterior
+F. Worker ops = antes de producción (no de esta etapa UI)
+```
+
+**No** saltarse `is_ready`. **No** habilitar globalmente una capability incompleta. Mientras `is_ready=false`, la etapa **no** es ofrecible en UI de producto aunque el código esté cableado.
+
+**Cómo validar sin flip:** mismos sustitutos de desarrollo ya usados (registry in-memory ready + stub `is_active=1` + validador `is_readable`); no acredita disponibilidad de producto.
+
+**Decisión de disponibilidad (aprobación posterior):** marcar `images` `is_ready=true` cuando A+B cumplan los seis criterios y el propietario autorice C. Esa decisión **no** se da por hecha en este plan.
+
+### 11.6 Restricciones actuales (no preguntas)
+
+- **Selección de archivo / momento de subida:** norma §12.3 y código: guardar registro primero; **después** adjuntar. Fallo de imagen conserva el registro; reintento solo de imagen.
+- **Formato:** attach canónico valida JPEG (`ExpedienteAdjuntoJpegValidator`); el patrón legacy convierte a JPEG en cliente.
+- **Omitir vs vacío en lista:** ver §10.1; no reaplicar defaults sobre listas existentes ni sobre selección explícita vacía.
+- **Access Policy:** no-finance exige `manage_options` — afecta pruebas en `archive`/`catalog`/`contact`, no es propiedad de `images`.
+
+### 11.7 Preguntas indispensables / contradicciones
+
+1. **Flip `is_ready`:** ¿autorizar C inmediatamente al cerrar A+B de esta etapa, o exigir también un mínimo de presentación legacy (thumb) antes del flip? (La propuesta asume flip tras A+B de §11.1.)
+2. **Discrepancia histórica cerrada en docs:** §12.1 previa solo `finance`/`archive`; esta sesión fija las **cuatro** familias. Código aún sin seeds — no hay conflicto de datos, solo de norma anterior.
+3. **No es pregunta:** conservación al desactivar; post-save; delete con inactive; no galería completa en esta etapa; no worker.
+
+### 11.8 Cómo se probará cada resultado visible (cuando se autorice código)
+
+| Criterio | Prueba |
+|----------|--------|
+| 1 Checkbox/matriz | Crear lista archive → Imágenes marcada; finance/catalog/contact → desmarcada; edit muestra persistido; sin retroactivo en listas viejas |
+| 2 Subida | Registro en lista activa → picker → save → attach → confirmada en BD |
+| 3–4 Presentación | Card muestra última por `id`; reload SSR/sign-read la conserva |
+| 5 Lista inactiva | Sin picker/offered; attach/sign → `capability_inactive` |
+| 6 Deactivate/reactivate | Filas/cuota intactas; UI off/on; delete imagen sigue |
+
+---
+
+## Fuera de alcance restante (post-eliminaciones + post-exploración §§10–11)
 
 - Observaciones residuales §9.2 (sin reclasificar).
-- Activar worker / cron WP / `is_ready` / Render sin un encargo ops explícito.
+- Activar worker / cron WP / `is_ready` / Render sin encargo explícito.
 - Cambiar TTL, tombstones o identidades Storage Backend 3.
-- Implementar subida/galería/`is_ready` sin un ciclo de código autorizado (esta §10 solo documenta la ruta).
+- Implementar §11 sin autorización del propietario.
+- Galería completa / carrusel / framework insertables / permisos ajenos.
 - Reabrir pruebas de eliminación ni investigar miniaturas de fixtures retiradas.
 
 **Backend Storage fixture (no reejecutada):** immediate / later / reappear **PASS**; reappear fue sintético. Worker periódico apagado.
