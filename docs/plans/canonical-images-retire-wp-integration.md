@@ -1,8 +1,8 @@
 # Exploración: retiro canónico WP, mandatos de limpieza y cuota
 
-**Estado:** **etapa de desarrollo de eliminaciones IMG-5 cerrada** (alcances imagen / registro / contenedor). Incrementos 1–5 implementados en `dev/canonical-images-retire`. Integración HTTP policyytest de los tres alcances **PASS**. Observación del propietario: Eliminar imagen (registro 190 / imagen 5) **acreditada** (§8.12 / §8.13). Observaciones visuales residuales del 3/4 **conservadas sin PASS ni fallo de producto** (§9). `images` sigue `is_ready=false`. Worker periódico **apagado** (pendiente ops antes de producción). **§§10–11 (solo docs):** contraste amount/images + matriz de cuatro familias + plan propuesto de **primera etapa visible** — **sin** implementación ni `is_ready=true`; la propuesta de §11 **no está autorizada** hasta revisión del propietario.
-**Fecha:** 2026-09-14 (cierre validación 5 / clics propietario: 2026-09-15 UTC; exploración integración capabilities: 2026-09-15; planeación primera etapa visible: 2026-09-15).
-**Ámbito:** integración WordPress del retiro de registros/adjuntos canónicos y liberación de cuota, reutilizando `accept` / `seal` / `status` del backend; más exploración documental de enchufe modular de `images` al sistema común de capabilities y alcance de la primera etapa visible.
+**Estado:** **etapa de desarrollo de eliminaciones IMG-5 cerrada**. `images` sigue `is_ready=false`. Worker periódico **apagado**. **§§10–11:** primera etapa visible (propuesta amplia, no autorizada). **§12:** **Paso 1 — activación por lista: propuesta pendiente de autorización** (solo docs; sin código).
+**Fecha:** 2026-09-14 (cierre validación 5 / clics: 2026-09-15 UTC; §§10–11: 2026-09-15; §12 Paso 1 activación: 2026-09-15).
+**Ámbito:** integración WordPress del retiro canónico; exploración amount↔images; plan de primera etapa visible; **propuesta acotada de activación por lista (Paso 1)**.
 
 No modifica el state de la prueba Backend 3 (worker local Storage, `docs/ops/attachment-delete-worker-local-storage-state.json`).
 
@@ -10,7 +10,7 @@ No modifica el state de la prueba Backend 3 (worker local Storage, `docs/ops/att
 
 | Repo | Rama | HEAD |
 |------|------|------|
-| `wp-agenda-automatizada` | `dev/canonical-images-retire` | (este commit docs: §§10–11 primera etapa visible; base `f9aee8299ee6c986426a3427859b87db3a896528`) |
+| `wp-agenda-automatizada` | `dev/canonical-images-retire` | (este commit docs: §12 Paso 1 activación; base `33e4bd886e2e29d2538e1be4193e22a69a628214`) |
 | `deoia-oauth-backend` (solo consulta; sin cambios) | `dev/backend-recovered` | `26452b3ba4ceb24b7bf46271fd30a0c58318ceed` (untracked ajeno: `scripts/runner-from-pack.sh`) |
 
 **Backend Storage fixture (no reejecutada aquí):** immediate / later / reappear **PASS**. El caso reappear fue **sintético** (no un PUT tardío real del proveedor).
@@ -1444,15 +1444,175 @@ F. Worker ops = antes de producción (no de esta etapa UI)
 | 5 Lista inactiva | Sin picker/offered; attach/sign → `capability_inactive` |
 | 6 Deactivate/reactivate | Filas/cuota intactas; UI off/on; delete imagen sigue |
 
+**Desglose de implementación:** el criterio 1 se planifica solo en **§12 (Paso 1)**; criterios 2–6 quedan para pasos posteriores de la etapa visible. §12 no autoriza código.
+
 ---
 
-## Fuera de alcance restante (post-eliminaciones + post-exploración §§10–11)
+## 12. Paso 1 — activación por lista: propuesta pendiente de autorización
+
+**Naturaleza:** solo lectura y documentación (2026-09-15). **No autoriza implementación.** No se tocó runtime, schema, catálogo, activaciones, datos, `.env` ni fixtures.
+
+**HEADs comprobados:** plugin `33e4bd886e2e29d2538e1be4193e22a69a628214` (`dev/canonical-images-retire`); backend `26452b3ba4ceb24b7bf46271fd30a0c58318ceed` (`dev/backend-recovered`). Worktrees: un worktree por repo. Locales ajenos intactos (plugin `__pycache__`; backend `scripts/runner-from-pack.sh`).
+
+**Alcance de este paso:** únicamente elegir **Imágenes** al crear/editar lista según matriz §12.1 y el mecanismo común de amount. **Fuera:** picker, subida, presentación, galería, cambios de eliminación, flip `is_ready`.
+
+Norma vinculante: `docs/05-canonical-capabilities.md` §§2–5 y §12.1. Semántica scope/selection **no se rediseña**.
+
+### 12.A Mecanismo común heredado (evidencia)
+
+Cadena amount (idéntica para cualquier clave ready en repertorio):
+
+| Eslabón | Archivo / símbolo |
+|---------|-------------------|
+| Catálogo | `AA_Canonical_Capability_Registry_Bootstrap` (`amount` ready; `images` not-ready) |
+| Seeds / versión | `AA_Canonical_Capability_Defaults_Lifecycle` (`DEFAULTS_VERSION=2`; `declared_seeds()`; insert-if-missing; **omite** `!is_ready`) |
+| Opciones modal | `canonical_shell/index.php` ~1047–1067: repertorio ∩ `is_ready`; label `amount`→«Importe», else clave cruda |
+| Checkbox UI | `canonical-shell-container-form.js` `renderCapabilityCheckboxes` / `applyCreateCapabilities` / `applyUpdateCapabilities` / `collectCapabilitySelectionFields` |
+| Parse wire | `CanonicalShellWriteAjaxSupport::parse_capability_selection_from_source` |
+| Create/Update UC | `WriteCanonicalShellContainerUseCase::resolve_create_effects` / `resolve_update_effects` |
+| Validación | `CanonicalContainerCapabilitySelectionPreparer` (`assert_known_ready`; create ⊆ repertorio; update ⊆ repertorio ∪ asignada; selection ⊆ scope) |
+| Persistencia | `AA_Canonical_Apply_Container_Capability_Selection_Effect` → `upsert_container_capability(..., is_active)` |
+| Edit boot | `ReadContainerCapabilityConfigUseCase` → `edit_container_capabilities_boot` (`active`/`assigned` o `unavailable`) |
+
+**No hace falta módulo JS de `images` para el checkbox de lista:** el montaje común ya basta cuando la clave aparece en `familyCapabilityOptions`.
+
+#### Payloads reales (ejemplos)
+
+Campos POST: `capability_selection_scope`, `capability_selection` (JSON listas).
+
+**a) Crear “usando defaults” vía modal operativo (camino habitual):** mount operativo → siempre envía ambos campos. Create con `checked = opt.is_default`.
+
+- Archive con repertorio ready `{images: is_default true}` y checkbox intacto:
+  - `capability_selection_scope=["images"]`
+  - `capability_selection=["images"]`
+  → fila `container_capabilities` images `is_active=1`.
+
+- Finance con `{amount: true, images: false}` y checkboxes intactos:
+  - `scope=["amount","images"]`, `selection=["amount"]`
+  → amount activa; images **asignada inactiva** (`is_active=0`).
+
+**b) Crear con selección explícita distinta de defaults:** mismo wire; p. ej. finance marca Imágenes:
+  - `scope=["amount","images"]`, `selection=["amount","images"]`.
+
+**c) Editar y desmarcar:** edit pinta `checked` desde `active` persistido ∩ opciones. Desmarcar images y guardar:
+  - `scope=["amount","images"]`, `selection=["amount"]` (si amount sigue marcada)
+  → upsert images `is_active=0`; **no** borra `aa_canonical_record_amount` ni imágenes (capa datos intacta).
+
+**d) Editar sin cambiar capabilities:** UI `unavailable` → `capabilitiesOperative=false` → **omite** ambos campos → `resolve_update_effects` [] → setup intacto. Si el mount está ok y el usuario no cambia checks, igual envía el snapshot actual de checkboxes (explícito no-op efectivo si coincide con persistido).
+
+**e) Omitir vs arrays vacíos:**
+
+| Wire | Create | Update |
+|------|--------|--------|
+| Ambos ausentes | Materializer (ready+`is_default`) | No toca caps |
+| `scope=[]` `selection=[]` | 0 filas de caps (sustituye materializer) | No-op de activaciones |
+| Exactamente uno presente | `invalid_payload` | igual |
+
+Tests de evidencia: `test-canonical-list-capability-selection-ac.php`; JS `canonical-shell-container-form.test.js`.
+
+### 12.B Delta mínimo de `images`
+
+| Cambio | Archivo | Responsabilidad | Por qué falta hoy | Reutiliza |
+|--------|---------|-----------------|-------------------|-----------|
+| 4 seeds `images` | `class-aa-canonical-capability-defaults-lifecycle.php` `declared_seeds()` | Repertorio + defaults matriz | Solo seed amount | Lifecycle insert-if-missing |
+| Bump `DEFAULTS_VERSION` | mismo (p. ej. 2→3) | Re-ejecutar ensure | Versión ya en 2 | `should_skip` / `run_ensure` |
+| Label «Imágenes» | `canonical_shell/index.php` boot options | Copy del checkbox | Hoy fallback = clave cruda; solo `amount` tiene label | Mismo mapa de opciones; **sin** JS nuevo |
+
+**No proponer:** endpoints, tablas, handlers, políticas, ni `canonical-shell-images-field.js` en este paso.
+
+**Orden con `is_ready` (obligatorio):** ver §12.D — **no** bump de versión mientras `images` siga not-ready si eso deja `OPTION_VERSION` adelantado sin insertar seeds.
+
+### 12.C Seeds, versiones y listas existentes
+
+Matriz a declarar (norma §12.1):
+
+| family_key | is_default |
+|---|---|
+| `archive` | true |
+| `finance` | false |
+| `catalog` | false |
+| `contact` | false |
+
+- Insert-if-missing: **no** sobrescribe `is_default` ya guardado ni toca `container_capabilities`.
+- Listas existentes: **sin** cambio retroactivo.
+- Filas de repertorio ya existentes (hoy: ninguna de images): si en el futuro hubiera una, el ensure no la pisa.
+- Modal archive marcada: con options ready + `is_default=true`, create envía `images` en selection (§12.A.a). No depende del camino omit→materializer.
+
+### 12.D Dependencia de `is_ready` y límite de validación
+
+Hoy: `images` `is_ready=false` → UI filtra la clave; preparer rechaza scope; lifecycle salta seeds; attach/sign/contributor bloquean producto.
+
+| Parte del Paso 1 | Con `is_ready=false` | Con ready (fin de etapa completa; **otra** autorización) |
+|------------------|----------------------|----------------------------------------------------------|
+| Declarar seeds en código | Posible; ensure **no** inserta | Inserta tras bump |
+| Label en `index.php` | Código inerte (clave filtrada) | Visible |
+| Checkbox en UI normal | **No aparece** | Visible |
+| AC Application con registry stub ready | Sí (aislado; como amount) | — |
+| Validación visual de producto | **No** — no llamarla así | Tras flip aprobado |
+
+**Bump `DEFAULTS_VERSION`:** acoplarlo al **mismo** cambio (o posterior inmediato) que ponga `images` `is_ready=true`. Si se bumpea ahora con not-ready, ensure corre, salta images, marca versión alta → al flip posterior **sin** nuevo bump los seeds **nunca** se insertan.
+
+**Conclusión expresa:** el Paso 1, implementado solo, queda **preparado y comprobable de forma aislada** (stubs/AC). **No** es validación visual de producto ni cierra el criterio 1 de §11 en la interfaz normal hasta el flip de disponibilidad al final de la etapa completa.
+
+**No** eludir el filtro ready; **no** flags alternativos; **no** habilitar `images` en este paso.
+
+### 12.E Operaciones admitidas vs desactivar (inspección; no cambiar en Paso 1)
+
+Canon §5 / §12.2: desactivar rechaza **nuevas** escrituras; una operación **ya admitida** puede completarse según contrato de `images`.
+
+| Concepto | Evidencia |
+|----------|-----------|
+| Admisión | Fila ops `status=admitted` con `upload_intent` + `upload_objects_json` + `backend_intent_exp_ms` vigentes |
+| `run_fresh` | Único camino que llama `assert_fresh_capability` (ready + `is_active`) → authorize → insert admitted → PUT → confirm |
+| `run_resume` | **Sin** re-chequeo ready/active; exige misma identidad (sha/mime/size); `authorize_canonical_upload` con `prior_upload_intent` (revalida intent/exp remotos); PUT usa **URLs firmadas ya persistidas** en el manifiesto local (no sustituye por URLs nuevas del authorize para `pending_upload`); luego `confirm_after_transfer` |
+| `confirm_after_transfer` | TX local insert image + delete ops + touch; sin gate de activación |
+| Desactivar | Solo `is_active` en config; no abre purge |
+| Purga/delete | Mandatos IMG-5; independiente de activación |
+
+**Pendiente a resolver antes del paso de subida (no del checkbox):** documentar/aceptar explícitamente que resume puede re-llamar authorize remoto y completar PUT tras desactivar, siempre que la admisión siga vigente — alineado a §5, pero conviene fijarlo en el plan de subida (¿timeout, cleanup al desactivar, etc.?). **No** mezclar con persistencia del checkbox. **No** cambiar comportamiento en Paso 1.
+
+### 12.F Pruebas previstas y cobertura
+
+| Caso | Cobertura hoy | Faltaría al implementar Paso 1 |
+|------|---------------|--------------------------------|
+| Matriz 4 familias + defaults | amount solo finance | AC seeds images; create stub por familia |
+| Create selección explícita modal | JS container-form + AC selection amount | Extender fixtures options con `images` + label |
+| Edit refleja/conserva | AC update omit/deactivate amount | Mismos asserts con clave `images` |
+| Desmarcar solo esa lista | UNIQUE container+key (amount) | Idem images; segunda lista intacta |
+| Reactivar | AC amount | Idem images (config only) |
+| No altera amount | implícito en effect por scope | Assert amount intacto al tocar solo images |
+| Seeds idempotentes / no overwrite | lifecycle amount | Assert insert-if-missing images; no UPDATE |
+| not-ready no aparece / no bypass | config AC «sin seed images»; UI filtra ready | Mantener assert producto not-ready; stub aparte |
+| Desactivar no borra datos | amount value intact; images filas (norma) | AC config-only; **no** ejecutar eliminaciones |
+
+Criterio de cierre del Paso 1 (cuando se autorice código): AC aislados PASS + declaración seeds/label según §12.B–D; **sin** exigir checkbox visible en UI normal mientras `is_ready=false`.
+
+### 12.G Archivos que cambiarían / no tocar
+
+**Cambiarían (propuesta):**
+
+- `includes/infrastructure/canonical/class-aa-canonical-capability-defaults-lifecycle.php`
+- `includes/admin/ui/modules/canonical_shell/index.php` (label)
+- Tests AC/JS de selección/seeds que hoy niegan images
+- Docs de estado al cerrar el incremento
+
+**No tocar en Paso 1:** registry `is_ready`; Upload/Sign-read/Delete UCs; `canonical-shell-record-form.js`; amount handler; schema/purge; backend; Access Policy; galería legacy; workers.
+
+### 12.H Preguntas pendientes
+
+Ninguna para el checkbox/persistencia: el canon y amount ya fijan la semántica.
+
+Único pendiente **ajeno al Paso 1** (subida): matizar contrato de resume tras desactivar (§12.E) — no bloquea esta propuesta.
+
+---
+
+## Fuera de alcance restante (post-eliminaciones + §§10–12)
 
 - Observaciones residuales §9.2 (sin reclasificar).
 - Activar worker / cron WP / `is_ready` / Render sin encargo explícito.
-- Cambiar TTL, tombstones o identidades Storage Backend 3.
-- Implementar §11 sin autorización del propietario.
-- Galería completa / carrusel / framework insertables / permisos ajenos.
-- Reabrir pruebas de eliminación ni investigar miniaturas de fixtures retiradas.
+- Implementar §11 o §12 sin autorización del propietario.
+- Picker/subida/presentación/galería; framework insertables; permisos ajenos.
+- Reabrir pruebas de eliminación ni fixtures de miniaturas.
+- Cambiar comportamiento resume/confirm en este paso.
 
 **Backend Storage fixture (no reejecutada):** immediate / later / reappear **PASS**; reappear fue sintético. Worker periódico apagado.
