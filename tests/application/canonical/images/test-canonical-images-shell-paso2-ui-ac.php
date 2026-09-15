@@ -60,10 +60,44 @@ ac_assert('Card miniatura summary', strpos($card, 'aa-shell-record-image-summary
 ac_assert('Presenter images registrado', strpos($bootstrap, 'class-aa-canonical-images-shell-presenter.php') !== false);
 ac_assert('DEFAULTS_VERSION = 3', strpos($defaults, 'public const DEFAULTS_VERSION = 3;') !== false);
 
+$resolve_pos = strpos($index, '$aa_shell_resolve_card_image_summary_url');
+$uc_require_pos = strpos(
+    $index,
+    "require_once dirname(__DIR__, 4) . '/application/canonical/images/GetCanonicalRecordImageReadUrlUseCase.php'"
+);
+ac_assert(
+    'SSR resolve carga GetCanonicalRecordImageReadUrlUseCase',
+    $resolve_pos !== false
+    && $uc_require_pos !== false
+    && $uc_require_pos > $resolve_pos
+    && strpos($index, 'new GetCanonicalRecordImageReadUrlUseCase()', $uc_require_pos) !== false
+);
+
 if (!defined('ABSPATH')) {
     define('ABSPATH', '/tmp/');
 }
+if (!function_exists('esc_attr')) {
+    function esc_attr(string $text): string {
+        return htmlspecialchars($text, ENT_QUOTES, 'UTF-8');
+    }
+}
+if (!function_exists('esc_html')) {
+    function esc_html(string $text): string {
+        return htmlspecialchars($text, ENT_QUOTES, 'UTF-8');
+    }
+}
+if (!function_exists('esc_url')) {
+    function esc_url(string $url): string {
+        return $url;
+    }
+}
+if (!function_exists('wp_json_encode')) {
+    function wp_json_encode($data, $options = 0, $depth = 512) {
+        return json_encode($data, $options, $depth);
+    }
+}
 require_once $plugin_root . '/includes/application/canonical/capabilities/CanonicalCapabilityRecordReadState.php';
+require_once $plugin_root . '/includes/admin/ui/modules/canonical_shell/presenters/class-aa-canonical-amount-shell-presenter.php';
 require_once $plugin_root . '/includes/admin/ui/modules/canonical_shell/presenters/class-aa-canonical-images-shell-presenter.php';
 
 echo "\n=== 2. Presenter: última = id DESC (primera del collection) ===\n";
@@ -145,6 +179,50 @@ $db_schema = (string) file_get_contents(
     $plugin_root . '/includes/infrastructure/wp/Schema.php'
 );
 ac_assert('DB_VERSION = 31 sin cambio', strpos($db_schema, "public const DB_VERSION = '31';") !== false);
+
+echo "\n=== 5. Card: delete textual sin URL; miniatura solo con URL ===\n";
+
+$collection_seven = CanonicalCapabilityRecordReadState::known_collection([
+    ['id' => 7, 'width' => 1, 'height' => 1, 'byte_size' => 1, 'created_at' => '2026-01-02'],
+])->to_array();
+
+$card_title = 'Registro 192';
+$card_details = 'woowow';
+$card_iso = '2026-09-15T12:00:00+00:00';
+$card_display = '15 sep 2026';
+$card_record_id = 192;
+$card_capabilities = ['images' => $collection_seven];
+$show_edit_record = false;
+$shell_record_presentation = 'compact';
+$card_images = [
+    ['id' => 7, 'record_id' => 192, 'width' => 1, 'height' => 1, 'byte_size' => 1, 'created_at' => '2026-01-02'],
+];
+$show_image_delete = true;
+$card_image_summary_url = null;
+
+ob_start();
+require $plugin_root . '/includes/admin/ui/modules/canonical_shell/partials/record-card.php';
+$html_no_url = (string) ob_get_clean();
+ac_assert('Sin URL: Imagen #7 visible', strpos($html_no_url, 'Imagen #7') !== false);
+ac_assert(
+    'Sin URL: sin miniatura summary',
+    strpos($html_no_url, 'aa-shell-record-image-summary') === false
+);
+ac_assert(
+    'Sin URL: botón Eliminar imagen presente',
+    strpos($html_no_url, 'aa-shell-delete-image-btn') !== false
+);
+
+$card_image_summary_url = 'https://signed.example/summary.jpg';
+ob_start();
+require $plugin_root . '/includes/admin/ui/modules/canonical_shell/partials/record-card.php';
+$html_with_url = (string) ob_get_clean();
+ac_assert(
+    'Con URL: miniatura summary presente',
+    strpos($html_with_url, 'aa-shell-record-image-summary__img') !== false
+    && strpos($html_with_url, 'https://signed.example/summary.jpg') !== false
+);
+ac_assert('Con URL: Imagen #7 sigue en delete', strpos($html_with_url, 'Imagen #7') !== false);
 
 echo "\n--- Resumen: {$passed}/{$total} ---\n";
 exit($failed === [] ? 0 : 1);

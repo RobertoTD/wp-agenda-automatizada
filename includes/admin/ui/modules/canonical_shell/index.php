@@ -184,6 +184,9 @@ $aa_shell_resolve_card_image_summary_url = static function (
     }
     if ($read_url_uc === null) {
         if (!class_exists('GetCanonicalRecordImageReadUrlUseCase')) {
+            require_once dirname(__DIR__, 4) . '/application/canonical/images/GetCanonicalRecordImageReadUrlUseCase.php';
+        }
+        if (!class_exists('GetCanonicalRecordImageReadUrlUseCase')) {
             return null;
         }
         try {

@@ -1640,6 +1640,7 @@ Norma: `docs/05-canonical-capabilities.md` §§5, §12.3 (post-save; destino gal
 | Hook post-save en `canonical-shell-record-form.js` | **Implementado** — attach tras `confirmed`+`resource_id` antes de redirect |
 | Markup + boot `attachImage*` en `index.php` | **Implementado** |
 | `AA_Canonical_Images_Shell_Presenter` + thumb card | **Implementado** — solo `summary`; firma fallida = omitir (discreto) |
+| SSR shell carga `GetCanonicalRecordImageReadUrlUseCase` al resolver thumb | **Implementado** — `require_once` en `$aa_shell_resolve_card_image_summary_url` (no solo AJAX) |
 | Redirect/recarga SSR | **Estrategia de esta etapa** |
 | Galería / display / visor / delete UI final | **Pendiente** |
 | `images.is_ready` | **true** (Paso 5) |
