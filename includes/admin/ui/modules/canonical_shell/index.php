@@ -160,6 +160,47 @@ $list_retire_in_progress = false;
 $orphan_container_purges = [];
 $records_page_images_by_record = [];
 $open_image_purges_on_records = [];
+$shell_images_read_url_uc = null;
+$aa_shell_resolve_card_image_summary_url = static function (
+    ?array $card_capabilities,
+    int $card_record_id,
+    string $family_key,
+    int $container_id,
+    &$read_url_uc
+): ?string {
+    if ($card_record_id < 1 || $family_key === '' || $container_id < 1) {
+        return null;
+    }
+    if (!class_exists('AA_Canonical_Images_Shell_Presenter')) {
+        return null;
+    }
+    $images_card = AA_Canonical_Images_Shell_Presenter::card_view($card_capabilities);
+    if (!is_array($images_card) || ($images_card['kind'] ?? '') !== 'thumb') {
+        return null;
+    }
+    $image_id = isset($images_card['image_id']) ? (int) $images_card['image_id'] : 0;
+    if ($image_id < 1) {
+        return null;
+    }
+    if ($read_url_uc === null) {
+        if (!class_exists('GetCanonicalRecordImageReadUrlUseCase')) {
+            return null;
+        }
+        try {
+            $read_url_uc = new GetCanonicalRecordImageReadUrlUseCase();
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
+    return AA_Canonical_Images_Shell_Presenter::resolve_summary_url(
+        $read_url_uc,
+        $family_key,
+        $container_id,
+        $card_record_id,
+        $image_id
+    );
+};
 try {
     if (!class_exists('CanonicalPurgeRunsRepository')) {
         require_once dirname(__DIR__, 4) . '/repositories/CanonicalPurgeRunsRepository.php';
@@ -525,6 +566,13 @@ $is_records_fill = $show_read_ui
                                             ? $records_page_images_by_record[$card_record_id]
                                             : [];
                                         $show_image_delete = $show_create_record_ui && !$list_retire_in_progress;
+                                        $card_image_summary_url = $aa_shell_resolve_card_image_summary_url(
+                                            $card_capabilities,
+                                            $card_record_id,
+                                            $create_family_key,
+                                            $create_container_id,
+                                            $shell_images_read_url_uc
+                                        );
                                         require __DIR__ . '/partials/record-card.php';
                                         ?>
                                     <?php endforeach; ?>
@@ -690,6 +738,13 @@ $is_records_fill = $show_read_ui
                                     ? $records_page_images_by_record[$card_record_id]
                                     : [];
                                 $show_image_delete = $show_create_record_ui && !$list_retire_in_progress;
+                                $card_image_summary_url = $aa_shell_resolve_card_image_summary_url(
+                                    $card_capabilities,
+                                    $card_record_id,
+                                    $create_family_key,
+                                    $create_container_id,
+                                    $shell_images_read_url_uc
+                                );
                                 require __DIR__ . '/partials/record-card.php';
                                 ?>
                             <?php endforeach; ?>
@@ -1426,6 +1481,7 @@ $is_records_fill = $show_read_ui
                             ? $view['capability_contributions']
                             : [];
                         $amount_offered = !empty($capability_contributions['amount']['offered']);
+                        $images_offered = !empty($capability_contributions['images']['offered']);
                         if ($amount_offered) :
                             ?>
                         <div
@@ -1449,6 +1505,66 @@ $is_records_fill = $show_read_ui
                             <p id="aa-shell-record-amount-unavailable" class="hidden mt-1 text-xs text-amber-800 font-medium" role="status">
                                 El importe no está disponible ahora. Puedes guardar el título y los detalles.
                             </p>
+                        </div>
+                        <?php endif; ?>
+                        <?php if ($images_offered) : ?>
+                        <div
+                            id="aa-shell-record-images-field"
+                            class="aa-shell-capability-field hidden"
+                            data-aa-capability-key="images"
+                            hidden
+                        >
+                            <span class="block text-xs font-semibold text-gray-700 mb-1">
+                                Imagen (opcional)
+                            </span>
+                            <div class="flex flex-wrap items-center gap-2">
+                                <label
+                                    id="aa-shell-record-image-trigger"
+                                    for="aa-shell-record-image-input"
+                                    class="inline-flex items-center px-3 py-1.5 text-xs font-semibold text-indigo-700 bg-indigo-50 border border-indigo-100 rounded-lg cursor-pointer hover:bg-indigo-100 focus-within:ring-2 focus-within:ring-indigo-500"
+                                >
+                                    Adjuntar imagen
+                                </label>
+                                <input
+                                    type="file"
+                                    id="aa-shell-record-image-input"
+                                    accept="image/jpeg,image/png,image/webp,image/*"
+                                    class="sr-only"
+                                    disabled
+                                />
+                                <button
+                                    type="button"
+                                    id="aa-shell-record-image-remove"
+                                    class="inline-flex items-center px-2 py-1 text-xs font-medium text-gray-600 hover:text-gray-900"
+                                >
+                                    Quitar
+                                </button>
+                                <button
+                                    type="button"
+                                    id="aa-shell-record-image-retry"
+                                    class="hidden inline-flex items-center px-2 py-1 text-xs font-semibold text-amber-900 bg-amber-50 border border-amber-200 rounded hover:bg-amber-100"
+                                    hidden
+                                    disabled
+                                >
+                                    Reintentar imagen
+                                </button>
+                            </div>
+                            <div
+                                id="aa-shell-record-image-preview-wrap"
+                                class="hidden mt-2 flex items-start gap-3"
+                                hidden
+                            >
+                                <img
+                                    id="aa-shell-record-image-preview"
+                                    class="rounded border border-gray-200 max-w-[5rem] max-h-[5rem] object-cover"
+                                    alt=""
+                                    width="80"
+                                    height="80"
+                                />
+                                <p id="aa-shell-record-image-preview-meta" class="text-xs text-gray-600 m-0"></p>
+                            </div>
+                            <p id="aa-shell-record-images-status" class="hidden mt-1 text-xs text-gray-600 font-medium" role="status"></p>
+                            <p id="aa-shell-record-images-error" class="hidden mt-1 text-xs text-red-600 font-medium"></p>
                         </div>
                         <?php endif; ?>
                     </div>
@@ -1624,6 +1740,8 @@ $is_records_fill = $show_read_ui
         deleteNonce: <?php echo wp_json_encode(wp_create_nonce(CanonicalDeleteRecordAjax::NONCE_ACTION)); ?>,
         deleteImageAction: <?php echo wp_json_encode(CanonicalDeleteRecordImageAjax::ACTION); ?>,
         deleteImageNonce: <?php echo wp_json_encode(wp_create_nonce(CanonicalDeleteRecordImageAjax::NONCE_ACTION)); ?>,
+        attachImageAction: <?php echo wp_json_encode(CanonicalAttachRecordImageAjax::ACTION); ?>,
+        attachImageNonce: <?php echo wp_json_encode(wp_create_nonce(CanonicalAttachRecordImageAjax::NONCE_ACTION)); ?>,
         familyKey: <?php echo wp_json_encode($create_family_key); ?>,
         containerId: <?php echo (int) $create_container_id; ?>,
         listsScope: <?php echo wp_json_encode($is_all_lists_scope ? 'all' : ''); ?>,
@@ -1641,6 +1759,9 @@ $is_records_fill = $show_read_ui
     <script src="<?php echo function_exists('aa_asset_url')
         ? aa_asset_url('includes/admin/ui/modules/canonical_shell/capabilities/canonical-shell-amount-field.js')
         : esc_url((defined('AA_PLUGIN_URL') ? AA_PLUGIN_URL : '') . 'includes/admin/ui/modules/canonical_shell/capabilities/canonical-shell-amount-field.js'); ?>"></script>
+    <script src="<?php echo function_exists('aa_asset_url')
+        ? aa_asset_url('includes/admin/ui/modules/canonical_shell/capabilities/canonical-shell-images-field.js')
+        : esc_url((defined('AA_PLUGIN_URL') ? AA_PLUGIN_URL : '') . 'includes/admin/ui/modules/canonical_shell/capabilities/canonical-shell-images-field.js'); ?>"></script>
     <script src="<?php echo function_exists('aa_asset_url')
         ? aa_asset_url('includes/admin/ui/modules/canonical_shell/canonical-shell-record-form.js')
         : esc_url((defined('AA_PLUGIN_URL') ? AA_PLUGIN_URL : '') . 'includes/admin/ui/modules/canonical_shell/canonical-shell-record-form.js'); ?>"></script>

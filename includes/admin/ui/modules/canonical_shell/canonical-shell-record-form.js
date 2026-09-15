@@ -91,8 +91,105 @@
             ) {
                 state = recordCapabilities[key];
             }
+            // Images: picker post-save; no depende del known_collection en el payload de edición.
+            if (!state && key === 'images') {
+                state = { status: 'known_absent' };
+            }
             mod.apply(state);
         }
+    }
+
+    function imagesModulePending() {
+        var mod = capabilityModules.images;
+        return !!(mod && typeof mod.hasPending === 'function' && mod.hasPending());
+    }
+
+    function resolveSavedRecordId(mode, payloadData) {
+        if (mode === MODE_UPDATE && currentRecordId >= 1) {
+            return currentRecordId;
+        }
+        if (payloadData && payloadData.resource_id != null) {
+            var parsed = parseInt(payloadData.resource_id, 10);
+            if (parsed >= 1) {
+                return parsed;
+            }
+        }
+        return 0;
+    }
+
+    function redirectAfterSave(redirect, fallbackMessage) {
+        if (typeof redirect === 'string' && redirect !== '') {
+            window.location.assign(redirect);
+            return;
+        }
+        setBusy(false);
+        setStatus(fallbackMessage, true);
+    }
+
+    /**
+     * Tras create/update confirmado: attach images pendiente, luego redirect SSR.
+     */
+    function continueAfterRecordConfirmed(mode, payloadData) {
+        var redirect = payloadData && typeof payloadData.redirect_url === 'string'
+            ? payloadData.redirect_url
+            : '';
+        var fallbackMessage = mode === MODE_UPDATE
+            ? 'Los cambios se guardaron, pero no se pudo redirigir. Recarga la lista.'
+            : 'El registro se creó, pero no se pudo redirigir. Recarga la lista.';
+
+        if (!imagesModulePending()) {
+            redirectAfterSave(redirect, fallbackMessage);
+            return;
+        }
+
+        var imagesMod = capabilityModules.images;
+        var recordIdForAttach = resolveSavedRecordId(mode, payloadData);
+        if (!(recordIdForAttach >= 1)) {
+            setBusy(false);
+            setStatus(
+                'El registro se guardó, pero no se pudo adjuntar la imagen (identificador inválido).',
+                true
+            );
+            return;
+        }
+
+        setStatus('Registro guardado. Subiendo imagen…', false);
+
+        var attachCtx = {
+            recordId: recordIdForAttach,
+            familyKey: familyKey,
+            containerId: containerId,
+            ajaxUrl: ajaxUrl,
+            attachAction: typeof cfg.attachImageAction === 'string' ? cfg.attachImageAction : '',
+            attachNonce: typeof cfg.attachImageNonce === 'string' ? cfg.attachImageNonce : '',
+            onSettled: function (attachResult) {
+                if (attachResult && attachResult.ok) {
+                    redirectAfterSave(redirect, fallbackMessage);
+                    return;
+                }
+                setBusy(false);
+                setStatus(
+                    (attachResult && attachResult.message)
+                        ? attachResult.message
+                        : 'No se pudo adjuntar la imagen. El registro se conservó.',
+                    true
+                );
+            }
+        };
+
+        imagesMod.afterRecordSaved(attachCtx).then(function (attachResult) {
+            if (attachResult && attachResult.ok) {
+                redirectAfterSave(redirect, fallbackMessage);
+                return;
+            }
+            setBusy(false);
+            setStatus(
+                (attachResult && attachResult.message)
+                    ? attachResult.message
+                    : 'No se pudo adjuntar la imagen. El registro se conservó.',
+                true
+            );
+        });
     }
 
     function clearCapabilityErrors() {
@@ -471,18 +568,7 @@
             }
 
             if (payload.success === true && payload.data && payload.data.status === 'confirmed') {
-                var redirect = payload.data.redirect_url;
-                if (typeof redirect === 'string' && redirect !== '') {
-                    window.location.assign(redirect);
-                    return;
-                }
-                setBusy(false);
-                setStatus(
-                    mode === MODE_UPDATE
-                        ? 'Los cambios se guardaron, pero no se pudo redirigir. Recarga la lista.'
-                        : 'El registro se creó, pero no se pudo redirigir. Recarga la lista.',
-                    true
-                );
+                continueAfterRecordConfirmed(mode, payload.data);
                 return;
             }
 

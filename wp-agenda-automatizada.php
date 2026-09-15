@@ -139,6 +139,7 @@ require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/canonical/clas
 require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/canonical/capabilities/class-aa-canonical-capability-ops.php';
 require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/canonical/capabilities/class-aa-canonical-capability-write-bootstrap.php';
 require_once plugin_dir_path(__FILE__) . 'includes/admin/ui/modules/canonical_shell/presenters/class-aa-canonical-amount-shell-presenter.php';
+require_once plugin_dir_path(__FILE__) . 'includes/admin/ui/modules/canonical_shell/presenters/class-aa-canonical-images-shell-presenter.php';
 AA_Canonical_Capability_Page_Contributor_Bootstrap::bootstrap();
 require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/wp/class-aa-canonical-shell-base-url-policy.php';
 require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/wp/class-aa-canonical-access-policy.php';

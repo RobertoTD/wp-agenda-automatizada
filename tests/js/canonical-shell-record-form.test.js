@@ -64,6 +64,7 @@ let lastFormData;
 function boot(fetchImpl, payloads, options) {
     options = options || {};
     const amountOffered = options.amountOffered === true;
+    const imagesOffered = options.imagesOffered === true;
     const openBtn = createEl('aa-shell-open-create-record-btn');
     const modal = createEl('aa-shell-record-modal');
     const form = createEl('aa-shell-record-form');
@@ -156,6 +157,25 @@ function boot(fetchImpl, payloads, options) {
     const amountUnavailable = createEl('aa-shell-record-amount-unavailable');
     amountUnavailable.classList.add('hidden');
 
+    const imagesWrap = createEl('aa-shell-record-images-field');
+    imagesWrap.classList.add('hidden');
+    const imageInput = createEl('aa-shell-record-image-input');
+    imageInput.disabled = true;
+    imageInput.files = null;
+    const imageTrigger = createEl('aa-shell-record-image-trigger');
+    const imagePreviewWrap = createEl('aa-shell-record-image-preview-wrap');
+    imagePreviewWrap.classList.add('hidden');
+    const imagePreview = createEl('aa-shell-record-image-preview');
+    const imagePreviewMeta = createEl('aa-shell-record-image-preview-meta');
+    const imageRemove = createEl('aa-shell-record-image-remove');
+    const imageRetry = createEl('aa-shell-record-image-retry');
+    imageRetry.classList.add('hidden');
+    imageRetry.disabled = true;
+    const imagesError = createEl('aa-shell-record-images-error');
+    imagesError.classList.add('hidden');
+    const imagesStatus = createEl('aa-shell-record-images-status');
+    imagesStatus.classList.add('hidden');
+
     const byId = {
         'aa-shell-open-create-record-btn': openBtn,
         'aa-shell-record-modal': modal,
@@ -173,6 +193,16 @@ function boot(fetchImpl, payloads, options) {
         'aa-shell-record-amount': amountInput,
         'aa-shell-record-amount-error': amountError,
         'aa-shell-record-amount-unavailable': amountUnavailable,
+        'aa-shell-record-images-field': imagesWrap,
+        'aa-shell-record-image-input': imageInput,
+        'aa-shell-record-image-trigger': imageTrigger,
+        'aa-shell-record-image-preview-wrap': imagePreviewWrap,
+        'aa-shell-record-image-preview': imagePreview,
+        'aa-shell-record-image-preview-meta': imagePreviewMeta,
+        'aa-shell-record-image-remove': imageRemove,
+        'aa-shell-record-image-retry': imageRetry,
+        'aa-shell-record-images-error': imagesError,
+        'aa-shell-record-images-status': imagesStatus,
         'aa-shell-delete-record-modal': deleteModal,
         'aa-shell-delete-record-modal-backdrop': deleteBackdrop,
         'aa-shell-delete-record-modal-close-btn': deleteCloseBtn,
@@ -197,6 +227,15 @@ function boot(fetchImpl, payloads, options) {
     let assignedUrl = null;
     let fetchCalls = 0;
     let reloaded = false;
+    const formDataCalls = [];
+
+    const capabilityContributions = {};
+    if (amountOffered) {
+        capabilityContributions.amount = { offered: true };
+    }
+    if (imagesOffered) {
+        capabilityContributions.images = { offered: true };
+    }
 
     documentRef = {
         activeElement: openBtn,
@@ -225,6 +264,9 @@ function boot(fetchImpl, payloads, options) {
         addEventListener(type, fn) {
             documentListeners[type] = documentListeners[type] || [];
             documentListeners[type].push(fn);
+        },
+        createElement(tag) {
+            return createEl(tag);
         }
     };
 
@@ -240,12 +282,12 @@ function boot(fetchImpl, payloads, options) {
                 deleteNonce: 'delete-nonce',
                 deleteImageAction: 'aa_delete_canonical_record_image',
                 deleteImageNonce: 'delete-image-nonce',
+                attachImageAction: 'aa_attach_canonical_record_image',
+                attachImageNonce: 'attach-image-nonce',
                 familyKey: 'finance',
                 containerId: 42,
                 maxTitleLength: 200,
-                capabilityContributions: amountOffered
-                    ? { amount: { offered: true } }
-                    : {}
+                capabilityContributions: capabilityContributions
             },
             AA_CANONICAL_SHELL_CAPABILITY_MODULES: {},
             location: {
@@ -267,9 +309,16 @@ function boot(fetchImpl, payloads, options) {
                 this._data[k] = v;
             }
         },
+        URL: {
+            createObjectURL() {
+                return 'blob:mock-preview';
+            },
+            revokeObjectURL() {}
+        },
         fetch: (url, options) => {
             fetchCalls += 1;
             lastFormData = options && options.body ? options.body._data : null;
+            formDataCalls.push(lastFormData ? Object.assign({}, lastFormData) : null);
             return fetchImpl();
         },
         console
@@ -279,8 +328,15 @@ function boot(fetchImpl, payloads, options) {
         __dirname,
         '../../includes/admin/ui/modules/canonical_shell/capabilities/canonical-shell-amount-field.js'
     );
+    const imagesJsPath = path.join(
+        __dirname,
+        '../../includes/admin/ui/modules/canonical_shell/capabilities/canonical-shell-images-field.js'
+    );
     vm.runInNewContext(fs.readFileSync(amountJsPath, 'utf8'), env, {
         filename: 'canonical-shell-amount-field.js'
+    });
+    vm.runInNewContext(fs.readFileSync(imagesJsPath, 'utf8'), env, {
+        filename: 'canonical-shell-images-field.js'
     });
     vm.runInNewContext(fs.readFileSync(jsPath, 'utf8'), env, {
         filename: 'canonical-shell-record-form.js'
@@ -306,6 +362,11 @@ function boot(fetchImpl, payloads, options) {
         amountInput,
         amountError,
         amountUnavailable,
+        imagesWrap,
+        imageInput,
+        imageRetry,
+        imagesError,
+        imagesStatus,
         deleteTitleEl,
         deleteStatusEl,
         deleteConfirmBtn,
@@ -317,9 +378,11 @@ function boot(fetchImpl, payloads, options) {
         deleteImageStatusEl,
         deleteImageIdLabel,
         documentListeners,
+        modules: env.window.AA_CANONICAL_SHELL_CAPABILITY_MODULES,
         getAssignedUrl: () => assignedUrl,
         getFetchCalls: () => fetchCalls,
         getLastFormData: () => lastFormData,
+        getFormDataCalls: () => formDataCalls,
         getReloaded: () => reloaded
     };
 }
@@ -892,5 +955,228 @@ describe('canonical-shell-record-form', () => {
         assert.equal(ui.amountError.textContent, 'Importe inválido');
         assert.equal(ui.amountError.classList.contains('hidden'), false);
         assert.ok(ui.statusEl.classList.contains('hidden') || ui.statusEl.textContent === '');
+    });
+
+    it('images offered: control visible en create; inactive/no offered: oculto', () => {
+        const offered = boot(async () => ({ status: 200, text: async () => '{}' }), [], {
+            imagesOffered: true
+        });
+        offered.openBtn._listeners.click[0]();
+        assert.equal(offered.imagesWrap.classList.contains('hidden'), false);
+        assert.equal(offered.imageInput.disabled, false);
+
+        const hidden = boot(async () => ({ status: 200, text: async () => '{}' }));
+        hidden.openBtn._listeners.click[0]();
+        assert.equal(hidden.imagesWrap.classList.contains('hidden'), true);
+    });
+
+    it('create: attach solo tras resource_id; luego redirect', async () => {
+        let call = 0;
+        const ui = boot(
+            async () => {
+                call += 1;
+                if (call === 1) {
+                    return {
+                        status: 200,
+                        text: async () => JSON.stringify({
+                            success: true,
+                            data: {
+                                status: 'confirmed',
+                                resource_id: 501,
+                                redirect_url: 'https://example.test/records?container_id=42'
+                            }
+                        })
+                    };
+                }
+                return {
+                    status: 200,
+                    text: async () => JSON.stringify({
+                        success: true,
+                        data: { image: { id: 9, width: 10, height: 10, byte_size: 100, created_at: '' } }
+                    })
+                };
+            },
+            [],
+            { imagesOffered: true }
+        );
+        ui.openBtn._listeners.click[0]();
+        ui.titleInput.value = 'Con imagen';
+        ui.modules.images._test.setPendingForTests({
+            blob: { size: 1200 },
+            previewUrl: 'blob:x',
+            operationId: '11111111-1111-4111-8111-111111111111'
+        });
+        ui.form._listeners.submit[0]({ preventDefault() {} });
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        assert.equal(ui.getFetchCalls(), 2);
+        const calls = ui.getFormDataCalls();
+        assert.equal(calls[0].action, 'aa_create_canonical_record');
+        assert.equal(calls[0].record_id, undefined);
+        assert.equal(calls[1].action, 'aa_attach_canonical_record_image');
+        assert.equal(calls[1].record_id, '501');
+        assert.equal(calls[1].upload_operation_id, '11111111-1111-4111-8111-111111111111');
+        assert.equal(ui.getAssignedUrl(), 'https://example.test/records?container_id=42');
+    });
+
+    it('edit existente: attach con record_id del registro', async () => {
+        let call = 0;
+        const ui = boot(
+            async () => {
+                call += 1;
+                if (call === 1) {
+                    return {
+                        status: 200,
+                        text: async () => JSON.stringify({
+                            success: true,
+                            data: {
+                                status: 'confirmed',
+                                resource_id: 11,
+                                redirect_url: 'https://example.test/records?r=1'
+                            }
+                        })
+                    };
+                }
+                return {
+                    status: 200,
+                    text: async () => JSON.stringify({
+                        success: true,
+                        data: { image: { id: 3 } }
+                    })
+                };
+            },
+            [{ id: 11, title: 'Old', details: '', capabilities: { images: { status: 'known_absent' } } }],
+            { imagesOffered: true }
+        );
+        ui.editBtns[0]._listeners.click[0]();
+        ui.modules.images._test.setPendingForTests({
+            blob: { size: 800 },
+            previewUrl: 'blob:y',
+            operationId: '22222222-2222-4222-8222-222222222222'
+        });
+        ui.form._listeners.submit[0]({ preventDefault() {} });
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        const calls = ui.getFormDataCalls();
+        assert.equal(calls[1].record_id, '11');
+        assert.equal(ui.getAssignedUrl(), 'https://example.test/records?r=1');
+    });
+
+    it('cancelar picker: sin pending no llama attach', async () => {
+        const ui = boot(
+            async () => ({
+                status: 200,
+                text: async () => JSON.stringify({
+                    success: true,
+                    data: {
+                        status: 'confirmed',
+                        resource_id: 77,
+                        redirect_url: 'https://example.test/ok'
+                    }
+                })
+            }),
+            [],
+            { imagesOffered: true }
+        );
+        ui.openBtn._listeners.click[0]();
+        ui.titleInput.value = 'Sin imagen';
+        assert.equal(ui.modules.images.hasPending(), false);
+        ui.form._listeners.submit[0]({ preventDefault() {} });
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        assert.equal(ui.getFetchCalls(), 1);
+        assert.equal(ui.getAssignedUrl(), 'https://example.test/ok');
+    });
+
+    it('fallo attach recuperable: conserva registro y reutiliza operation_id en retry', async () => {
+        let call = 0;
+        const opId = '33333333-3333-4333-8333-333333333333';
+        const ui = boot(
+            async () => {
+                call += 1;
+                if (call === 1) {
+                    return {
+                        status: 200,
+                        text: async () => JSON.stringify({
+                            success: true,
+                            data: {
+                                status: 'confirmed',
+                                resource_id: 88,
+                                redirect_url: 'https://example.test/after'
+                            }
+                        })
+                    };
+                }
+                if (call === 2) {
+                    return {
+                        status: 502,
+                        text: async () => JSON.stringify({
+                            success: false,
+                            data: {
+                                code: 'transfer_failed',
+                                message: 'Transferencia fallida'
+                            }
+                        })
+                    };
+                }
+                return {
+                    status: 200,
+                    text: async () => JSON.stringify({
+                        success: true,
+                        data: { image: { id: 4 } }
+                    })
+                };
+            },
+            [],
+            { imagesOffered: true }
+        );
+        ui.openBtn._listeners.click[0]();
+        ui.titleInput.value = 'Retry';
+        ui.modules.images._test.setPendingForTests({
+            blob: { size: 900 },
+            previewUrl: 'blob:z',
+            operationId: opId
+        });
+        ui.form._listeners.submit[0]({ preventDefault() {} });
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        assert.equal(ui.getAssignedUrl(), null);
+        assert.equal(ui.modal.classList.contains('hidden'), false);
+        assert.ok(ui.statusEl.textContent.indexOf('Transferencia') !== -1);
+        assert.equal(ui.modules.images.hasPending(), true);
+        assert.equal(ui.imageRetry.classList.contains('hidden'), false);
+
+        ui.imageRetry._listeners.click[0]({ preventDefault() {} });
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        const calls = ui.getFormDataCalls();
+        assert.equal(calls[1].upload_operation_id, opId);
+        assert.equal(calls[2].upload_operation_id, opId);
+        assert.equal(ui.getAssignedUrl(), 'https://example.test/after');
+    });
+
+    it('images + amount: amount sigue en WriteBag; images no', async () => {
+        const ui = boot(
+            async () => ({
+                status: 200,
+                text: async () => JSON.stringify({
+                    success: true,
+                    data: {
+                        status: 'confirmed',
+                        resource_id: 1,
+                        redirect_url: 'https://example.test/x'
+                    }
+                })
+            }),
+            [],
+            { amountOffered: true, imagesOffered: true }
+        );
+        ui.openBtn._listeners.click[0]();
+        ui.titleInput.value = 'Both';
+        ui.amountInput.value = '12.50';
+        ui.form._listeners.submit[0]({ preventDefault() {} });
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        assert.equal(ui.getLastFormData().amount, '12.50');
+        assert.equal(ui.getLastFormData().file, undefined);
+        assert.equal(ui.getFetchCalls(), 1);
     });
 });

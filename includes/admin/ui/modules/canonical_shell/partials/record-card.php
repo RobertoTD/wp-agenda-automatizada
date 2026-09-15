@@ -27,6 +27,11 @@ $show_image_delete = !empty($show_image_delete);
 
 $amount_card = AA_Canonical_Amount_Shell_Presenter::card_view($card_capabilities);
 $amount_edit = AA_Canonical_Amount_Shell_Presenter::edit_payload_fragment($card_capabilities);
+$images_card = AA_Canonical_Images_Shell_Presenter::card_view($card_capabilities);
+$images_edit = AA_Canonical_Images_Shell_Presenter::edit_payload_fragment($card_capabilities);
+$card_image_summary_url = isset($card_image_summary_url) && is_string($card_image_summary_url)
+    ? $card_image_summary_url
+    : null;
 
 $edit_payload_attr = '';
 if ($show_edit_record && $card_record_id >= 1) {
@@ -35,8 +40,15 @@ if ($show_edit_record && $card_record_id >= 1) {
         'title' => (string) $card_title,
         'details' => is_string($card_details) ? $card_details : '',
     ];
+    $edit_caps = [];
     if ($amount_edit !== null) {
-        $edit_payload['capabilities'] = ['amount' => $amount_edit];
+        $edit_caps['amount'] = $amount_edit;
+    }
+    if ($images_edit !== null) {
+        $edit_caps['images'] = $images_edit;
+    }
+    if ($edit_caps !== []) {
+        $edit_payload['capabilities'] = $edit_caps;
     }
     $edit_json = wp_json_encode(
         $edit_payload,
@@ -126,8 +138,21 @@ $panel_id = $card_record_id >= 1
                     No se pudo cargar el importe.
                 </p>
             <?php endif; ?>
+            <?php if (is_array($images_card) && ($images_card['kind'] ?? '') === 'thumb' && is_string($card_image_summary_url) && $card_image_summary_url !== '') : ?>
+                <div class="aa-shell-record-image-summary <?php echo ($has_details_text || is_array($amount_card)) ? 'mt-2' : ''; ?>">
+                    <img
+                        class="aa-shell-record-image-summary__img rounded border border-gray-200 max-w-[6rem] max-h-[6rem] object-cover"
+                        src="<?php echo esc_url($card_image_summary_url); ?>"
+                        alt=""
+                        width="96"
+                        height="96"
+                        loading="lazy"
+                        decoding="async"
+                    />
+                </div>
+            <?php endif; ?>
             <?php if ($has_updated) : ?>
-                <p class="aa-shell-record-updated text-xs text-gray-500 <?php echo ($has_details_text || is_array($amount_card)) ? 'mt-2' : ''; ?> m-0">
+                <p class="aa-shell-record-updated text-xs text-gray-500 <?php echo ($has_details_text || is_array($amount_card) || (is_array($images_card) && $card_image_summary_url)) ? 'mt-2' : ''; ?> m-0">
                     <time datetime="<?php echo esc_attr($card_iso); ?>"><?php echo esc_html($card_display); ?></time>
                 </p>
             <?php endif; ?>
@@ -190,6 +215,19 @@ $panel_id = $card_record_id >= 1
             <p class="aa-shell-record-amount-error mt-2 text-sm text-amber-800 m-0" role="status">
                 No se pudo cargar el importe.
             </p>
+        <?php endif; ?>
+        <?php if (is_array($images_card) && ($images_card['kind'] ?? '') === 'thumb' && is_string($card_image_summary_url) && $card_image_summary_url !== '') : ?>
+            <div class="aa-shell-record-image-summary mt-2">
+                <img
+                    class="aa-shell-record-image-summary__img rounded border border-gray-200 max-w-[6rem] max-h-[6rem] object-cover"
+                    src="<?php echo esc_url($card_image_summary_url); ?>"
+                    alt=""
+                    width="96"
+                    height="96"
+                    loading="lazy"
+                    decoding="async"
+                />
+            </div>
         <?php endif; ?>
         <?php if ($has_updated) : ?>
             <p class="mt-3 text-xs text-gray-500">
