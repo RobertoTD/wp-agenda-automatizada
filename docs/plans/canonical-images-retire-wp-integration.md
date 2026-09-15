@@ -1,7 +1,7 @@
 # Exploración: retiro canónico WP, mandatos de limpieza y cuota
 
-**Estado:** incrementos 1–5 implementados en `dev/canonical-images-retire`. Incremento 3: AJAX/HTTP PASS; Continuar UI registro y C de red pendientes. Incremento 4: AJAX A/B/C PASS; Continuar visual desde listado lista 22 PASS (§7.12); Cerrar/recargar/banner/altas **no** PASS. **Incremento 5 (una imagen, registro vivo): implementado (§8)** — AC MySQL/Ajax/JS PASS; `images` sigue `is_ready=false`. Sin cron/workers.
-**Fecha:** 2026-09-14.
+**Estado:** incrementos 1–5 implementados en `dev/canonical-images-retire`. Incremento 3: AJAX/HTTP PASS; Continuar UI registro y C de red pendientes. Incremento 4: AJAX A/B/C PASS; Continuar visual desde listado lista 22 PASS (§7.12); Cerrar/recargar/banner/altas **no** PASS. **Incremento 5 (una imagen, registro vivo): implementado (§8)** — AC MySQL/Ajax/JS PASS; validación integrada policyytest AJAX **PASS** (§8.12); botón SSR «Eliminar imagen» listo para clics del propietario; clics de navegador del propietario **pendientes**. `images` sigue `is_ready=false`. Sin cron/workers.
+**Fecha:** 2026-09-14 (validación 5: 2026-09-15 UTC).
 **Ámbito:** integración WordPress del retiro de registros/adjuntos canónicos y liberación de cuota, reutilizando `accept` / `seal` / `status` del backend.
 
 No modifica el state de la prueba Backend 3 (worker local Storage, `docs/ops/attachment-delete-worker-local-storage-state.json`).
@@ -1055,13 +1055,7 @@ No contadores de cuota. No Storage. No DELETE de `aa_canonical_records`.
 | Imagen ausente, registro vivo | No DELETE registro |
 | Nueva subida (identidad nueva) tras completed | No bloqueada por tombstone de la op vieja (stub de issuance) |
 
-**Manual policyytest (posterior a implementación; no en este turno):**
-
-- Fixture con ≥1 imagen confirmada (camino de desarrollo acotado como inc. 4 caso C si hace falta); Node local; worker apagado.
-- AJAX/UI: Eliminar imagen → confirmed; registro visible; cuota; residuo Storage esperado.
-- Incomplete/Continuar solo si se fuerza fallo de protocolo.
-- No marcar PASS de Cerrar/banner/altas del **incremento 4** en esta exploración.
-- Conservar lista 17 / registro 33 / Backend 3.
+**Manual policyytest:** ejecutada en §8.12 (AJAX integrado PASS; SSR botón presente; clics del propietario pendientes). Incomplete/Continuar forzado **no** se ejecutó. No se marca PASS de Cerrar/banner/altas del **incremento 4**. Lista 17 / registro 33 / Backend 3 conservados.
 
 ### 8.9 Bloqueos y veredicto
 
@@ -1080,7 +1074,7 @@ No contadores de cuota. No Storage. No DELETE de `aa_canonical_records`.
 
 Cerrar/recargar en incomplete, banner interior y bloqueo de altas del retiro de **lista** siguen **no PASS** (§7.12). Este incremento **no** los acredita ni los reabre.
 
-### 8.11 Procedimiento manual policyytest (posterior; **no ejecutar aquí**)
+### 8.11 Procedimiento manual policyytest
 
 1. Blog policyytest; Node local; worker Storage **apagado**.
 2. Crear **nueva** imagen sintética en un registro vivo (camino de desarrollo acotado; **no** reutilizar fixtures de lista 17 / registro 33 / Backend 3).
@@ -1088,6 +1082,68 @@ Cerrar/recargar en incomplete, banner interior y bloqueo de altas del retiro de 
 4. AJAX/UI: Eliminar imagen → `confirmed`; registro visible; cuota SUM baja; residuo Storage esperado.
 5. Incomplete/Continuar solo si se fuerza fallo de protocolo.
 6. No marcar PASS de Cerrar/banner/altas del incremento 4.
+
+Ejecución: §8.12. Incomplete/Continuar forzado sigue opcional/no ejecutado.
+
+### 8.12 Validación integrada policyytest (2026-09-15 UTC)
+
+Plugin HEAD `8093e71d869f816cbc816268381f40379323e086` (`dev/canonical-images-retire`). Backend HEAD `26452b3ba4ceb24b7bf46271fd30a0c58318ceed` (`dev/backend-recovered`, sin cambios de código).
+
+#### Entorno
+
+| Dato | Valor |
+|------|--------|
+| Sitio | `http://localhost/deoia-platform/policyytest/agenda-app` |
+| Blog / prefijo | **61** / **`wp_61_`** |
+| Identidad HMAC | `localhost/deoia-platform/policyytest` |
+| `AA_API_BASE_URL` | `http://localhost:3000` |
+| `installation_id` | `e49a26c8-c7db-4a8a-a84a-2643ddfb8b29` (derivado por backend; WP no lo envía) |
+| Schema | **antes = 30 → después = 31** vía `AA_Schema::maybe_migrate()` **solo** en blog 61 (`get_option` + `$wpdb->prefix`). Columna `aa_canonical_purge_runs.record_id` presente. Alcance: tablas/option de este blog; no se visitó admin de otros blogs. |
+| `images` | `is_ready=false`; 0 filas activas de lista |
+| Node | Arrancado para esta validación: `node index.js` **pid 63173**, health `{"ok":true}`. `ATTACHMENT_DELETE_WORKER=0`. Se **deja corriendo** para clics del propietario. |
+
+#### Fixtures nuevas (no lista 17 / registro 33 / Backend 3)
+
+Lista finance **id=23** `INC5-IMG-RETIRE-20260914` (`public_id=f96d62dc-aa23-46bb-a2e0-4a601bed3e87`). Capacidad de lista: `amount` activa (materializada por default familiar; **no** se tocó `images`).
+
+| Rol | Record | Título | Amount | Imagen | `upload_operation_id` | bytes | path |
+|-----|--------|--------|--------|--------|------------------------|-------|------|
+| AJAX integrado | **189** | `INC5-AJAX-image-retire` | `61.50` | **id=4** (retirada) | `d582110f-af27-41b3-835e-94c08dcafe2c` | 2994 | `…/canonical/records/189/d582110f-….jpg` |
+| Clics propietario | **190** | `INC5-OWNER-image-clicks` | `42.00` | **id=5** (viva) | `4b87205a-491b-492a-8a9e-b4084de2337a` | 2994 | `…/canonical/records/190/4b87205a-….jpg` |
+| Control aislamiento | **191** | `INC5-CONTROL-isolation` | `7.00` | **id=6** (viva) | `d6b73ea7-3633-4ec4-94f4-fc2594da1f34` | 2994 | `…/canonical/records/191/d6b73ea7-….jpg` |
+
+**Sustitución de desarrollo (acotada, no producto):** misma que inc. 3/4 caso C — registry in-memory `images` ready + stub `find_container_capability` `is_active=1` + validador `is_readable`. Sustituye **solo** el gate de catálogo/lista y el chequeo `is_uploaded_file`. Authorize/PUT/finalize/HMAC delete y TX de producto son los de instalación. Catálogo persistido intacto (`is_ready=false`, 0 filas `images` activas). **No** es subida habilitada en UI de producto. Un registro = una imagen (contrato vigente).
+
+#### AJAX `aa_delete_canonical_record_image` (registro 189 / imagen 4) — **PASS**
+
+- `success.status=confirmed`; redirect al iframe de la lista 23.
+- Corrida **11** `scope=image` `target_id=4` `record_id=189` `status=completed`; `prepared_batch_count=1`; `last_accepted_batch_seq=0`; `accept_intent_batch_seq=0`; `sealed_at` / `seal_intent_at` set.
+- Inventario 1 fila: op `d582110f-…`, `batch_seq=0`, `byte_size=2994`; corrida+inventario **conservados**.
+- Imagen 4 y su op **ausentes**; registro **189** vivo con título/detalles/`amount=61.50` intactos; `record.updated_at` sin cambio (contrato: touch de **contenedor**).
+- Contenedor 23 `updated_at` avanzó a `2026-09-15 00:09:25` UTC.
+- Cuota `canonical_images_sum` 9616→6622 (−2994). `confirmed_bytes` no aplicable en este blog (tabla ausente/null).
+- Imágenes 5 y 6 + registros 190/191 intactos.
+- Reintento autorizado misma imagen 4 → `confirmed` otra vez; **misma** corrida/mandato; cuota y controles sin cambio.
+
+#### Remoto (worker apagado)
+
+- Mandato `4c116538-85c6-4294-bea6-809a00d9d347`: `inventory_status=sealed`, `sealed_expected_batch_count=1`, `reception_item_count=1`, `structural_retire_authorized=true`.
+- Obligación `90ca4855-4fbd-4c17-821c-c2504be0545a` `physical_status=pending` (residuo Storage **esperado**; no borrado manual; worker no activado).
+
+#### SSR / preparación de clics del propietario
+
+- `is_ready=false` **no** oculta el delete mínimo: el shell lista filas vía `CanonicalRecordImagesRepository` sin exigir ready (§8 / §12.4).
+- HTML real del iframe lista 23 incluye `.aa-shell-delete-image-btn`, modal `#aa-shell-delete-image-modal` y boot `aa_delete_canonical_record_image`.
+- **URL:** `http://localhost/deoia-platform/policyytest/wp-admin/admin-post.php?action=aa_iframe_content&module=canonical_shell&family=finance&view=records&container_id=23`
+- **Registro a usar:** título `INC5-OWNER-image-clicks`, id **190**, imagen **#5** (botón «Eliminar imagen» en la card).
+- **No** se pre-eliminó por AJAX. Control 191/imagen 6 debe permanecer si solo se borra la 5.
+- **Clics de navegador:** no ejecutados en esta validación (pendientes del propietario). Comprobado por SQL/HTML/AJAX HTTP.
+
+#### Limitaciones (sin reclasificar)
+
+- Cerrar/recargar/banner/altas del **4** y Continuar UI / C de red del **3** siguen **no PASS**.
+- Residuos físicos de las tres identidades (AJAX + owner + control) pendientes de worker.
+- Attach de desarrollo **no** acredita galería/`is_ready`.
 
 ---
 
@@ -1097,7 +1153,7 @@ Cerrar/recargar en incomplete, banner interior y bloqueo de altas del retiro de 
 |------|-----------|
 | **Validación visual 4** | Cerrar/recargar incomplete; banner interior; bloqueo de altas (lista 22 Continuar listado ya PASS) |
 | **Validación 3** | Continuar UI de registro; C integrado (interrupción de red) |
-| **Validación 5** | Manual policyytest con imagen sintética nueva (§8.11) |
+| **Validación 5** | Clics de navegador del propietario sobre imagen **5** / registro **190** (AJAX+SSR §8.12 ya PASS) |
 | **Activación producto** | `is_ready` / seeds / UI galería — **después** de recorridos de borrado acordados |
 | **Ops** | Activación operativa del **worker** periódico de Storage (no WP ledger físico); Render/ops aparte de este diseño |
 
