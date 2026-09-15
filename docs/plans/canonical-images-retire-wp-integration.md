@@ -1,7 +1,7 @@
 # Exploración: retiro canónico WP, mandatos de limpieza y cuota
 
-**Estado:** incrementos 1–5 implementados en `dev/canonical-images-retire`. Incremento 3: AJAX/HTTP PASS; Continuar UI registro y C de red pendientes. Incremento 4: AJAX A/B/C PASS; Continuar visual desde listado lista 22 PASS (§7.12); Cerrar/recargar/banner/altas **no** PASS. **Incremento 5 (una imagen, registro vivo): implementado (§8)** — AC MySQL/Ajax/JS PASS; validación integrada policyytest AJAX **PASS** (§8.12); botón SSR «Eliminar imagen» listo para clics del propietario; clics de navegador del propietario **pendientes**. `images` sigue `is_ready=false`. Sin cron/workers.
-**Fecha:** 2026-09-14 (validación 5: 2026-09-15 UTC).
+**Estado:** **etapa de desarrollo de eliminaciones IMG-5 cerrada** (alcances imagen / registro / contenedor). Incrementos 1–5 implementados en `dev/canonical-images-retire`. Integración HTTP policyytest de los tres alcances **PASS**. Observación del propietario: Eliminar imagen (registro 190 / imagen 5) **acreditada** (§8.12 / §8.13). Observaciones visuales residuales del 3/4 **conservadas sin PASS ni fallo de producto** (§9). `images` sigue `is_ready=false`. Worker periódico **apagado** (pendiente ops antes de producción). Siguiente hito (no explorado): habilitar subida canónica + reutilizar galería legacy de Expedientes (§10).
+**Fecha:** 2026-09-14 (cierre validación 5 / clics propietario: 2026-09-15 UTC).
 **Ámbito:** integración WordPress del retiro de registros/adjuntos canónicos y liberación de cuota, reutilizando `accept` / `seal` / `status` del backend.
 
 No modifica el state de la prueba Backend 3 (worker local Storage, `docs/ops/attachment-delete-worker-local-storage-state.json`).
@@ -1055,7 +1055,7 @@ No contadores de cuota. No Storage. No DELETE de `aa_canonical_records`.
 | Imagen ausente, registro vivo | No DELETE registro |
 | Nueva subida (identidad nueva) tras completed | No bloqueada por tombstone de la op vieja (stub de issuance) |
 
-**Manual policyytest:** ejecutada en §8.12 (AJAX integrado PASS; SSR botón presente; clics del propietario pendientes). Incomplete/Continuar forzado **no** se ejecutó. No se marca PASS de Cerrar/banner/altas del **incremento 4**. Lista 17 / registro 33 / Backend 3 conservados.
+**Manual policyytest:** §8.12 (AJAX+SSR) + §8.13 (clics propietario imagen 5). Incomplete/Continuar forzado **no** se ejecutó. Observaciones residuales del **incremento 4** conservadas (§9.2). Lista 17 / registro 33 / Backend 3 conservados.
 
 ### 8.9 Bloqueos y veredicto
 
@@ -1137,34 +1137,81 @@ Lista finance **id=23** `INC5-IMG-RETIRE-20260914` (`public_id=f96d62dc-aa23-46b
 - **URL:** `http://localhost/deoia-platform/policyytest/wp-admin/admin-post.php?action=aa_iframe_content&module=canonical_shell&family=finance&view=records&container_id=23`
 - **Registro a usar:** título `INC5-OWNER-image-clicks`, id **190**, imagen **#5** (botón «Eliminar imagen» en la card).
 - **No** se pre-eliminó por AJAX. Control 191/imagen 6 debe permanecer si solo se borra la 5.
-- **Clics de navegador:** no ejecutados en esta validación (pendientes del propietario). Comprobado por SQL/HTML/AJAX HTTP.
+- **Clics de navegador:** propietario **acreditó** Eliminar imagen sobre registro **190** / imagen **5** (§8.13). Comprobado además por SQL/HTML/AJAX HTTP en §8.12–8.13. La ausencia de miniatura **no** se investiga ni se trata como fallo de eliminación.
 
 #### Limitaciones (sin reclasificar)
 
-- Cerrar/recargar/banner/altas del **4** y Continuar UI / C de red del **3** siguen **no PASS**.
-- Residuos físicos de las tres identidades (AJAX + owner + control) pendientes de worker.
+- Cerrar/recargar/banner/altas del **4** y Continuar UI / C de red del **3** siguen documentados como observaciones residuales (**no** PASS; **no** bloqueo funcional del retiro confirmado) — ver §9.
+- Residuos físicos (worker apagado) pendientes de ops — ver §9.2.
 - Attach de desarrollo **no** acredita galería/`is_ready`.
 
+### 8.13 Clics del propietario — imagen 5 / registro 190 (2026-09-15 UTC)
+
+**Observación del propietario:** en la card del registro 190 pulsó «Eliminar imagen»; el modal mostró confirmación y la acción pareció completarse; el registro permaneció. No veía miniatura antes — **no** es fallo de eliminación ni autorización de galería.
+
+**Verificación solo lectura (blog 61 / `wp_61_`, sin repetir borrado ni fixtures):**
+
+| Comprobación | Resultado |
+|--------------|-----------|
+| Imagen **5** | Ausente (`COUNT=0`) |
+| Registro **190** | Vivo: título `INC5-OWNER-image-clicks`, details intactos, `amount=42.00`; ops del registro = 0 |
+| Control **191** / imagen **6** | Intactos (op `d6b73ea7-…`, 2994 B) |
+| Corrida | **12** `scope=image` `target_id=5` `record_id=190` `status=completed`; `prepared_batch_count=1`; `last_accepted_batch_seq=0`; `sealed_at` / `seal_intent_at` set |
+| Inventario | 1 fila conservada: op `4b87205a-…`, `batch_seq=0`, 2994 B |
+| Cuota | `canonical_images_sum=3628` (= 6622 post-AJAX imagen 4 − 2994) |
+| Contenedor 23 | `updated_at=2026-09-15 00:17:01` (touch de recencia) |
+| Remoto | Mandato `5381bc3c-5727-4f79-a7e4-f6b0cfb690d7` sealed (`sealed_expected_batch_count=1`); obligación `becc0a5b-8dec-4cf7-9487-e131842fdf80` `physical_status=pending` |
+
+**Veredicto imagen (alcance `scope=image`):** desarrollo + HTTP + observación propietario **cerrados** para este recorrido. Residuo Storage esperado con worker apagado.
+
 ---
 
-## 9. Pendientes para cerrar la etapa de eliminaciones
+## 9. Balance de cierre — etapa de eliminaciones IMG-5
 
-| Capa | Pendiente |
-|------|-----------|
-| **Validación visual 4** | Cerrar/recargar incomplete; banner interior; bloqueo de altas (lista 22 Continuar listado ya PASS) |
-| **Validación 3** | Continuar UI de registro; C integrado (interrupción de red) |
-| **Validación 5** | Clics de navegador del propietario sobre imagen **5** / registro **190** (AJAX+SSR §8.12 ya PASS) |
-| **Activación producto** | `is_ready` / seeds / UI galería — **después** de recorridos de borrado acordados |
-| **Ops** | Activación operativa del **worker** periódico de Storage (no WP ledger físico); Render/ops aparte de este diseño |
+**Desarrollo de eliminación (WP + mandatos HMAC):** **cerrado** para los tres alcances. No queda bloqueo funcional conocido que impida dar por terminado el desarrollo de retiro canónico de imagen / registro / contenedor. Las observaciones visuales residuales y el worker **no** reabren el diseño de delete.
+
+### 9.1 Tres alcances
+
+| Alcance | Implementación | Automatizadas | Integración HTTP policyytest | Observación propietario |
+|---------|----------------|---------------|------------------------------|-------------------------|
+| **Imagen** (`scope=image`, DB 31) | `RetireCanonicalRecordImageUseCase` + `aa_delete_canonical_record_image`; captura puntual; seal count=1; TX solo image+op | AC MySQL/Ajax/JS **PASS** | AJAX imagen 4 / reg. 189 **PASS** (§8.12); reintento idempotente **PASS** | Eliminar imagen reg. **190** / img **5** acreditada + SQL/remoto (§8.13) |
+| **Registro** (`scope=record`, DB 29) | `RetireCanonicalRecordUseCase` + `aa_delete_canonical_record`; skip HMAC vacío; Continuar/cancelar | AC **PASS** | A/D/B AJAX **PASS** (§6.7); UI vacío+Cancelar acreditados | — |
+| **Contenedor** (`scope=container`, DB 30) | `RetireCanonicalContainerUseCase` + `aa_delete_canonical_container`; seal incl. 0; chunks | AC **PASS** | AJAX A/B/C **PASS** (§7.10); Continuar desde listado lista 22 **PASS** (§7.12) | — |
+
+### 9.2 Observaciones residuales (conservadas; ni PASS ni fallo de producto)
+
+| Ítem | Estado documentado |
+|------|-------------------|
+| Continuar UI de registro (inc. 3) | Observación residual — no PASS |
+| C integrado interrupción de red (inc. 3) | Observación residual — no PASS |
+| Cerrar / recargar incomplete / banner interior / bloqueo de altas (inc. 4) | Observaciones residuales — no PASS; lista 21 primer intento documentado §7.11 |
+| Miniatura ausente en fixture INC5 | **Fuera de esta etapa**; no investigada; no es fallo de delete |
+
+### 9.3 Pendientes antes de producción (ops / producto; no reabren delete)
+
+| Pendiente | Notas |
+|-----------|--------|
+| **Worker periódico Storage** | Sigue **apagado** (`ATTACHMENT_DELETE_WORKER=0`). Activación y validación operativa **obligatorias** antes de producción. No activado en estas pruebas; residuos `physical_status=pending` esperados (p. ej. obligaciones de imgs 4 y 5; control 6 aún vivo en WP). No borrar Storage a mano. |
+| **`is_ready` / seeds / galería de producto** | Fuera del cierre de eliminaciones; ver §10 |
+| **Render / despliegue backend compartido** | Ops aparte; fixture Backend 3 no reejecutada |
+
+### 9.4 Node local de validación
+
+Instancia arrancada para estas pruebas: `node index.js` **pid 63173**, `:3000`, health ok, workers off. **No detenida** en el cierre (puede estar en uso del propietario para Expedientes u otras pruebas).
 
 ---
 
-## Fuera de alcance restante
+## 10. Siguiente hito (dirección; **no explorar aquí**)
 
-- Cerrar/recargar/banner/altas del 4; Continuar UI y C de red del 3.
-- Activar polling del worker, cron WP o `is_ready`.
+Habilitar el **recorrido canónico de subida** y **reutilizar la presentación/interacciones de la galería legacy de Expedientes** que el propietario quiere conservar. Adaptar contratos canónicos; **no** crear un diseño visual alternativo; **no** copiar el borrado síncrono legacy (`POST /expediente/attachments/delete`). Gallery/miniaturas/subida de producto quedan para ese hito — no para reabrir IMG-5.
+
+---
+
+## Fuera de alcance restante (post-eliminaciones)
+
+- Observaciones residuales §9.2 (sin reclasificar).
+- Activar worker / cron WP / `is_ready` / Render sin un encargo ops explícito.
 - Cambiar TTL, tombstones o identidades Storage Backend 3.
-- Expedientes Ciclo B; reabrir diseño de subida.
-- Galería/picker/visor nuevos.
+- Explorar o implementar galería/subida en este cierre (§10 solo fija dirección).
 
 **Backend Storage fixture (no reejecutada):** immediate / later / reappear **PASS**; reappear fue sintético. Worker periódico apagado.
