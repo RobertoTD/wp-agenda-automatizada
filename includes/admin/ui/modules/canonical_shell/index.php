@@ -1060,9 +1060,16 @@ $is_records_fill = $show_read_ui
                 if (!$cap_def->is_ready()) {
                     continue;
                 }
+                if ($cap_key === 'amount') {
+                    $cap_label = 'Importe';
+                } elseif ($cap_key === 'images') {
+                    $cap_label = 'Imágenes';
+                } else {
+                    $cap_label = $cap_key;
+                }
                 $family_capability_options[$option_family_key][] = [
                     'key' => $cap_key,
-                    'label' => ($cap_key === 'amount') ? 'Importe' : $cap_key,
+                    'label' => $cap_label,
                     'is_default' => !empty($repertoire_row['is_default']),
                 ];
             }

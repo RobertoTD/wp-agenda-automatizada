@@ -1011,4 +1011,110 @@ describe('canonical-shell-container-form', () => {
         assert.equal(inputs[1].checked, false);
         assert.equal(ui.capabilitiesStatus.classList.contains('hidden'), true);
     });
+
+    it('matriz images: create refleja defaults y serializa scope/selection', async () => {
+        const okFetch = async () => ({
+            status: 200,
+            text: async () => JSON.stringify({
+                success: true,
+                data: { status: 'confirmed', redirect_url: 'https://example.test/ok' }
+            })
+        });
+        const options = {
+            archive: [{ key: 'images', label: 'Imágenes', is_default: true }],
+            finance: [
+                { key: 'amount', label: 'Importe', is_default: true },
+                { key: 'images', label: 'Imágenes', is_default: false }
+            ],
+            catalog: [{ key: 'images', label: 'Imágenes', is_default: false }],
+            contact: [{ key: 'images', label: 'Imágenes', is_default: false }]
+        };
+        const families = [
+            { family_key: 'archive', label: 'Archivo' },
+            { family_key: 'finance', label: 'Finanzas' },
+            { family_key: 'catalog', label: 'Catálogos' },
+            { family_key: 'contact', label: 'Contactos' }
+        ];
+
+        const archiveUi = boot(okFetch, [], {
+            familyKey: 'archive',
+            familyCapabilityOptions: { archive: options.archive }
+        });
+        archiveUi.openBtn._listeners.click[0]();
+        let inputs = archiveUi.capabilitiesMount.querySelectorAll('input[data-aa-capability-key]');
+        assert.equal(inputs.length, 1);
+        assert.equal(inputs[0].getAttribute('data-aa-capability-key'), 'images');
+        assert.equal(inputs[0].checked, true);
+        archiveUi.titleInput.value = 'Archivo imgs';
+        archiveUi.form._listeners.submit[0]({ preventDefault() {} });
+        assert.equal(archiveUi.getLastFormData().capability_selection_scope, JSON.stringify(['images']));
+        assert.equal(archiveUi.getLastFormData().capability_selection, JSON.stringify(['images']));
+
+        const financeUi = boot(okFetch, [], {
+            familyKey: 'finance',
+            familyCapabilityOptions: { finance: options.finance }
+        });
+        financeUi.openBtn._listeners.click[0]();
+        inputs = financeUi.capabilitiesMount.querySelectorAll('input[data-aa-capability-key]');
+        assert.equal(inputs.length, 2);
+        assert.equal(inputs[0].getAttribute('data-aa-capability-key'), 'amount');
+        assert.equal(inputs[0].checked, true);
+        assert.equal(inputs[1].getAttribute('data-aa-capability-key'), 'images');
+        assert.equal(inputs[1].checked, false);
+        financeUi.titleInput.value = 'Finance caps';
+        financeUi.form._listeners.submit[0]({ preventDefault() {} });
+        assert.equal(
+            financeUi.getLastFormData().capability_selection_scope,
+            JSON.stringify(['amount', 'images'])
+        );
+        assert.equal(financeUi.getLastFormData().capability_selection, JSON.stringify(['amount']));
+
+        for (const family of ['catalog', 'contact']) {
+            const ui = boot(okFetch, [], {
+                familyKey: family,
+                familyCapabilityOptions: { [family]: options[family] },
+                availableFamilies: families
+            });
+            ui.openBtn._listeners.click[0]();
+            inputs = ui.capabilitiesMount.querySelectorAll('input[data-aa-capability-key]');
+            assert.equal(inputs.length, 1);
+            assert.equal(inputs[0].getAttribute('data-aa-capability-key'), 'images');
+            assert.equal(inputs[0].checked, false);
+            ui.titleInput.value = family + ' lista';
+            ui.form._listeners.submit[0]({ preventDefault() {} });
+            assert.equal(ui.getLastFormData().capability_selection_scope, JSON.stringify(['images']));
+            assert.equal(ui.getLastFormData().capability_selection, JSON.stringify([]));
+        }
+    });
+
+    it('edit images refleja is_active persistido y desmarcar envía selection sin images', async () => {
+        const ui = boot(async () => ({
+            status: 200,
+            text: async () => JSON.stringify({
+                success: true,
+                data: { status: 'confirmed', redirect_url: 'https://example.test/ok' }
+            })
+        }), [
+            { id: 44, title: 'Lista imgs', details: '', family_key: 'archive' }
+        ], {
+            familyKey: 'archive',
+            familyCapabilityOptions: {
+                archive: [{ key: 'images', label: 'Imágenes', is_default: true }]
+            },
+            editContainerCapabilities: {
+                status: 'ok',
+                active: ['images'],
+                assigned: ['images']
+            }
+        });
+        ui.editBtns[0]._listeners.click[0]();
+        const inputs = ui.capabilitiesMount.querySelectorAll('input[data-aa-capability-key]');
+        assert.equal(inputs.length, 1);
+        assert.equal(inputs[0].checked, true);
+        inputs[0].checked = false;
+        ui.titleInput.value = 'Lista imgs off';
+        ui.form._listeners.submit[0]({ preventDefault() {} });
+        assert.equal(ui.getLastFormData().capability_selection_scope, JSON.stringify(['images']));
+        assert.equal(ui.getLastFormData().capability_selection, JSON.stringify([]));
+    });
 });

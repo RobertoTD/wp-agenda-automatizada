@@ -32,7 +32,9 @@ $life = (string) file_get_contents(
     $plugin_root . '/includes/infrastructure/canonical/class-aa-canonical-capability-defaults-lifecycle.php'
 );
 ac_assert('amount is_ready=true', preg_match("/SCOPE_RECORD\s*,\s*true\s*\)/", $boot) === 1);
+ac_assert('images is_ready=false', preg_match("/'images'[\s\S]{0,120}false/", $boot) === 1);
 ac_assert('DEFAULTS_VERSION=2', strpos($life, 'DEFAULTS_VERSION = 2') !== false);
+ac_assert('declared_seeds incluye images', strpos($life, "'capability_key' => 'images'") !== false);
 
 $wp_root = getenv('AA_WP_ROOT') ?: '';
 $wp_load = $wp_root !== '' ? rtrim($wp_root, '/') . '/wp-load.php' : '';
@@ -117,6 +119,20 @@ try {
     }
     $row = $config->find_family_capability($finance_id, 'amount');
     ac_assert('Seed inserta finance/amount enabled', is_array($row) && $row['is_default'] === true);
+
+    $images_product = $config->find_family_capability($finance_id, 'images');
+    $archive_id = $config->resolve_family_id('archive');
+    $images_archive_product = $archive_id !== null
+        ? $config->find_family_capability((int) $archive_id, 'images')
+        : null;
+    ac_assert(
+        'Producto not-ready: ensure no inserta images (finance)',
+        $images_product === null
+    );
+    ac_assert(
+        'Producto not-ready: ensure no inserta images (archive)',
+        $images_archive_product === null
+    );
 
     $config->upsert_family_capability($finance_id, 'amount', false);
     foreach (AA_Canonical_Capability_Defaults_Lifecycle::declared_seeds() as $seed) {

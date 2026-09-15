@@ -72,6 +72,14 @@ ac_assert('pertenencia antes de mutar ops', strpos($uc_src, 'operation_identity_
     && strpos($uc_src, 'mark_owned_cleanup') !== false);
 ac_assert('fresh exige ready+active', strpos($uc_src, 'capability_not_ready') !== false
     && strpos($uc_src, 'capability_inactive') !== false);
+$fresh_fn = strpos($uc_src, 'function run_fresh');
+$resume_fn = strpos($uc_src, 'function run_resume');
+$confirm_fn = strpos($uc_src, 'function confirm_after_transfer');
+ac_assert('run_fresh/run_resume/confirm presentes', $fresh_fn !== false && $resume_fn !== false && $confirm_fn !== false);
+$fresh_body = substr($uc_src, $fresh_fn, $resume_fn - $fresh_fn);
+$resume_body = substr($uc_src, $resume_fn, $confirm_fn - $resume_fn);
+ac_assert('run_fresh llama assert_fresh_capability', strpos($fresh_body, 'assert_fresh_capability') !== false);
+ac_assert('run_resume no revalida assert_fresh_capability', strpos($resume_body, 'assert_fresh_capability') === false);
 ac_assert('cleanup/incomplete no es fresh', strpos($uc_src, 'admission_not_resumable') !== false);
 ac_assert('expired → cleanup + admission_expired', strpos($uc_src, 'admission_expired') !== false);
 ac_assert('SQL read fail no es ausencia', strpos($uc_src, 'No se pudo leer la admisión') !== false);

@@ -55,8 +55,10 @@ require_once $plugin_root . '/includes/application/canonical/WriteCanonicalShell
 require_once $plugin_root . '/includes/application/canonical/capabilities/CanonicalContainerCapabilitySelection.php';
 require_once $plugin_root . '/includes/application/canonical/capabilities/CanonicalCapabilityWriteBag.php';
 require_once $plugin_root . '/includes/application/canonical/capabilities/CanonicalCapabilityWriteRejected.php';
+require_once $plugin_root . '/includes/application/canonical/capabilities/CanonicalCapabilityNotReady.php';
 require_once $plugin_root . '/includes/application/canonical/capabilities/ReadContainerCapabilityConfigUseCase.php';
 require_once $plugin_root . '/includes/application/canonical/capabilities/CanonicalContainerCapabilityConfigSnapshot.php';
+require_once $plugin_root . '/includes/infrastructure/canonical/class-aa-canonical-capability-defaults-lifecycle.php';
 require_once $plugin_root . '/includes/repositories/CanonicalCapabilityConfigRepository.php';
 require_once $plugin_root . '/includes/repositories/CanonicalRecordAmountRepository.php';
 require_once $plugin_root . '/includes/repositories/CanonicalRelationalRepository.php';
@@ -286,6 +288,203 @@ try {
         $deact2->state() === CanonicalShellMutationResult::STATE_CONFIRMED
         && $cap_active($config->list_container_capabilities($list_id), 'amount') === false
     );
+
+    echo "\n=== Images matriz (catálogo ready aislado) ===\n";
+    $images_ready = (new AA_Canonical_Capability_Registry())
+        ->register(new AA_Canonical_Capability_Definition('amount', AA_Canonical_Capability_Definition::SCOPE_RECORD, true))
+        ->register(new AA_Canonical_Capability_Definition('images', AA_Canonical_Capability_Definition::SCOPE_RECORD, true))
+        ->freeze();
+
+    foreach (['archive', 'finance', 'catalog', 'contact'] as $fk) {
+        $fid = $config->resolve_family_id($fk);
+        ac_assert('Familia provisionada ' . $fk, $fid !== null && (int) $fid >= 1);
+    }
+
+    // Declaraciones images vía insert-if-missing (simula ensure con ready).
+    $images_seed_defaults = [
+        'archive' => true,
+        'finance' => false,
+        'catalog' => false,
+        'contact' => false,
+    ];
+    foreach ($images_seed_defaults as $fk => $is_default) {
+        $fid = (int) $config->resolve_family_id($fk);
+        $config->insert_family_capability_if_missing($fid, 'images', $is_default);
+    }
+    // amount en finance (repertorio coexistente)
+    $finance_id = (int) $config->resolve_family_id('finance');
+    $config->insert_family_capability_if_missing($finance_id, 'amount', true);
+
+    $selection_preparer_img = new CanonicalContainerCapabilitySelectionPreparer($config, $images_ready);
+    $materializer_img = new AA_Canonical_Capability_Defaults_Materializer($images_ready, $config);
+
+    $write_families = ['finance', 'archive', 'catalog', 'contact'];
+    foreach ($write_families as $fk) {
+        try {
+            $write_registry->register(new CanonicalReadIdentity($fk), $adapter);
+        } catch (\LogicException $e) {
+            // finance ya registrado arriba.
+        }
+    }
+    $uc_img = new WriteCanonicalShellContainerUseCase($gateway, $materializer_img, $selection_preparer_img);
+
+    $list_ids = [];
+    $explicit_creates = [
+        'archive' => [
+            'scope' => ['images'],
+            'selection' => ['images'],
+            'expect_images_active' => true,
+        ],
+        'finance' => [
+            'scope' => ['amount', 'images'],
+            'selection' => ['amount'],
+            'expect_images_active' => false,
+            'expect_amount_active' => true,
+        ],
+        'catalog' => [
+            'scope' => ['images'],
+            'selection' => [],
+            'expect_images_active' => false,
+        ],
+        'contact' => [
+            'scope' => ['images'],
+            'selection' => [],
+            'expect_images_active' => false,
+        ],
+    ];
+    foreach ($explicit_creates as $fk => $spec) {
+        $manifest_f = new CanonicalShellManifest(
+            new CanonicalReadIdentity($fk),
+            $family_registry->family($fk)
+        );
+        $created = $uc_img->create(
+            $manifest_f,
+            new CanonicalCreateContainerCommand('Lista ' . $fk, null),
+            CanonicalContainerCapabilitySelection::present($spec['scope'], $spec['selection'])
+        );
+        ac_assert('Create ' . $fk . ' confirmed', $created->state() === CanonicalShellMutationResult::STATE_CONFIRMED);
+        $cid = (int) $created->receipt()->resource_id();
+        $list_ids[$fk] = $cid;
+        $caps = $config->list_container_capabilities($cid);
+        ac_assert(
+            $fk . ' create: images active=' . ($spec['expect_images_active'] ? '1' : '0'),
+            $cap_active($caps, 'images') === $spec['expect_images_active']
+        );
+        if (isset($spec['expect_amount_active'])) {
+            ac_assert(
+                $fk . ' create: amount active',
+                $cap_active($caps, 'amount') === $spec['expect_amount_active']
+            );
+        }
+    }
+
+    // Segunda lista archive para aislar desactivación.
+    $manifest_archive = new CanonicalShellManifest(
+        new CanonicalReadIdentity('archive'),
+        $family_registry->family('archive')
+    );
+    $archive_b = $uc_img->create(
+        $manifest_archive,
+        new CanonicalCreateContainerCommand('Archive B', null),
+        CanonicalContainerCapabilitySelection::present(['images'], ['images'])
+    );
+    $archive_b_id = (int) $archive_b->receipt()->resource_id();
+    ac_assert('Archive B images activa', $cap_active($config->list_container_capabilities($archive_b_id), 'images') === true);
+
+    $deact_img = $uc_img->update(
+        $manifest_archive,
+        new CanonicalUpdateContainerCommand($list_ids['archive'], 'Archive A off', null),
+        CanonicalContainerCapabilitySelection::present(['images'], [])
+    );
+    ac_assert('Desactivar images archive A confirmed', $deact_img->state() === CanonicalShellMutationResult::STATE_CONFIRMED);
+    ac_assert(
+        'Archive A images inactiva',
+        $cap_active($config->list_container_capabilities($list_ids['archive']), 'images') === false
+    );
+    ac_assert(
+        'Archive B images intacta',
+        $cap_active($config->list_container_capabilities($archive_b_id), 'images') === true
+    );
+
+    $react_img = $uc_img->update(
+        $manifest_archive,
+        new CanonicalUpdateContainerCommand($list_ids['archive'], 'Archive A on', null),
+        CanonicalContainerCapabilitySelection::present(['images'], ['images'])
+    );
+    ac_assert('Reactivar images archive A', $react_img->state() === CanonicalShellMutationResult::STATE_CONFIRMED
+        && $cap_active($config->list_container_capabilities($list_ids['archive']), 'images') === true);
+
+    // finance: tocar solo images no altera amount
+    $manifest_finance = new CanonicalShellManifest(
+        new CanonicalReadIdentity('finance'),
+        $family_registry->family('finance')
+    );
+    $fin_before_amount = $cap_active($config->list_container_capabilities($list_ids['finance']), 'amount');
+    $fin_activate_images = $uc_img->update(
+        $manifest_finance,
+        new CanonicalUpdateContainerCommand($list_ids['finance'], 'Finance + images', null),
+        CanonicalContainerCapabilitySelection::present(['images'], ['images'])
+    );
+    ac_assert('Finance activa images confirmed', $fin_activate_images->state() === CanonicalShellMutationResult::STATE_CONFIRMED);
+    ac_assert(
+        'Finance amount intacto al activar images',
+        $cap_active($config->list_container_capabilities($list_ids['finance']), 'amount') === $fin_before_amount
+        && $fin_before_amount === true
+    );
+    ac_assert(
+        'Finance images ahora activa',
+        $cap_active($config->list_container_capabilities($list_ids['finance']), 'images') === true
+    );
+
+    $omit_fin = $uc_img->update(
+        $manifest_finance,
+        new CanonicalUpdateContainerCommand($list_ids['finance'], 'Finance omit caps', null)
+    );
+    ac_assert(
+        'Update omit conserva images+amount finance',
+        $omit_fin->state() === CanonicalShellMutationResult::STATE_CONFIRMED
+        && $cap_active($config->list_container_capabilities($list_ids['finance']), 'amount') === true
+        && $cap_active($config->list_container_capabilities($list_ids['finance']), 'images') === true
+    );
+
+    // Desactivar images no toca filas de imágenes (ninguna creada) ni abre purge — solo config.
+    $img_rows_before = (int) $wpdb->get_var(
+        'SELECT COUNT(*) FROM `' . AA_Canonical_Schema::record_images_table_name() . '`'
+    );
+    $purge_before = (int) $wpdb->get_var(
+        'SELECT COUNT(*) FROM `' . AA_Canonical_Schema::purge_runs_table_name() . '`'
+    );
+    $uc_img->update(
+        $manifest_finance,
+        new CanonicalUpdateContainerCommand($list_ids['finance'], 'Finance images off', null),
+        CanonicalContainerCapabilitySelection::present(['images'], [])
+    );
+    $img_rows_after = (int) $wpdb->get_var(
+        'SELECT COUNT(*) FROM `' . AA_Canonical_Schema::record_images_table_name() . '`'
+    );
+    $purge_after = (int) $wpdb->get_var(
+        'SELECT COUNT(*) FROM `' . AA_Canonical_Schema::purge_runs_table_name() . '`'
+    );
+    ac_assert('Desactivar images no borra filas record_images', $img_rows_before === $img_rows_after);
+    ac_assert('Desactivar images no abre purge_runs', $purge_before === $purge_after);
+
+    // Producto: images not-ready rechaza scope (preparer con registry de producto).
+    AA_Canonical_Capability_Registry_Bootstrap::reset_for_tests();
+    $product_registry = AA_Canonical_Capability_Registry_Bootstrap::bootstrap();
+    ac_assert('Producto images not-ready', $product_registry->get('images')->is_ready() === false);
+    $product_preparer = new CanonicalContainerCapabilitySelectionPreparer($config, $product_registry);
+    $not_ready_rejected = false;
+    try {
+        $product_preparer->build_create_effect(
+            'archive',
+            CanonicalContainerCapabilitySelection::present(['images'], ['images'])
+        );
+    } catch (CanonicalCapabilityNotReady $e) {
+        $not_ready_rejected = ($e->error_code() === 'capability_not_ready');
+    } catch (CanonicalCapabilityWriteRejected $e) {
+        $not_ready_rejected = ($e->error_code() === 'capability_not_ready');
+    }
+    ac_assert('Producto not-ready rechaza images en scope', $not_ready_rejected);
 } catch (\Throwable $e) {
     ac_assert('Excepción inesperada: ' . $e->getMessage(), false);
 } finally {

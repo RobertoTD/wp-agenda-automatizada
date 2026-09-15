@@ -1,8 +1,8 @@
 # Exploración: retiro canónico WP, mandatos de limpieza y cuota
 
-**Estado:** **etapa de desarrollo de eliminaciones IMG-5 cerrada**. `images` sigue `is_ready=false`. Worker periódico **apagado**. **§§10–11:** primera etapa visible (propuesta amplia, no autorizada). **§12:** **Paso 1 — activación por lista: propuesta pendiente de autorización** (solo docs; sin código).
-**Fecha:** 2026-09-14 (cierre validación 5 / clics: 2026-09-15 UTC; §§10–11: 2026-09-15; §12 Paso 1 activación: 2026-09-15).
-**Ámbito:** integración WordPress del retiro canónico; exploración amount↔images; plan de primera etapa visible; **propuesta acotada de activación por lista (Paso 1)**.
+**Estado:** **etapa de desarrollo de eliminaciones IMG-5 cerrada**. `images` sigue `is_ready=false`. Worker periódico **apagado**. **§§10–11:** primera etapa visible (propuesta amplia). **§12 Paso 1:** **implementado como preparación declarativa** (seeds + label + AC/JS aislados); **sin** flip `is_ready`, **sin** bump `DEFAULTS_VERSION`, **sin** validación visual de producto.
+**Fecha:** 2026-09-14 (cierre validación 5 / clics: 2026-09-15 UTC; §§10–11: 2026-09-15; §12 propuesta: 2026-09-15; §12 implementación Paso 1: 2026-09-15).
+**Ámbito:** integración WordPress del retiro canónico; exploración amount↔images; plan de primera etapa visible; **Paso 1 activación por lista (declarativo + tests aislados)**.
 
 No modifica el state de la prueba Backend 3 (worker local Storage, `docs/ops/attachment-delete-worker-local-storage-state.json`).
 
@@ -10,7 +10,7 @@ No modifica el state de la prueba Backend 3 (worker local Storage, `docs/ops/att
 
 | Repo | Rama | HEAD |
 |------|------|------|
-| `wp-agenda-automatizada` | `dev/canonical-images-retire` | (este commit docs: §12 Paso 1 activación; base `33e4bd886e2e29d2538e1be4193e22a69a628214`) |
+| `wp-agenda-automatizada` | `dev/canonical-images-retire` | (este commit: §12 Paso 1 implementado; base `6196b6fef27437a27e8f10ee499aa2bc7be7669a`) |
 | `deoia-oauth-backend` (solo consulta; sin cambios) | `dev/backend-recovered` | `26452b3ba4ceb24b7bf46271fd30a0c58318ceed` (untracked ajeno: `scripts/runner-from-pack.sh`) |
 
 **Backend Storage fixture (no reejecutada aquí):** immediate / later / reappear **PASS**. El caso reappear fue **sintético** (no un PUT tardío real del proveedor).
@@ -1602,17 +1602,32 @@ Criterio de cierre del Paso 1 (cuando se autorice código): AC aislados PASS + d
 
 Ninguna para el checkbox/persistencia: el canon y amount ya fijan la semántica.
 
-Único pendiente **ajeno al Paso 1** (subida): matizar contrato de resume tras desactivar (§12.E) — no bloquea esta propuesta.
+### 12.I Estado de implementación (Paso 1 — 2026-09-15)
+
+**Cerrado como preparación declarativa** (no producto visible):
+
+| Ítem | Estado |
+|------|--------|
+| Seeds `declared_seeds()` 4 familias | **Implementado** (`archive` default on; `finance`/`catalog`/`contact` off) |
+| Label «Imágenes» en boot shell | **Implementado** (`index.php`) |
+| `images.is_ready` | **false** (sin cambio) |
+| `DEFAULTS_VERSION` | **2** (sin bump; futuro flip ready + bump juntos) |
+| `DB_VERSION` | **31** (sin cambio) |
+| Checkbox en UI policyytest | **No visible** (filtro ready) |
+| Validación | AC/JS **aislados** con registry ready stub; **no** visual de producto |
+
+**Regla aprobada (subidas ya iniciadas):** desactivar bloquea **nuevas** admisiones (`run_fresh` / `assert_fresh_capability`). Una operación **previamente admitida** puede completar `run_resume` y `confirm` hasta resultado terminal. Purge/delete siguen independientes y prevalecen. Cubierto con aserción estática en `test-upload-canonical-record-image-permissions-states-ac.php` (sin cambio de runtime).
+
+**Futuro (otra autorización):** `is_ready=true` + bump `DEFAULTS_VERSION` + ensure inserta matriz + validación UI integrada (junto con subida/presentación mínima).
 
 ---
 
 ## Fuera de alcance restante (post-eliminaciones + §§10–12)
 
 - Observaciones residuales §9.2 (sin reclasificar).
-- Activar worker / cron WP / `is_ready` / Render sin encargo explícito.
-- Implementar §11 o §12 sin autorización del propietario.
+- Activar worker / cron WP / `is_ready` / Render / bump `DEFAULTS_VERSION` sin encargo explícito.
 - Picker/subida/presentación/galería; framework insertables; permisos ajenos.
 - Reabrir pruebas de eliminación ni fixtures de miniaturas.
-- Cambiar comportamiento resume/confirm en este paso.
+- Cambiar comportamiento resume/confirm (solo documentado/asertado).
 
 **Backend Storage fixture (no reejecutada):** immediate / later / reappear **PASS**; reappear fue sintético. Worker periódico apagado.

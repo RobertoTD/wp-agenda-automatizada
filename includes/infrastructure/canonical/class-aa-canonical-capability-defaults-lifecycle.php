@@ -4,6 +4,8 @@
  *
  * Solo inserta filas ausentes para capacidades is_ready. Nunca UPDATE de is_default.
  * A1b: amount ready → insert-if-missing de finance/amount (DEFAULTS_VERSION=2).
+ * Paso 1 images: declared_seeds() declara matriz de cuatro familias; ensure las omite
+ * mientras images.is_ready=false. No bumpear DEFAULTS_VERSION hasta el flip a ready.
  *
  * @package WP_Agenda_Automatizada
  * @subpackage Infrastructure\Canonical
@@ -122,7 +124,9 @@ final class AA_Canonical_Capability_Defaults_Lifecycle {
     }
 
     /**
-     * Seeds declarados. Con amount ready (A1b), el ensure inserta finance/amount solo si falta.
+     * Seeds declarados. Ensure solo inserta filas de capacidades is_ready.
+     * amount ready (A1b): finance/amount. images not-ready: declaraciones presentes
+     * pero omitidas hasta el flip de disponibilidad (+ bump DEFAULTS_VERSION).
      *
      * @return list<array{family_key:string,capability_key:string,is_default:bool}>
      */
@@ -132,6 +136,26 @@ final class AA_Canonical_Capability_Defaults_Lifecycle {
                 'family_key' => 'finance',
                 'capability_key' => 'amount',
                 'is_default' => true,
+            ],
+            [
+                'family_key' => 'archive',
+                'capability_key' => 'images',
+                'is_default' => true,
+            ],
+            [
+                'family_key' => 'finance',
+                'capability_key' => 'images',
+                'is_default' => false,
+            ],
+            [
+                'family_key' => 'catalog',
+                'capability_key' => 'images',
+                'is_default' => false,
+            ],
+            [
+                'family_key' => 'contact',
+                'capability_key' => 'images',
+                'is_default' => false,
             ],
         ];
     }
