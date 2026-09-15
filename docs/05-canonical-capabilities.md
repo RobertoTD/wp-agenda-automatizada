@@ -253,7 +253,7 @@ Las alternativas exploradas en sesiones de diseño no obligan al diseño final s
 - Listas existentes: **sin** cambio retroactivo al introducir o alterar defaults (lifecycle insert-if-missing; nunca UPDATE de `is_default` ya guardado).
 - `amount` conserva su comportamiento; ambas pueden coexistir activas en la misma lista.
 
-**Estado implementado (no confundir con la matriz normativa):** catálogo `images` con `is_ready=false`. Seeds **declarados** en `declared_seeds()` para las cuatro familias (Paso 1); el lifecycle **no** los inserta mientras not-ready. Label shell «Imágenes» cableado. Paso 2: picker post-save + thumb SSR `summary` (última por `id DESC`) implementados; galería/`display`/visor pendientes. `DEFAULTS_VERSION` sigue en 2 hasta el flip futuro a ready. Sin UI de producto visible mientras not-ready.
+**Estado implementado (no confundir con la matriz normativa):** catálogo `images` con `is_ready=true` (Paso 5). Seeds en `declared_seeds()` para las cuatro familias; lifecycle insert-if-missing con `DEFAULTS_VERSION=3`. Label «Imágenes»; Paso 2 picker post-save + thumb SSR `summary`. Galería/`display`/visor pendientes. `DB_VERSION=31` sin cambio.
 
 ### 12.2 Lectura, subida y conservación
 

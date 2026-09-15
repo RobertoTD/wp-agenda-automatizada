@@ -45,8 +45,8 @@ $life_src = (string) file_get_contents(
 ac_assert('Ops no menciona FinanceSchema/aa_finance', stripos($ops_src, 'aa_finance') === false && stripos($ops_src, 'FinanceSchema') === false);
 ac_assert('Repo config no menciona finance', stripos($repo_src, 'finance') === false);
 ac_assert('Bootstrap registra amount is_ready true', strpos($boot_src, "'amount'") !== false && preg_match("/new AA_Canonical_Capability_Definition\(\s*'amount'\s*,\s*AA_Canonical_Capability_Definition::SCOPE_RECORD\s*,\s*true\s*\)/", $boot_src) === 1);
-ac_assert('Bootstrap registra images is_ready false', preg_match("/new AA_Canonical_Capability_Definition\(\s*'images'\s*,\s*AA_Canonical_Capability_Definition::SCOPE_RECORD\s*,\s*false\s*\)/", $boot_src) === 1);
-ac_assert('Lifecycle DEFAULTS_VERSION=2', strpos($life_src, 'DEFAULTS_VERSION = 2') !== false);
+ac_assert('Bootstrap registra images is_ready true', preg_match("/new AA_Canonical_Capability_Definition\(\s*'images'\s*,\s*AA_Canonical_Capability_Definition::SCOPE_RECORD\s*,\s*true\s*\)/", $boot_src) === 1);
+ac_assert('Lifecycle DEFAULTS_VERSION=3', strpos($life_src, 'DEFAULTS_VERSION = 3') !== false);
 ac_assert('Lifecycle usa insert_family_capability_if_missing', strpos($life_src, 'insert_family_capability_if_missing') !== false);
 ac_assert('Lifecycle filtra !is_ready', strpos($life_src, 'is_ready()') !== false);
 ac_assert('Ops sin AJAX/Settings', stripos($ops_src, 'wp_ajax') === false && stripos($ops_src, 'options.php') === false);
@@ -136,7 +136,7 @@ try {
     $images = $capability_registry->get('images');
     ac_assert('images registrado', $images->key() === 'images');
     ac_assert('images scope record', $images->scope() === AA_Canonical_Capability_Definition::SCOPE_RECORD);
-    ac_assert('images not ready en Ciclo 1', $images->is_ready() === false);
+    ac_assert('images ready tras Paso 5', $images->is_ready() === true);
 
     $declared = AA_Canonical_Capability_Defaults_Lifecycle::declared_seeds();
     $images_defaults = [];
@@ -167,27 +167,12 @@ try {
     $enabled_default = $set_default->execute(new SetFamilyCapabilityDefaultCommand('finance', 'amount', true));
     ac_assert('Habilitar default amount ready', is_array($enabled_default) && $enabled_default['is_default'] === true);
 
-    $images_default_blocked = false;
-    try {
-        $set_default->execute(new SetFamilyCapabilityDefaultCommand('finance', 'images', true));
-    } catch (CanonicalCapabilityNotReady $e) {
-        $images_default_blocked = ($e->error_code() === 'capability_not_ready');
-    }
-    ac_assert('images !ready → capability_not_ready al set default', $images_default_blocked);
+    $images_default_on = $set_default->execute(new SetFamilyCapabilityDefaultCommand('finance', 'images', true));
+    ac_assert('images ready: set default permitido', is_array($images_default_on) && $images_default_on['is_default'] === true);
+    $set_default->execute(new SetFamilyCapabilityDefaultCommand('finance', 'images', false));
 
-    $images_seed = $repo->find_family_capability((int) $finance_id, 'images');
-    ac_assert('Producto not-ready: ensure no inserta seed images en finance', $images_seed === null);
-
-    // Con catálogo ready aislado, las declaraciones images sí pueden insertarse.
-    $images_ready_registry = new AA_Canonical_Capability_Registry();
-    $images_ready_registry->register(new AA_Canonical_Capability_Definition('amount', 'record', true));
-    $images_ready_registry->register(new AA_Canonical_Capability_Definition('images', 'record', true));
-    $images_ready_registry->freeze();
     foreach (AA_Canonical_Capability_Defaults_Lifecycle::declared_seeds() as $seed) {
         if (($seed['capability_key'] ?? '') !== 'images') {
-            continue;
-        }
-        if (!$images_ready_registry->has('images') || !$images_ready_registry->get('images')->is_ready()) {
             continue;
         }
         $fid = $repo->resolve_family_id($seed['family_key']);
@@ -203,16 +188,16 @@ try {
     $img_fin = $repo->find_family_capability((int) $finance_id, 'images');
     $img_cat = $catalog_id !== null ? $repo->find_family_capability((int) $catalog_id, 'images') : null;
     $img_con = $contact_id !== null ? $repo->find_family_capability((int) $contact_id, 'images') : null;
-    ac_assert('Stub ready: archive/images default on', is_array($img_arch) && $img_arch['is_default'] === true);
-    ac_assert('Stub ready: finance/images default off', is_array($img_fin) && $img_fin['is_default'] === false);
-    ac_assert('Stub ready: catalog/images default off', is_array($img_cat) && $img_cat['is_default'] === false);
-    ac_assert('Stub ready: contact/images default off', is_array($img_con) && $img_con['is_default'] === false);
+    ac_assert('Producto ready: archive/images default on', is_array($img_arch) && $img_arch['is_default'] === true);
+    ac_assert('Producto ready: finance/images default off', is_array($img_fin) && $img_fin['is_default'] === false);
+    ac_assert('Producto ready: catalog/images default off', is_array($img_cat) && $img_cat['is_default'] === false);
+    ac_assert('Producto ready: contact/images default off', is_array($img_con) && $img_con['is_default'] === false);
 
     $repo->upsert_family_capability((int) $finance_id, 'images', true);
     $skipped_img = $repo->insert_family_capability_if_missing((int) $finance_id, 'images', false);
     $img_fin_guard = $repo->find_family_capability((int) $finance_id, 'images');
     ac_assert(
-        'Stub ready: insert-if-missing no sobrescribe images guardado',
+        'Producto ready: insert-if-missing no sobrescribe images guardado',
         $skipped_img === false && is_array($img_fin_guard) && $img_fin_guard['is_default'] === true
     );
     // Restaurar default normativo de finance/images para asserts posteriores.

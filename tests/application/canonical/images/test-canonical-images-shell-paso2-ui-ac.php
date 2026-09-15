@@ -58,7 +58,7 @@ ac_assert('Images no escribe WriteBag (collect vacío)', preg_match(
 ) === 1);
 ac_assert('Card miniatura summary', strpos($card, 'aa-shell-record-image-summary') !== false);
 ac_assert('Presenter images registrado', strpos($bootstrap, 'class-aa-canonical-images-shell-presenter.php') !== false);
-ac_assert('DEFAULTS_VERSION = 2', strpos($defaults, 'public const DEFAULTS_VERSION = 2;') !== false);
+ac_assert('DEFAULTS_VERSION = 3', strpos($defaults, 'public const DEFAULTS_VERSION = 3;') !== false);
 
 if (!defined('ABSPATH')) {
     define('ABSPATH', '/tmp/');
@@ -128,15 +128,15 @@ ac_assert(
     is_array($edit) && ($edit['status'] ?? '') === 'known_absent' && !isset($edit['items'])
 );
 
-echo "\n=== 4. is_ready de producción permanece false (fuente catálogo) ===\n";
+echo "\n=== 4. is_ready de producción true tras Paso 5 ===\n";
 
 $registry_boot = (string) file_get_contents(
     $plugin_root . '/includes/infrastructure/canonical/class-aa-canonical-capability-registry-bootstrap.php'
 );
 ac_assert(
-    'bootstrap images is_ready false en fuente',
+    'bootstrap images is_ready true en fuente',
     preg_match(
-        "/new AA_Canonical_Capability_Definition\(\s*'images',\s*AA_Canonical_Capability_Definition::SCOPE_RECORD,\s*false\s*\)/s",
+        "/new AA_Canonical_Capability_Definition\(\s*'images',\s*AA_Canonical_Capability_Definition::SCOPE_RECORD,\s*true\s*\)/s",
         $registry_boot
     ) === 1
 );

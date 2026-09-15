@@ -89,12 +89,12 @@ ac_assert('store TX fuera de Application', strpos($store_src, 'START TRANSACTION
     && strpos($uc_src, 'confirm_after_remote_finalize') !== false);
 ac_assert('reloj fresco pre-confirm', substr_count($uc_src, 'now_ms()') >= 3
     || (strpos($uc_src, 'now_ms()') !== false && strpos($uc_src, 'confirm_after_transfer') !== false));
-ac_assert('images sigue not-ready en bootstrap catálogo', strpos(
-    file_get_contents($plugin_root . '/includes/infrastructure/canonical/class-aa-canonical-capability-registry-bootstrap.php'),
-    "'images'"
-) !== false && preg_match("/'images'[\s\S]{0,120}false/", file_get_contents(
-    $plugin_root . '/includes/infrastructure/canonical/class-aa-canonical-capability-registry-bootstrap.php'
-)) === 1);
+ac_assert('images ready en bootstrap catálogo', preg_match(
+    "/new AA_Canonical_Capability_Definition\(\s*'images'\s*,\s*AA_Canonical_Capability_Definition::SCOPE_RECORD\s*,\s*true\s*\)/s",
+    (string) file_get_contents(
+        $plugin_root . '/includes/infrastructure/canonical/class-aa-canonical-capability-registry-bootstrap.php'
+    )
+) === 1);
 
 require_once $plugin_root . '/includes/domain/expediente/ExpedienteAdjuntoVariants.php';
 require_once $plugin_root . '/includes/domain/expediente/ExpedienteAdjuntoJpegValidator.php';

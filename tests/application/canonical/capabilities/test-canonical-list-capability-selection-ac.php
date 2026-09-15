@@ -468,23 +468,22 @@ try {
     ac_assert('Desactivar images no borra filas record_images', $img_rows_before === $img_rows_after);
     ac_assert('Desactivar images no abre purge_runs', $purge_before === $purge_after);
 
-    // Producto: images not-ready rechaza scope (preparer con registry de producto).
+    // Producto: images ready acepta scope (preparer con registry de producto).
     AA_Canonical_Capability_Registry_Bootstrap::reset_for_tests();
     $product_registry = AA_Canonical_Capability_Registry_Bootstrap::bootstrap();
-    ac_assert('Producto images not-ready', $product_registry->get('images')->is_ready() === false);
+    ac_assert('Producto images ready', $product_registry->get('images')->is_ready() === true);
     $product_preparer = new CanonicalContainerCapabilitySelectionPreparer($config, $product_registry);
-    $not_ready_rejected = false;
+    $product_create_ok = false;
     try {
-        $product_preparer->build_create_effect(
+        $product_effect = $product_preparer->build_create_effect(
             'archive',
             CanonicalContainerCapabilitySelection::present(['images'], ['images'])
         );
-    } catch (CanonicalCapabilityNotReady $e) {
-        $not_ready_rejected = ($e->error_code() === 'capability_not_ready');
-    } catch (CanonicalCapabilityWriteRejected $e) {
-        $not_ready_rejected = ($e->error_code() === 'capability_not_ready');
+        $product_create_ok = ($product_effect !== null);
+    } catch (\Throwable $e) {
+        $product_create_ok = false;
     }
-    ac_assert('Producto not-ready rechaza images en scope', $not_ready_rejected);
+    ac_assert('Producto ready acepta images en scope create', $product_create_ok);
 } catch (\Throwable $e) {
     ac_assert('Excepción inesperada: ' . $e->getMessage(), false);
 } finally {

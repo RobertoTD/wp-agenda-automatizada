@@ -4,8 +4,8 @@
  *
  * Solo inserta filas ausentes para capacidades is_ready. Nunca UPDATE de is_default.
  * A1b: amount ready → insert-if-missing de finance/amount (DEFAULTS_VERSION=2).
- * Paso 1 images: declared_seeds() declara matriz de cuatro familias; ensure las omite
- * mientras images.is_ready=false. No bumpear DEFAULTS_VERSION hasta el flip a ready.
+ * Paso 5: images ready + DEFAULTS_VERSION=3 → insert-if-missing de la matriz §12.1
+ * (archive default on; finance/catalog/contact default off). Sin tocar listas ya persistidas.
  *
  * @package WP_Agenda_Automatizada
  * @subpackage Infrastructure\Canonical
@@ -15,7 +15,7 @@ defined('ABSPATH') or die('No direct access');
 
 final class AA_Canonical_Capability_Defaults_Lifecycle {
 
-    public const DEFAULTS_VERSION = 2;
+    public const DEFAULTS_VERSION = 3;
 
     public const OPTION_VERSION = 'aa_canonical_capability_defaults_version';
 
@@ -125,8 +125,7 @@ final class AA_Canonical_Capability_Defaults_Lifecycle {
 
     /**
      * Seeds declarados. Ensure solo inserta filas de capacidades is_ready.
-     * amount ready (A1b): finance/amount. images not-ready: declaraciones presentes
-     * pero omitidas hasta el flip de disponibilidad (+ bump DEFAULTS_VERSION).
+     * amount (A1b) + images (Paso 5 / DEFAULTS_VERSION=3): matriz §12.1.
      *
      * @return list<array{family_key:string,capability_key:string,is_default:bool}>
      */

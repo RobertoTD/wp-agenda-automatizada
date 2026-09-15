@@ -1,8 +1,8 @@
 # Exploración: retiro canónico WP, mandatos de limpieza y cuota
 
-**Estado:** **etapa de desarrollo de eliminaciones IMG-5 cerrada**. `images` sigue `is_ready=false`. Worker periódico **apagado**. **§12 Paso 1:** preparación declarativa **implementada**. **§13 Paso 2:** picker post-save + presentación mínima `summary` **implementados** (galería/display/visor/delete UI final y flip ready **pendientes**).
-**Fecha:** 2026-09-14 … §12 Paso 1: 2026-09-15; §13 Paso 2 implementación: 2026-09-15.
-**Ámbito:** retiro canónico; amount↔images; Paso 1 declarativo; **Paso 2 UI registro (picker/attach/presentación mínima SSR)**.
+**Estado:** **etapa de desarrollo de eliminaciones IMG-5 cerrada**. Worker periódico **apagado**. **§12 Paso 1** + **§13 Paso 2** implementados. **Paso 5 flip:** `images.is_ready=true` + `DEFAULTS_VERSION=3` **implementado**. Galería/`display`/visor/delete UI final **pendientes**.
+**Fecha:** 2026-09-14 … Paso 2: 2026-09-15; Paso 5 flip: 2026-09-15.
+**Ámbito:** retiro canónico; amount↔images; Pasos 1–2 UI; **Paso 5 readiness flip**.
 
 No modifica el state de la prueba Backend 3 (worker local Storage, `docs/ops/attachment-delete-worker-local-storage-state.json`).
 
@@ -1628,7 +1628,7 @@ Ninguna para el checkbox/persistencia: el canon y amount ya fijan la semántica.
 
 **HEADs base previos:** plugin `42046340ab0aa073b0282b4c2cd1059cff0c2f7b`; backend `26452b3ba4ceb24b7bf46271fd30a0c58318ceed` (consulta).
 
-**Cerrado:** lista con Imágenes activa (+ ready en stubs) → picker → guardar registro → attach canónico post-save → redirect/recarga SSR → miniatura `summary` de la **última** confirmada (`known_collection[0]` = `id DESC`); cancelar/fallo conservan registro; retry reutiliza `upload_operation_id`; inactive/not-ready no ofrecen picker/thumb de producto. **Pendiente:** galería/`display`/visor/delete UI final; flip `is_ready=true` + bump `DEFAULTS_VERSION` + validación integrada.
+**Cerrado:** lista con Imágenes activa (+ ready en stubs) → picker → guardar registro → attach canónico post-save → redirect/recarga SSR → miniatura `summary` de la **última** confirmada (`known_collection[0]` = `id DESC`); cancelar/fallo conservan registro; retry reutiliza `upload_operation_id`; inactive no ofrece picker/thumb de producto. **Paso 5:** flip ready + `DEFAULTS_VERSION=3` (ver §14). **Pendiente:** galería/`display`/visor/delete UI final.
 
 Norma: `docs/05-canonical-capabilities.md` §§5, §12.3 (post-save; destino galería = etapa posterior; este paso = subconjunto provisional de presentación).
 
@@ -1642,11 +1642,11 @@ Norma: `docs/05-canonical-capabilities.md` §§5, §12.3 (post-save; destino gal
 | `AA_Canonical_Images_Shell_Presenter` + thumb card | **Implementado** — solo `summary`; firma fallida = omitir (discreto) |
 | Redirect/recarga SSR | **Estrategia de esta etapa** |
 | Galería / display / visor / delete UI final | **Pendiente** |
-| `images.is_ready` | **false** |
-| `DEFAULTS_VERSION` / `DB_VERSION` | **2** / **31** |
+| `images.is_ready` | **true** (Paso 5) |
+| `DEFAULTS_VERSION` / `DB_VERSION` | **3** / **31** |
 | Validación | JS + AC aislados; **no** UI de producto mientras not-ready |
 
-**Flip futuro (obligatorio conjunto):** `is_ready=true` + bump `DEFAULTS_VERSION` + ensure inserta seeds + validación integrada.
+**Flip (Paso 5 / §14):** `is_ready=true` + `DEFAULTS_VERSION=3` implementados juntos.
 
 ### 13.1 Mapa: qué ya existe (servidor)
 
@@ -1768,11 +1768,17 @@ Manual integrada (post-ready): policyytest UI create→attach→thumb→reload�
 
 ---
 
+## 14. Paso 5 — flip de readiness + validación integrada: **implementado**
+
+**Naturaleza:** `images.is_ready=true` + `DEFAULTS_VERSION=3` en el mismo commit. Matriz seeds sin cambio (`archive` on; `finance`/`catalog`/`contact` off). Sin `DB_VERSION`/schema/backend/worker. Ensure insert-if-missing materializa repertorio; no reescribe defaults ni `container_capabilities` existentes.
+
+**Validación:** AC Paso 5 (lifecycle/gates/orquestación doubles) + suites actualizadas post-flip. **Sin** Storage/HTTP/Node real. Galería/`display`/visor quedan fuera.
+
 ## Fuera de alcance restante (post-eliminaciones + §§10–13)
 
 - Observaciones residuales §9.2.
 - Activar worker / cron / `is_ready` / Render / bump `DEFAULTS_VERSION` sin encargo.
-- Flip `is_ready` / galería completa sin autorización.
+- Galería/`display`/visor / delete UI final sin autorización.
 - Galería completa; framework insertables; permisos ajenos.
 - Reabrir eliminaciones / fixtures miniaturas.
 - Cambiar runtime resume/confirm (solo documentado).
