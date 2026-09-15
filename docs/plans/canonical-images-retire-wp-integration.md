@@ -1,8 +1,8 @@
 # Exploración: retiro canónico WP, mandatos de limpieza y cuota
 
-**Estado:** **etapa de desarrollo de eliminaciones IMG-5 cerrada**. `images` sigue `is_ready=false`. Worker periódico **apagado**. **§§10–11:** primera etapa visible (propuesta amplia). **§12 Paso 1:** **implementado como preparación declarativa** (seeds + label + AC/JS aislados); **sin** flip `is_ready`, **sin** bump `DEFAULTS_VERSION`, **sin** validación visual de producto.
-**Fecha:** 2026-09-14 (cierre validación 5 / clics: 2026-09-15 UTC; §§10–11: 2026-09-15; §12 propuesta: 2026-09-15; §12 implementación Paso 1: 2026-09-15).
-**Ámbito:** integración WordPress del retiro canónico; exploración amount↔images; plan de primera etapa visible; **Paso 1 activación por lista (declarativo + tests aislados)**.
+**Estado:** **etapa de desarrollo de eliminaciones IMG-5 cerrada**. `images` sigue `is_ready=false`. Worker periódico **apagado**. **§12 Paso 1:** preparación declarativa **implementada**. **§13 Paso 2:** **picker, subida post-save y presentación mínima — propuesta pendiente de autorización** (solo docs).
+**Fecha:** 2026-09-14 … §12 implementación Paso 1: 2026-09-15; §13 propuesta Paso 2: 2026-09-15.
+**Ámbito:** retiro canónico; amount↔images; Paso 1 declarativo; **propuesta Paso 2 UI registro (picker/attach/presentación mínima)**.
 
 No modifica el state de la prueba Backend 3 (worker local Storage, `docs/ops/attachment-delete-worker-local-storage-state.json`).
 
@@ -10,7 +10,7 @@ No modifica el state de la prueba Backend 3 (worker local Storage, `docs/ops/att
 
 | Repo | Rama | HEAD |
 |------|------|------|
-| `wp-agenda-automatizada` | `dev/canonical-images-retire` | (este commit: §12 Paso 1 implementado; base `6196b6fef27437a27e8f10ee499aa2bc7be7669a`) |
+| `wp-agenda-automatizada` | `dev/canonical-images-retire` | (este commit docs: §13 Paso 2 propuesta; base `82bf1d9cc1b5edfd74b6e5836c09b7bf8206a912`) |
 | `deoia-oauth-backend` (solo consulta; sin cambios) | `dev/backend-recovered` | `26452b3ba4ceb24b7bf46271fd30a0c58318ceed` (untracked ajeno: `scripts/runner-from-pack.sh`) |
 
 **Backend Storage fixture (no reejecutada aquí):** immediate / later / reappear **PASS**. El caso reappear fue **sintético** (no un PUT tardío real del proveedor).
@@ -1618,16 +1618,147 @@ Ninguna para el checkbox/persistencia: el canon y amount ya fijan la semántica.
 
 **Regla aprobada (subidas ya iniciadas):** desactivar bloquea **nuevas** admisiones (`run_fresh` / `assert_fresh_capability`). Una operación **previamente admitida** puede completar `run_resume` y `confirm` hasta resultado terminal. Purge/delete siguen independientes y prevalecen. Cubierto con aserción estática en `test-upload-canonical-record-image-permissions-states-ac.php` (sin cambio de runtime).
 
-**Futuro (otra autorización):** `is_ready=true` + bump `DEFAULTS_VERSION` + ensure inserta matriz + validación UI integrada (junto con subida/presentación mínima).
+**Futuro (otra autorización):** `is_ready=true` + bump `DEFAULTS_VERSION` + ensure inserta matriz + validación UI integrada (junto con subida/presentación mínima — ver §13).
 
 ---
 
-## Fuera de alcance restante (post-eliminaciones + §§10–12)
+## 13. Paso 2 — picker, subida post-save y presentación mínima: propuesta pendiente de autorización
 
-- Observaciones residuales §9.2 (sin reclasificar).
-- Activar worker / cron WP / `is_ready` / Render / bump `DEFAULTS_VERSION` sin encargo explícito.
-- Picker/subida/presentación/galería; framework insertables; permisos ajenos.
-- Reabrir pruebas de eliminación ni fixtures de miniaturas.
-- Cambiar comportamiento resume/confirm (solo documentado/asertado).
+**Naturaleza:** solo lectura y documentación (2026-09-15). **No autoriza implementación.** Sin cambios de runtime, schema, datos, Node, Storage ni HTTP con efectos.
 
-**Backend Storage fixture (no reejecutada):** immediate / later / reappear **PASS**; reappear fue sintético. Worker periódico apagado.
+**HEADs:** plugin `82bf1d9cc1b5edfd74b6e5836c09b7bf8206a912`; backend `26452b3ba4ceb24b7bf46271fd30a0c58318ceed`. Worktrees únicos; locales ajenos intactos.
+
+**Alcance futuro deseado (cuando se autorice código):** lista con Imágenes activa → guardar registro → seleccionar archivo → flujo canónico attach → ver **última** confirmada en card → reload conserva; inactiva no ofrece ni admite fresh; previas no se borran. **Fuera:** galería/tira/contador/visor; delete desde esa presentación nueva; flip `is_ready`; worker/backend; framework insertables.
+
+Norma: `docs/05-canonical-capabilities.md` §§5, §12.3 (post-save; destino galería = etapa posterior; este paso = subconjunto provisional de presentación).
+
+### 13.1 Mapa: qué ya existe (servidor)
+
+| Eslabón | Evidencia | Estado |
+|---------|-----------|--------|
+| Validación JPEG | `ExpedienteAdjuntoJpegValidator` — máx 1 048 576 B, 2048 px, solo `image/jpeg` | Listo |
+| `upload_operation_id` | UUID v4 cliente; UC lo exige | Listo (falta generarlo en UI shell) |
+| Fresh admit | `run_fresh` → `assert_fresh_capability` → variantes → authorize `canonical_v1` → `insert_admitted` → PUT create-only (`x-upsert:false`) → finalize → confirm TX | Listo |
+| Resume | Misma identidad; **sin** re-check ready/active; URLs del manifiesto local; authorize con `prior_upload_intent` | Listo (§12.E) |
+| Confirm | `AA_Canonical_Record_Image_Confirmation_Store` → INSERT `aa_canonical_record_images` + DELETE ops + touch | Listo |
+| Cuota | `AA_Installation_Storage_Usage` confirmed+reserved; códigos `storage_quota_exceeded` / `storage_not_included` | Listo |
+| AJAX attach | `aa_attach_canonical_record_image` — POST `family_key`, `container_id`, `record_id`, `upload_operation_id`, `file` → DTO público | Listo; **sin cliente JS shell** |
+| Contributor | `CanonicalImagesRecordsPageContributor` → `known_collection` / `known_absent` / `read_failed`; offered solo ready+active | Listo; producto `not_offered` mientras `!is_ready` |
+| «Última» | `ORDER BY i.id DESC` en batch repo — primer ítem = más reciente | Listo |
+| Sign-read | `aa_sign_canonical_record_image_read` — variants `summary`\|`gallery`\|`display` | Listo; **sin cliente shell** |
+| Delete 1 imagen | Mandatos + UI mínima card «Imagen #id» | Listo (fuera del delta visual de Paso 2) |
+| Purge blocking | `has_blocking_purge` en fresh y TX confirm | Listo |
+
+**Errores (resumen):** retry mismo op → resume si admitted vigente; `uncertain` no retry ciego; `capability_inactive|not_ready`, `purge_in_progress`, conflictos de identidad, cuota = terminales o mensaje comercial según código.
+
+**Falta exclusivamente UI/orquestación de registro:** módulo shell images; hook post-save antes de redirect; markup picker; thumb mínima + sign-read en card; enqueue/nonces attach+sign.
+
+### 13.2 Delta mínimo de plugin/UI
+
+| Pieza | Cambio | Por qué no cubierto |
+|-------|--------|---------------------|
+| `capabilities/canonical-shell-images-field.js` (nuevo) | Picker + prepare JPEG (patrón legacy) + preview + pending `{blob, upload_operation_id}` + retry; `AA_CANONICAL_SHELL_CAPABILITY_MODULES.images` | Solo existe módulo `amount` |
+| Extensión contrato módulo + `canonical-shell-record-form.js` | Tras create/update `confirmed` + `resource_id`, si hay pending → attach **antes** de `location.assign`; si falla → registro conservado + UI partial/retry | Hoy redirect inmediato (líneas ~473–476 / ~691–694); `collect` amount-style **no** sirve para imagen |
+| `index.php` | Markup sibling en `#aa-shell-record-capability-fields` gated por `images.offered`; enqueue JS; cfg `attachAction`/`attachNonce`/`signReadAction`/`signReadNonce` | Solo bloque amount hoy |
+| Card / presenter mínimo | Si contributor `offered` + `known_collection`: mostrar **primera** fila (`id` DESC) vía sign-read `summary` o `display`; sin colección = vacío; conservar Eliminar existente | Hoy solo texto «Imagen #id» vía repo bypass |
+| CSS | Reutilizar `.aa-expediente-adjunto-*` / thumb (y opcional main) **sin** strip/contador/visor | Evitar rediseño |
+
+**No proponer:** endpoints/tablas nuevas; WriteBag para imagen; galería completa; cambiar UC attach/sign/delete.
+
+### 13.3 Reutilización legacy y límites
+
+| Reutilizar (patrón/CSS) | No reutilizar |
+|-------------------------|---------------|
+| `prepareExpedienteImage` (límites alineados al validator JPEG) | Actions `aa_attach_expediente_*`, DTO `adjuntos[]`, tabla `aa_expediente_adjuntos` |
+| Preview object URL + remove pending | `buildRecordGallery` completa, strip, counter, viewer |
+| `flowState` saving→uploading→partial + retry mismo `upload_operation_id` | Delete sync Expedientes |
+| Thumb `.aa-expediente-adjunto-thumb` (+ main CSS si aporta) | Ports legacy como dependencia runtime del shell |
+| `generateUploadOperationId` (crypto.randomUUID) | Optimistic `applyAdjuntoToRecord` sin reload (shell usa redirect SSR) |
+
+Corte mínimo: **copiar/adaptar patrones** al módulo shell; **no** montar `ExpedienteRegistros` ni extraer framework genérico en este paso.
+
+### 13.4 Flujo único propuesto
+
+```text
+1. Lista con images activa (+ ready en producto futuro) → form registro ofrece picker (offered)
+2. Usuario elige archivo → prepare cliente → pending local (sin POST imagen aún)
+3. Submit create/update: title/details [+ amount collect]; images NO en WriteBag
+4. Servidor confirmed + resource_id (= record_id)
+5. Si hay pending:
+   a. POST aa_attach_canonical_record_image(container, record_id, file, upload_operation_id)
+   b. OK → redirect records (SSR: última en card)
+   c. Fallo recuperable → UI «registro guardado; imagen falló» + Reintentar (mismo op / resume)
+   d. Cancelar picker o sin archivo → solo redirect; registro OK sin imagen
+6. Card: última = known_collection[0]; sign-read; reload relee batch
+7. Lista inactiva / not-ready: sin picker; fresh → capability_inactive|not_ready
+```
+
+**Cancelar / fallo / red:** el registro ya persistido **se conserva** (§12.3). No re-crear el registro en retry. Abandonar pending al cerrar modal: revocar object URL; no llamar attach.
+
+**Update** con registro ya existente: mismo post-save si hay pending; `record_id` = id actual.
+
+### 13.5 Contrato mínimo de presentación
+
+| Concern | Propuesta |
+|---------|-----------|
+| Dato contributor | `offered` + por registro `known_collection` (lista DTO `{id,width,height,byte_size,created_at}` orden id DESC) / `known_absent` / `read_failed` |
+| URL | Solo `aa_sign_canonical_record_image_read` con `image_id` + variant (`summary` para thumb card); **no** filtrar URLs legacy |
+| Sin imagen | Sin nodo visual (como amount absent) |
+| «Última» | `collection[0]` del contributor (= `id` máximo); **no** orden del navegador |
+| Firma falla/caduca | Estado error local en thumb; un reintento sign-read; no borrar fila |
+| Inactive / not-ready | Contributor `not_offered` → sin picker ni thumb de producto; **datos intactos**; delete mínimo puede seguir (§12.4) vía camino ya cableado |
+| No es galería | Una sola representación; sin tira/contador/visor; copy/docs lo dejan explícito |
+
+### 13.6 Ready y habilitación
+
+| Fase | Qué |
+|------|-----|
+| Desarrollo Paso 2 | Código UI + tests con registry stub ready / `is_active=1` (como IMG-5 / Paso 1) |
+| Producto visible | Requiere autorización conjunta: `is_ready=true` + bump `DEFAULTS_VERSION` + ensure seeds + UI completa de este paso |
+| Mientras `is_ready=false` | Checkbox lista y picker registro **no** aparecen en UI normal; attach producto → 409 `capability_not_ready` |
+
+**Conclusión honesta:** Paso 2 puede desarrollarse y probarse aislado con stubs; **aceptación de producto** exige incremento de readiness (o cierre conjunto al final de la etapa visible). **No** bypass para policyytest.
+
+### 13.7 Archivos que cambiarían / no tocar
+
+**Cambiarían (propuesta):** `canonical-shell-images-field.js` (nuevo); `canonical-shell-record-form.js`; `index.php` (markup+boot+enqueue); `record-card.php` y/o presenter images mínimo; CSS admin (clases adjunto/thumb); tests JS/AC; docs al cerrar.
+
+**No tocar:** Upload/Sign/Delete UCs; schema/purge; worker; backend; amount WriteHandler; Access Policy; `expediente-registros.js` como dependencia; flip ready / `DEFAULTS_VERSION` / `DB_VERSION` en este incremento de UI (salvo encargo explícito de cierre).
+
+### 13.8 Matriz de pruebas (futuro; no ejecutar ahora)
+
+| Caso | Tipo |
+|------|------|
+| Lista activa vs inactiva (picker/offered; fresh inactive) | AC + JS stub |
+| Guardar registro + selección + attach OK (double authorize/PUT/confirm) | AC/JS doubles |
+| Archivo inválido (validator) | AC/JS |
+| Retry resume mismo `upload_operation_id` | AC/JS |
+| Fallo attach conserva registro (no re-create) | JS orquestación |
+| Última tras reload / nueva instancia SSR | AC contributor + manual futura |
+| 2ª imagen: collection[0] nueva; filas previas intactas | AC |
+| Desactivar bloquea fresh; admitida previa resume OK | AC estático + stub (ya parcial §12) |
+| Purge blocking intacto | Suites IMG-5 existentes |
+| Amount + delete imagen no regresionan | Suites amount + delete image |
+
+Manual integrada (post-ready): policyytest UI create→attach→thumb→reload→lista inactiva.
+
+### 13.9 Riesgos / preguntas de producto
+
+1. **¿Redirect inmediato tras attach OK vs permanecer en la vista con thumb optimista?** El shell hoy siempre redirige; la propuesta **conserva redirect SSR** (menos superficie). Solo pregunta si se prefiere UX tipo Expedientes sin reload.
+2. **¿Variant de card: `summary` vs `display`?** Técnica; default propuesto `summary` (thumb). No bloquea el modelo.
+3. **¿Mostrar Eliminar junto al thumb mínimo en el mismo incremento?** Fuera del objetivo declarado («No eliminar desde esa presentación»); el delete mínimo actual por «Imagen #id» puede permanecer hasta unificar. Confirmar si al cablear thumb se oculta la lista textual o coexisten temporalmente.
+
+**No son preguntas:** post-save; JPEG; conservación al fallar; última por `id`; no galería; no flip ready en este paso; resume tras desactivar (ya cerrado).
+
+---
+
+## Fuera de alcance restante (post-eliminaciones + §§10–13)
+
+- Observaciones residuales §9.2.
+- Activar worker / cron / `is_ready` / Render / bump `DEFAULTS_VERSION` sin encargo.
+- Implementar §13 sin autorización.
+- Galería completa; framework insertables; permisos ajenos.
+- Reabrir eliminaciones / fixtures miniaturas.
+- Cambiar runtime resume/confirm (solo documentado).
+
+**Backend Storage fixture (no reejecutada):** immediate / later / reappear **PASS**. Worker apagado.
