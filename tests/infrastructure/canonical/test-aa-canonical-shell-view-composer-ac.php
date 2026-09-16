@@ -231,6 +231,7 @@ ac_assert('Preview qualified key', ($preview_view['qualified_key'] ?? '') === 's
 ac_assert('Preview labels ephemeral', ($preview_view['family_label'] ?? '') === 'Demostración del shell');
 ac_assert('Container items expose records_url', isset($preview_view['items_view'][0]['records_url'])
     && strpos((string) $preview_view['items_view'][0]['records_url'], 'view=records') !== false);
+ac_assert('Container items expose family_icon_key key', array_key_exists('family_icon_key', $preview_view['items_view'][0]));
 
 $status_headers = [];
 $records_view = AA_Canonical_Shell_View_Composer::compose_preview_records(1, 1, 2);

@@ -1,6 +1,6 @@
 <?php
 /**
- * AC Test — Family icon markup + container-card all-lists presentation.
+ * AC Test — Family icon markup + container-card compact options presentation.
  *
  * Ejecutar: php tests/admin/ui/test-canonical-family-icons-card-ac.php
  */
@@ -106,13 +106,13 @@ $html_all = $render_card([
     'card_family_key' => 'catalog',
     'card_family_label' => 'Catálogos',
     'card_family_icon_key' => 'grid',
+    'card_announce_family' => true,
     'show_edit_container' => true,
     'card_container_id' => 7,
 ]);
 
 ac_assert('All-lists card has SVG', strpos($html_all, '<svg') !== false);
-ac_assert('All-lists card centers icon to h4 block', strpos($html_all, 'flex items-center gap-1') !== false);
-ac_assert('All-lists card omits items-start', strpos($html_all, 'items-start') === false);
+ac_assert('All-lists card compact row', strpos($html_all, 'flex items-center gap-2 min-w-0') !== false);
 ac_assert('All-lists card indigo wrapper', strpos($html_all, 'w-6 h-6 flex-shrink-0 text-indigo-600') !== false);
 ac_assert('All-lists card icon box w-6 h-6', strpos($html_all, 'w-6 h-6') !== false);
 ac_assert('All-lists card omits old gray icon offset', strpos($html_all, 'mt-0.5 text-gray-500') === false);
@@ -122,8 +122,20 @@ ac_assert('All-lists accessible family inside link', (bool) preg_match(
     $html_all
 ));
 ac_assert('All-lists keeps records sr-only once', substr_count($html_all, ' — ver registros') === 1);
-ac_assert('All-lists keeps edit button', strpos($html_all, 'aa-shell-edit-container-btn') !== false);
-ac_assert('All-lists keeps delete button', strpos($html_all, 'aa-shell-delete-container-btn') !== false);
+ac_assert('All-lists keeps edit button class', strpos($html_all, 'aa-shell-edit-container-btn') !== false);
+ac_assert('All-lists keeps delete button class', strpos($html_all, 'aa-shell-delete-container-btn') !== false);
+ac_assert('All-lists uses options trigger', strpos($html_all, 'aa-shell-container-options-trigger') !== false
+    && strpos($html_all, 'aa-options-trigger-flat') !== false);
+ac_assert('All-lists options popup without menu roles', strpos($html_all, 'aa-shell-container-options-popup') !== false
+    && strpos($html_all, 'role="menu"') === false
+    && strpos($html_all, 'role="menuitem"') === false);
+ac_assert('All-lists options popup keeps fixed width without max-w-full collapse', (bool) preg_match(
+    '/aa-shell-container-options-popup[^"]*w-\[12rem\]/',
+    $html_all
+) && strpos($html_all, 'aa-shell-container-options-popup') !== false
+    && !preg_match('/aa-shell-container-options-popup[^"]*max-w-full/', $html_all)
+    && !preg_match('/aa-shell-container-options-popup[^"]*min-w-0/', $html_all));
+ac_assert('All-lists omits visible actions border-t', strpos($html_all, 'border-t border-gray-100') === false);
 ac_assert('All-lists omits visible details paragraph', strpos($html_all, 'whitespace-pre-wrap') === false);
 ac_assert('All-lists omits visible time', strpos($html_all, '<time') === false);
 ac_assert('All-lists keeps details in edit payload', strpos($html_all, 'Detalle') !== false);
@@ -138,18 +150,53 @@ $html_mono = $render_card([
     'card_display' => '12 Sep 2026, 15:00',
     'card_records_url' => 'https://example.com/records',
     'card_family_key' => 'finance',
-    'card_family_label' => '',
-    'card_family_icon_key' => '',
+    'card_family_label' => 'Finanzas',
+    'card_family_icon_key' => 'currency',
+    'card_announce_family' => false,
+    'show_edit_container' => true,
+    'card_container_id' => 9,
 ]);
 
-ac_assert('Monofamily card has no family SVG row', strpos($html_mono, 'flex items-center gap-1') === false);
+ac_assert('Monofamily card has SVG', strpos($html_mono, '<svg') !== false);
+ac_assert('Monofamily card uses currency path', strpos($html_mono, $path_snippets['currency']) !== false);
 ac_assert('Monofamily card has no family sr-only label', strpos($html_mono, 'sr-only">Finanzas') === false);
 ac_assert('Monofamily card keeps title link', strpos($html_mono, 'Solo familia') !== false);
+ac_assert('Monofamily card keeps options trigger', strpos($html_mono, 'aa-shell-container-options-trigger') !== false);
+ac_assert('Monofamily keeps data-aa-container', strpos($html_mono, 'data-aa-container=') !== false);
+
+$html_archive = $render_card([
+    'card_title' => 'Archivo demo',
+    'card_details' => '',
+    'card_records_url' => 'https://example.com/records',
+    'card_family_key' => 'archive',
+    'card_family_label' => 'Archivo',
+    'card_family_icon_key' => 'folder',
+    'card_announce_family' => false,
+]);
+
+ac_assert('Archive filtered card has folder SVG', strpos($html_archive, $path_snippets['folder']) !== false);
+ac_assert('Archive filtered omits family sr-only', strpos($html_archive, 'sr-only">Archivo') === false);
 
 $card_src = (string) file_get_contents($card_partial);
 ac_assert('Card no longer renders family name paragraph class', strpos($card_src, 'text-xs text-gray-500 mb-1') === false);
-ac_assert('Card uses items-center', strpos($card_src, 'flex items-center gap-1') !== false);
+ac_assert('Card uses compact row gap-2', strpos($card_src, 'flex items-center gap-2') !== false);
 ac_assert('Card uses indigo icon color', strpos($card_src, 'text-indigo-600') !== false);
+ac_assert('Card omits role=menu', strpos($card_src, 'role="menu"') === false);
+ac_assert('Card omits role=menuitem', strpos($card_src, 'role="menuitem"') === false);
+
+$index_src = (string) file_get_contents(
+    $plugin_root . '/includes/admin/ui/modules/canonical_shell/index.php'
+);
+ac_assert('Index enqueues container options JS', strpos($index_src, 'canonical-shell-container-options.js') !== false);
+ac_assert('Index no longer gates icon to all-lists only', strpos($index_src, '$is_all_lists_scope && isset($item[\'family_icon_key\'])') === false);
+
+$composer_src = (string) file_get_contents(
+    $plugin_root . '/includes/infrastructure/canonical/class-aa-canonical-shell-view-composer.php'
+);
+ac_assert('Composer family view projects family_icon_key', (bool) preg_match(
+    "/'family_icon_key'\\s*=>\\s*\\\$manifest->family\\(\\)->icon_key\\(\\)/",
+    $composer_src
+));
 
 echo "\n--- Resumen: {$passed}/{$total} ---\n";
 if ($failed !== []) {

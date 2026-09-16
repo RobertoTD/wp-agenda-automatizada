@@ -344,6 +344,7 @@ final class AA_Canonical_Shell_View_Composer {
                     'updated_at_display' => self::format_display_datetime($container->updated_at(), $tz),
                     'family_key' => $manifest->identity()->family_key(),
                     'family_label' => $manifest->family_label(),
+                    'family_icon_key' => $manifest->family()->icon_key(),
                     'records_url' => self::build_records_nav_url(
                         $manifest,
                         $is_preview,

@@ -1770,6 +1770,15 @@ html.aa-shell-records-fill body.aa-shell-records-fill .aa-shell-list-panel-body-
     @apply pointer-events-auto shrink-0;
 }
 
+/* Container list cards — popup de opciones (sin role=menu) */
+.aa-shell-container-card {
+    @apply relative;
+}
+
+.aa-shell-container-options-popup:not([hidden]) {
+    @apply block;
+}
+
 /* Images capability — summary cabecera + galería panel (sin dependencias Expedientes UI) */
 .aa-shell-record-image-summary--header {
     @apply inline-flex shrink-0 overflow-hidden rounded border border-gray-200 bg-gray-100;

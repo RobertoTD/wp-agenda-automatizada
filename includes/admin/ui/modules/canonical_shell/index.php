@@ -858,12 +858,9 @@ $is_records_fill = $show_read_ui
                         $card_records_url = isset($item['records_url']) ? (string) $item['records_url'] : '';
                         $card_container_id = isset($item['id']) ? (int) $item['id'] : 0;
                         $card_family_key = isset($item['family_key']) ? (string) $item['family_key'] : $create_family_key;
-                        $card_family_label = ($is_all_lists_scope && isset($item['family_label']))
-                            ? (string) $item['family_label']
-                            : '';
-                        $card_family_icon_key = ($is_all_lists_scope && isset($item['family_icon_key']))
-                            ? (string) $item['family_icon_key']
-                            : '';
+                        $card_family_label = isset($item['family_label']) ? (string) $item['family_label'] : '';
+                        $card_family_icon_key = isset($item['family_icon_key']) ? (string) $item['family_icon_key'] : '';
+                        $card_announce_family = $is_all_lists_scope;
                         $show_edit_container = $show_container_write_ui && $card_family_key !== '';
                         $card_capabilities = ['status' => 'unavailable'];
                         if (
@@ -1365,6 +1362,9 @@ $is_records_fill = $show_read_ui
     <script src="<?php echo function_exists('aa_asset_url')
         ? aa_asset_url('includes/admin/ui/modules/canonical_shell/canonical-shell-container-form.js')
         : esc_url((defined('AA_PLUGIN_URL') ? AA_PLUGIN_URL : '') . 'includes/admin/ui/modules/canonical_shell/canonical-shell-container-form.js'); ?>"></script>
+    <script src="<?php echo function_exists('aa_asset_url')
+        ? aa_asset_url('includes/admin/ui/modules/canonical_shell/canonical-shell-container-options.js')
+        : esc_url((defined('AA_PLUGIN_URL') ? AA_PLUGIN_URL : '') . 'includes/admin/ui/modules/canonical_shell/canonical-shell-container-options.js'); ?>"></script>
 <?php endif; ?>
 
 <?php if ($show_record_fab) : ?>
