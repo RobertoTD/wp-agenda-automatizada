@@ -1775,6 +1775,27 @@ html.aa-shell-records-fill body.aa-shell-records-fill .aa-shell-list-panel-body-
     @apply relative;
 }
 
+.aa-shell-container-card:has(.aa-shell-container-card-link:focus) {
+    @apply ring-2 ring-indigo-500/40;
+}
+
+/* Extiende el enlace del título a toda la card; las opciones quedan por encima. */
+.aa-shell-container-card-link::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    border-radius: inherit;
+}
+
+.aa-shell-container-options {
+    @apply relative z-20;
+}
+
+.aa-shell-container-options-popup {
+    z-index: 30;
+}
+
 .aa-shell-container-options-popup:not([hidden]) {
     @apply block;
 }

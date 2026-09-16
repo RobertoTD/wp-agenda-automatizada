@@ -63,7 +63,7 @@ if ($show_family_icon && $card_announce_family && $card_family_label !== '') {
 ?>
 <li>
     <article class="aa-shell-container-card bg-white rounded-xl shadow-sm border border-gray-200 p-5 h-full flex flex-col">
-        <div class="flex items-center gap-2 min-w-0">
+        <div class="flex items-center gap-1 min-w-0">
             <?php if ($show_family_icon) : ?>
                 <span class="flex items-center justify-center w-6 h-6 flex-shrink-0 text-indigo-600" aria-hidden="true">
                     <?php echo $family_icon_svg; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- markup fijo interno ?>
@@ -73,7 +73,7 @@ if ($show_family_icon && $card_announce_family && $card_family_label !== '') {
                 <?php if ($card_records_url !== '') : ?>
                     <a
                         href="<?php echo esc_url($card_records_url); ?>"
-                        class="text-indigo-700 hover:underline focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 rounded"
+                        class="aa-shell-container-card-link text-indigo-700 hover:underline focus:outline-none"
                     >
                         <?php echo $family_sr_once; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- ya escapado ?>
                         <?php echo esc_html($card_title); ?>
@@ -85,7 +85,7 @@ if ($show_family_icon && $card_announce_family && $card_family_label !== '') {
                 <?php endif; ?>
             </h4>
             <?php if ($edit_payload_attr !== '') : ?>
-                <div class="aa-shell-container-options relative shrink-0">
+                <div class="aa-shell-container-options relative shrink-0 z-20">
                     <button
                         type="button"
                         class="aa-shell-container-options-trigger aa-options-trigger-flat"

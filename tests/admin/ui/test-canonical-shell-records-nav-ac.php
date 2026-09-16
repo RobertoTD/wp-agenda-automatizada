@@ -203,6 +203,8 @@ require_once $plugin_root . '/includes/application/canonical/capabilities/Canoni
 require_once $plugin_root . '/includes/application/canonical/capabilities/CanonicalCapabilityShellRecordsEnricher.php';
 require_once $plugin_root . '/includes/application/canonical/capabilities/CanonicalCapabilityRecordReadState.php';
 require_once $plugin_root . '/includes/admin/ui/modules/canonical_shell/presenters/class-aa-canonical-amount-shell-presenter.php';
+require_once $plugin_root . '/includes/admin/ui/modules/canonical_shell/presenters/class-aa-canonical-images-shell-presenter.php';
+require_once $plugin_root . '/includes/admin/ui/modules/canonical_shell/class-aa-canonical-family-icon-markup.php';
 
 if (!class_exists('AA_Canonical_Capability_Page_Contributor_Bootstrap')) {
     final class AA_Canonical_Capability_Page_Contributor_Bootstrap {
@@ -650,6 +652,7 @@ $fill_empty_view = [
     'shell_view' => 'records',
     'read_state' => 'empty',
     'family_label' => 'Finanzas',
+    'family_icon_key' => 'currency',
     'qualified_key' => 'finance',
     'is_preview' => false,
     'preview_banner' => '',
@@ -688,10 +691,100 @@ ac_assert('Fill header has Volver and Detalles', strpos($html_fill, 'Volver a co
     && strpos($html_fill, 'id="aa-shell-list-details-toggle"') !== false
     && strpos($html_fill, 'aria-controls="aa-shell-list-details"') !== false
     && strpos($html_fill, 'aria-expanded="false"') !== false);
-$fill_actions_ok = preg_match('/aa-shell-list-header-actions[\s\S]*?<\/div>/', $html_fill, $fill_actions) === 1
-    && substr_count($fill_actions[0], 'aa-shell-delete-container-btn') === 1
-    && substr_count($fill_actions[0], 'aa-shell-edit-container-btn') === 1;
-ac_assert('Fill header una sola acción Eliminar lista', $fill_actions_ok);
+$currency_path = 'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2';
+ac_assert('Fill header shows family icon gray-900', (bool) preg_match(
+    '/aa-shell-list-panel-header[\s\S]*?text-gray-900[\s\S]*?<svg[\s\S]*?' . preg_quote($currency_path, '/') . '[\s\S]*?id="aa-shell-parent-heading"/',
+    $html_fill
+));
+ac_assert('Fill header icon is decorative aria-hidden', (bool) preg_match(
+    '/aa-shell-list-panel-header[\s\S]*?aria-hidden="true"[\s\S]*?id="aa-shell-parent-heading"/',
+    $html_fill
+));
+ac_assert('Fill header omits indigo icon color', !preg_match(
+    '/aa-shell-list-panel-header[\s\S]*?text-indigo-600[\s\S]*?id="aa-shell-parent-heading"/',
+    $html_fill
+));
+ac_assert('Fill heading id stays on h2', (bool) preg_match(
+    '/<h2 id="aa-shell-parent-heading"[^>]*truncate/',
+    $html_fill
+));
+$fill_long = $fill_empty_view;
+$fill_long['container']['title'] = 'Título muy largo de lista financiera para comprobar truncado visual del encabezado';
+$html_fill_long = render_shell([
+    'aa_shell_route_state' => 'resolved',
+    'aa_shell_route_message' => '',
+    'aa_shell_view' => $fill_long,
+    'aa_canonical_family' => $family,
+]);
+ac_assert('Fill long title keeps truncate on heading', (bool) preg_match(
+    '/<h2 id="aa-shell-parent-heading"[^>]*\btruncate\b/',
+    $html_fill_long
+) && strpos($html_fill_long, 'Título muy largo de lista financiera') !== false);
+$archive_family = AA_Canonical_Core_Bootstrap::instance()->family('archive');
+$fill_archive = $fill_empty_view;
+$fill_archive['family_label'] = 'Archivo';
+$fill_archive['family_icon_key'] = 'folder';
+$fill_archive['qualified_key'] = 'archive';
+$fill_archive['back_url'] = AA_Canonical_Shell_Base_Url_Policy::build_url('archive');
+$html_fill_archive = render_shell([
+    'aa_shell_route_state' => 'resolved',
+    'aa_shell_route_message' => '',
+    'aa_shell_view' => $fill_archive,
+    'aa_canonical_family' => $archive_family,
+]);
+$folder_path = 'M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z';
+ac_assert('Archive fill header shows folder icon', strpos($html_fill_archive, $folder_path) !== false
+    && (bool) preg_match(
+        '/aa-shell-list-panel-header[\s\S]*?text-gray-900[\s\S]*?id="aa-shell-parent-heading"/',
+        $html_fill_archive
+    ));
+preg_match('/aa-shell-list-panel-header[\s\S]*?<\/header>/', $html_fill, $fill_header_match);
+$fill_header_html = $fill_header_match[0] ?? '';
+ac_assert('Fill title row has options trigger', strpos($fill_header_html, 'aa-shell-container-options-trigger') !== false
+    && strpos($fill_header_html, 'aa-shell-container-options-popup') !== false
+    && strpos($fill_header_html, 'w-[12rem]') !== false
+    && strpos($fill_header_html, 'max-w-full') === false);
+$fill_popup_inner = '';
+if (preg_match(
+    '/class="aa-shell-container-options-popup[^"]*"[^>]*>([\s\S]*?)<\/div>\s*<\/div>\s*<\/div>/',
+    $fill_header_html,
+    $fill_popup_match
+)) {
+    $fill_popup_inner = $fill_popup_match[1];
+}
+ac_assert('Fill popup keeps edit/delete classes and list aria-labels', $fill_popup_inner !== ''
+    && substr_count($fill_popup_inner, 'aa-shell-edit-container-btn') === 1
+    && substr_count($fill_popup_inner, 'aa-shell-delete-container-btn') === 1
+    && strpos($fill_popup_inner, 'aria-label="Editar lista: Lista fill"') !== false
+    && strpos($fill_popup_inner, 'aria-label="Eliminar lista: Lista fill"') !== false
+    && (bool) preg_match('/>\s*Editar\s*</', $fill_popup_inner)
+    && (bool) preg_match('/>\s*Eliminar\s*</', $fill_popup_inner));
+ac_assert('Fill omits legacy header-actions and visible Editar lista text', strpos($fill_header_html, 'aa-shell-list-header-actions') === false
+    && strpos($fill_header_html, '>Editar lista<') === false
+    && strpos($fill_header_html, '>Eliminar lista<') === false);
+ac_assert('Fill details control outside popup', strpos($fill_header_html, 'aa-shell-list-details-control') !== false
+    && (bool) preg_match(
+        '/aa-shell-list-details-control[\s\S]*?id="aa-shell-list-details-toggle"/',
+        $fill_header_html
+    )
+    && strpos($fill_popup_inner, 'aa-shell-list-details-toggle') === false);
+$html_fill_no_write = render_shell([
+    'aa_shell_route_state' => 'resolved',
+    'aa_shell_route_message' => '',
+    'aa_shell_view' => array_merge($fill_empty_view, [
+        'container_id' => 0,
+        'container' => array_merge($fill_empty_view['container'], ['id' => 0]),
+    ]),
+]);
+ac_assert('Fill without write omits options trigger', strpos($html_fill_no_write, 'aa-shell-container-options-trigger') === false
+    && strpos($html_fill_no_write, 'id="aa-shell-list-details-toggle"') !== false);
+$module_shell_src = (string) file_get_contents($plugin_root . '/includes/admin/ui/modules/canonical_shell/index.php');
+ac_assert('No-fill layout also embeds container options pattern', (bool) preg_match(
+    '/<h3 id="aa-shell-parent-heading"[\s\S]*?aa-shell-container-options-trigger[\s\S]*?aa-shell-container-options-popup/',
+    $module_shell_src
+));
+ac_assert('Preview non-fill omits visible Editar lista buttons', strpos($html_r, '>Editar lista<') === false
+    && strpos($html_r, '>Eliminar lista<') === false);
 ac_assert('Fill details start collapsed', strpos($html_fill, 'id="aa-shell-list-details"') !== false
     && preg_match('/id="aa-shell-list-details"[^>]*\bhidden\b/', $html_fill) === 1);
 ac_assert('Fill details include text and updated_at', strpos($html_fill, 'Detalle de la lista') !== false

@@ -507,6 +507,7 @@ final class AA_Canonical_Shell_View_Composer {
                 : null,
             'read_state' => $state,
             'family_label' => $manifest->family_label(),
+            'family_icon_key' => $manifest->family()->icon_key(),
             'qualified_key' => $manifest->qualified_key(),
             'is_preview' => $is_preview,
             'preview_banner' => $is_preview

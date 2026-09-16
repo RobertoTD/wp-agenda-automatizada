@@ -83,9 +83,17 @@ ac_assert('JS uncertain bloquea', strpos($js_src, 'deleteBlocked') !== false
     && strpos($js_src, 'reloadAfterUncertain') !== false
     && strpos($shell_src, 'Recargar listas') !== false);
 ac_assert('Lista parcial no se afirma terminada', strpos($shell_src, 'No está borrada del todo') !== false);
-$fill_header_ok = preg_match('/aa-shell-list-header-actions[\s\S]*?<\/div>/', $shell_src, $fill_hdr) === 1
-    && substr_count($fill_hdr[0], 'aa-shell-delete-container-btn') === 1;
-ac_assert('Fill header una sola acción Eliminar lista', $fill_header_ok);
+$fill_header_ok = preg_match(
+    '/aa-shell-list-panel-header[\s\S]*?aa-shell-container-options-popup[\s\S]*?aa-shell-delete-container-btn/',
+    $shell_src
+) === 1
+    && substr_count($shell_src, 'aa-shell-list-header-actions') === 0
+    && preg_match_all('/aa-shell-list-panel-header[\s\S]*?aa-shell-delete-container-btn/', $shell_src) >= 1;
+ac_assert('Fill header Eliminar solo en popup de opciones', $fill_header_ok
+    && substr_count(
+        (string) (preg_match('/aa-shell-list-panel-header[\s\S]*?<\/header>/', $shell_src, $hdr) ? $hdr[0] : ''),
+        'aa-shell-delete-container-btn'
+    ) === 1);
 ac_assert(
     'JS bind único y cooldown tras incomplete',
     strpos($js_src, "data-aa-shell-container-form") !== false

@@ -57,6 +57,16 @@ $parent_container = is_array($view) && isset($view['container']) && is_array($vi
 $containers_page_num = is_array($view) && isset($view['containers_page'])
     ? (int) $view['containers_page']
     : null;
+$family_icon_key = is_array($view) && isset($view['family_icon_key']) && is_string($view['family_icon_key'])
+    ? $view['family_icon_key']
+    : '';
+if (
+    $family_icon_key === ''
+    && isset($aa_canonical_family)
+    && $aa_canonical_family instanceof AA_Canonical_Family_Definition
+) {
+    $family_icon_key = $aa_canonical_family->icon_key();
+}
 
 if (
     $family_label === ''
@@ -403,6 +413,15 @@ $is_records_fill = $show_read_ui
                 $parent_has_updated = ($parent_iso !== '' && $parent_display !== '');
                 $parent_has_details_block = $parent_has_details_text || $parent_has_updated;
                 $list_heading = $parent_title !== '' ? $parent_title : 'Contenedor';
+                $parent_heading_icon_svg = '';
+                $show_parent_heading_icon = false;
+                if ($family_icon_key !== '') {
+                    if (!class_exists('AA_Canonical_Family_Icon_Markup')) {
+                        require_once __DIR__ . '/class-aa-canonical-family-icon-markup.php';
+                    }
+                    $parent_heading_icon_svg = AA_Canonical_Family_Icon_Markup::svg($family_icon_key);
+                    $show_parent_heading_icon = ($parent_heading_icon_svg !== '');
+                }
                 $edit_list_payload_attr = '';
                 if ($show_edit_container_on_records && $create_container_id >= 1 && $create_family_key !== '') {
                     $edit_list_payload = wp_json_encode(
@@ -426,9 +445,52 @@ $is_records_fill = $show_read_ui
                         aria-labelledby="aa-shell-parent-heading"
                     >
                         <header class="aa-shell-list-panel-header px-4 py-3 border-b border-gray-100 bg-white">
-                            <h2 id="aa-shell-parent-heading" class="text-lg font-semibold text-gray-900 leading-snug truncate">
-                                <?php echo esc_html($list_heading); ?>
-                            </h2>
+                            <div class="flex items-center gap-1 min-w-0">
+                                <?php if ($show_parent_heading_icon) : ?>
+                                    <span class="flex items-center justify-center w-6 h-6 flex-shrink-0 text-gray-900" aria-hidden="true">
+                                        <?php echo $parent_heading_icon_svg; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- markup fijo interno ?>
+                                    </span>
+                                <?php endif; ?>
+                                <h2 id="aa-shell-parent-heading" class="text-lg font-semibold text-gray-900 leading-snug truncate min-w-0 flex-1">
+                                    <?php echo esc_html($list_heading); ?>
+                                </h2>
+                                <?php if ($edit_list_payload_attr !== '') : ?>
+                                    <div class="aa-shell-container-options relative shrink-0">
+                                        <button
+                                            type="button"
+                                            class="aa-shell-container-options-trigger aa-options-trigger-flat"
+                                            aria-haspopup="true"
+                                            aria-expanded="false"
+                                            aria-label="<?php echo esc_attr('Opciones de la lista: ' . $list_heading); ?>"
+                                        >
+                                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                                                <path d="M6 10a2 2 0 11-4 0 2 2 0 014 0zm6 0a2 2 0 11-4 0 2 2 0 014 0zm6 0a2 2 0 11-4 0 2 2 0 014 0z"/>
+                                            </svg>
+                                        </button>
+                                        <div
+                                            class="aa-shell-container-options-popup hidden absolute right-0 top-full z-30 mt-2 w-[12rem] box-border rounded-lg border border-gray-200 bg-white py-1 shadow-lg"
+                                            hidden
+                                        >
+                                            <button
+                                                type="button"
+                                                class="aa-shell-edit-container-btn flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 focus:outline-none focus:bg-gray-50 focus:ring-2 focus:ring-inset focus:ring-indigo-500/30"
+                                                data-aa-container="<?php echo $edit_list_payload_attr; ?>"
+                                                aria-label="<?php echo esc_attr('Editar lista: ' . $list_heading); ?>"
+                                            >
+                                                Editar
+                                            </button>
+                                            <button
+                                                type="button"
+                                                class="aa-shell-delete-container-btn flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-red-600 hover:bg-gray-50 focus:outline-none focus:bg-gray-50 focus:ring-2 focus:ring-inset focus:ring-red-500/30"
+                                                data-aa-container="<?php echo $edit_list_payload_attr; ?>"
+                                                aria-label="<?php echo esc_attr('Eliminar lista: ' . $list_heading); ?>"
+                                            >
+                                                Eliminar
+                                            </button>
+                                        </div>
+                                    </div>
+                                <?php endif; ?>
+                            </div>
                             <div class="mt-2 flex items-center justify-between gap-3 flex-wrap">
                                 <p class="m-0 min-w-0">
                                     <?php if ($back_url !== '') : ?>
@@ -438,22 +500,8 @@ $is_records_fill = $show_read_ui
                                         >Volver a contenedores</a>
                                     <?php endif; ?>
                                 </p>
-                                <div class="aa-shell-list-header-actions shrink-0 flex items-center gap-3 flex-wrap">
-                                    <?php if ($edit_list_payload_attr !== '') : ?>
-                                        <button
-                                            type="button"
-                                            class="aa-shell-edit-container-btn text-sm font-medium text-indigo-700 hover:underline focus:outline-none focus:ring-2 focus:ring-indigo-500 rounded"
-                                            data-aa-container="<?php echo $edit_list_payload_attr; ?>"
-                                            aria-label="<?php echo esc_attr('Editar lista: ' . $list_heading); ?>"
-                                        >Editar lista</button>
-                                        <button
-                                            type="button"
-                                            class="aa-shell-delete-container-btn text-sm font-medium text-red-700 hover:underline focus:outline-none focus:ring-2 focus:ring-red-500 rounded"
-                                            data-aa-container="<?php echo $edit_list_payload_attr; ?>"
-                                            aria-label="<?php echo esc_attr('Eliminar lista: ' . $list_heading); ?>"
-                                        >Eliminar lista</button>
-                                    <?php endif; ?>
-                                    <?php if ($parent_has_details_block) : ?>
+                                <?php if ($parent_has_details_block) : ?>
+                                    <div class="aa-shell-list-details-control shrink-0">
                                         <button
                                             type="button"
                                             id="aa-shell-list-details-toggle"
@@ -461,8 +509,8 @@ $is_records_fill = $show_read_ui
                                             aria-expanded="false"
                                             aria-controls="aa-shell-list-details"
                                         >Detalles</button>
-                                    <?php endif; ?>
-                                </div>
+                                    </div>
+                                <?php endif; ?>
                             </div>
                         </header>
                         <div class="aa-shell-list-panel-body p-4<?php echo $show_record_fab ? ' aa-shell-list-panel-body--fab' : ''; ?>">
@@ -626,23 +674,50 @@ $is_records_fill = $show_read_ui
 
                 <?php else : ?>
                     <section class="mb-4" aria-labelledby="aa-shell-parent-heading">
-                        <div class="flex items-start justify-between gap-3 flex-wrap">
-                            <h3 id="aa-shell-parent-heading" class="text-lg font-semibold text-gray-900 m-0">
+                        <div class="flex items-center gap-1 min-w-0">
+                            <?php if ($show_parent_heading_icon) : ?>
+                                <span class="flex items-center justify-center w-6 h-6 flex-shrink-0 text-gray-900" aria-hidden="true">
+                                    <?php echo $parent_heading_icon_svg; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- markup fijo interno ?>
+                                </span>
+                            <?php endif; ?>
+                            <h3 id="aa-shell-parent-heading" class="text-lg font-semibold text-gray-900 m-0 truncate min-w-0 flex-1">
                                 <?php echo esc_html($list_heading); ?>
                             </h3>
                             <?php if ($edit_list_payload_attr !== '') : ?>
-                                <button
-                                    type="button"
-                                    class="aa-shell-edit-container-btn shrink-0 text-sm font-medium text-indigo-700 hover:underline focus:outline-none focus:ring-2 focus:ring-indigo-500 rounded"
-                                    data-aa-container="<?php echo $edit_list_payload_attr; ?>"
-                                    aria-label="<?php echo esc_attr('Editar lista: ' . $list_heading); ?>"
-                                >Editar lista</button>
-                                <button
-                                    type="button"
-                                    class="aa-shell-delete-container-btn shrink-0 text-sm font-medium text-red-700 hover:underline focus:outline-none focus:ring-2 focus:ring-red-500 rounded"
-                                    data-aa-container="<?php echo $edit_list_payload_attr; ?>"
-                                    aria-label="<?php echo esc_attr('Eliminar lista: ' . $list_heading); ?>"
-                                >Eliminar lista</button>
+                                <div class="aa-shell-container-options relative shrink-0">
+                                    <button
+                                        type="button"
+                                        class="aa-shell-container-options-trigger aa-options-trigger-flat"
+                                        aria-haspopup="true"
+                                        aria-expanded="false"
+                                        aria-label="<?php echo esc_attr('Opciones de la lista: ' . $list_heading); ?>"
+                                    >
+                                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                                            <path d="M6 10a2 2 0 11-4 0 2 2 0 014 0zm6 0a2 2 0 11-4 0 2 2 0 014 0zm6 0a2 2 0 11-4 0 2 2 0 014 0z"/>
+                                        </svg>
+                                    </button>
+                                    <div
+                                        class="aa-shell-container-options-popup hidden absolute right-0 top-full z-30 mt-2 w-[12rem] box-border rounded-lg border border-gray-200 bg-white py-1 shadow-lg"
+                                        hidden
+                                    >
+                                        <button
+                                            type="button"
+                                            class="aa-shell-edit-container-btn flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 focus:outline-none focus:bg-gray-50 focus:ring-2 focus:ring-inset focus:ring-indigo-500/30"
+                                            data-aa-container="<?php echo $edit_list_payload_attr; ?>"
+                                            aria-label="<?php echo esc_attr('Editar lista: ' . $list_heading); ?>"
+                                        >
+                                            Editar
+                                        </button>
+                                        <button
+                                            type="button"
+                                            class="aa-shell-delete-container-btn flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-red-600 hover:bg-gray-50 focus:outline-none focus:bg-gray-50 focus:ring-2 focus:ring-inset focus:ring-red-500/30"
+                                            data-aa-container="<?php echo $edit_list_payload_attr; ?>"
+                                            aria-label="<?php echo esc_attr('Eliminar lista: ' . $list_heading); ?>"
+                                        >
+                                            Eliminar
+                                        </button>
+                                    </div>
+                                </div>
                             <?php endif; ?>
                         </div>
                         <?php if ($parent_has_details_text) : ?>

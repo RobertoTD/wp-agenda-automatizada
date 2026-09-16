@@ -112,7 +112,7 @@ $html_all = $render_card([
 ]);
 
 ac_assert('All-lists card has SVG', strpos($html_all, '<svg') !== false);
-ac_assert('All-lists card compact row', strpos($html_all, 'flex items-center gap-2 min-w-0') !== false);
+ac_assert('All-lists card compact row', strpos($html_all, 'flex items-center gap-1 min-w-0') !== false);
 ac_assert('All-lists card indigo wrapper', strpos($html_all, 'w-6 h-6 flex-shrink-0 text-indigo-600') !== false);
 ac_assert('All-lists card icon box w-6 h-6', strpos($html_all, 'w-6 h-6') !== false);
 ac_assert('All-lists card omits old gray icon offset', strpos($html_all, 'mt-0.5 text-gray-500') === false);
@@ -122,6 +122,24 @@ ac_assert('All-lists accessible family inside link', (bool) preg_match(
     $html_all
 ));
 ac_assert('All-lists keeps records sr-only once', substr_count($html_all, ' — ver registros') === 1);
+ac_assert('All-lists uses stretched card link class', (bool) preg_match(
+    '/<a[^>]*class="[^"]*aa-shell-container-card-link[^"]*"[^>]*href="https:\/\/example\.com\/records"/',
+    $html_all
+) || (bool) preg_match(
+    '/<a[^>]*href="https:\/\/example\.com\/records"[^>]*class="[^"]*aa-shell-container-card-link/',
+    $html_all
+));
+ac_assert('All-lists link keeps hover underline without own focus ring', (bool) preg_match(
+    '/aa-shell-container-card-link[^"]*hover:underline[^"]*focus:outline-none/',
+    $html_all
+) && !preg_match('/aa-shell-container-card-link[^"]*focus:ring-2/', $html_all)
+    && !preg_match('/aa-shell-container-card-link[^"]*focus:ring-indigo-500/', $html_all)
+    && !preg_match('/aa-shell-container-card-link[^"]*focus:ring-offset-2/', $html_all));
+ac_assert('All-lists options sit above stretched link', strpos($html_all, 'aa-shell-container-options relative shrink-0 z-20') !== false);
+ac_assert('All-lists options remain outside the title link', (bool) preg_match(
+    '/<\/a>\s*<\/h4>\s*<div class="aa-shell-container-options/',
+    $html_all
+));
 ac_assert('All-lists keeps edit button class', strpos($html_all, 'aa-shell-edit-container-btn') !== false);
 ac_assert('All-lists keeps delete button class', strpos($html_all, 'aa-shell-delete-container-btn') !== false);
 ac_assert('All-lists uses options trigger', strpos($html_all, 'aa-shell-container-options-trigger') !== false
@@ -177,12 +195,54 @@ $html_archive = $render_card([
 ac_assert('Archive filtered card has folder SVG', strpos($html_archive, $path_snippets['folder']) !== false);
 ac_assert('Archive filtered omits family sr-only', strpos($html_archive, 'sr-only">Archivo') === false);
 
+$html_no_url = $render_card([
+    'card_title' => 'Sin URL',
+    'card_details' => null,
+    'card_records_url' => '',
+    'card_family_key' => 'finance',
+    'card_family_label' => 'Finanzas',
+    'card_family_icon_key' => 'currency',
+    'card_announce_family' => false,
+    'show_edit_container' => true,
+    'card_container_id' => 11,
+]);
+ac_assert('Without records_url omits stretched link class', strpos($html_no_url, 'aa-shell-container-card-link') === false
+    && strpos($html_no_url, '<a ') === false);
+ac_assert('Without records_url still allows options', strpos($html_no_url, 'aa-shell-container-options-trigger') !== false);
+
 $card_src = (string) file_get_contents($card_partial);
 ac_assert('Card no longer renders family name paragraph class', strpos($card_src, 'text-xs text-gray-500 mb-1') === false);
-ac_assert('Card uses compact row gap-2', strpos($card_src, 'flex items-center gap-2') !== false);
+ac_assert('Card uses compact row gap-1', strpos($card_src, 'flex items-center gap-1') !== false);
 ac_assert('Card uses indigo icon color', strpos($card_src, 'text-indigo-600') !== false);
 ac_assert('Card omits role=menu', strpos($card_src, 'role="menu"') === false);
 ac_assert('Card omits role=menuitem', strpos($card_src, 'role="menuitem"') === false);
+ac_assert('Card has no onclick', strpos($card_src, 'onclick') === false);
+$css_src = (string) file_get_contents($plugin_root . '/includes/admin/ui/assets/css/admin.source.css');
+ac_assert('Card CSS defines stretched link after', strpos($css_src, '.aa-shell-container-card-link::after') !== false);
+ac_assert('Card CSS rings card on link focus via :has(:focus)', (bool) preg_match(
+    '/\.aa-shell-container-card:has\(\.aa-shell-container-card-link:focus\)\s*\{[^}]*ring-2 ring-indigo-500\/40/',
+    $css_src
+)
+    && strpos($css_src, '.aa-shell-container-card:has(.aa-shell-container-card-link:focus-visible)') === false
+    && !preg_match('/\.aa-shell-container-card:focus-within\b/', $css_src)
+    && !preg_match(
+        '/\.aa-shell-container-card:has\(\.aa-shell-container-card-link:focus\)\s*\{[^}]*ring-offset-2/',
+        $css_src
+    )
+    && !preg_match(
+        '/\.aa-shell-container-card:has\(\.aa-shell-container-card-link:focus\)\s*\{[^}]*ring-indigo-500(?!\/)/',
+        $css_src
+    ));
+ac_assert('Card focus ring matches record toggle utilities', strpos($css_src, 'focus:ring-2 focus:ring-indigo-500/40') !== false
+    && (bool) preg_match(
+        '/\.aa-shell-container-card:has\(\.aa-shell-container-card-link:focus\)\s*\{[^}]*@apply ring-2 ring-indigo-500\/40/',
+        $css_src
+    ));
+ac_assert('Card CSS stacks options above stretch', strpos($css_src, '.aa-shell-container-options') !== false
+    && (bool) preg_match(
+        '/\.aa-shell-container-options\s*\{[^}]*z-20/',
+        $css_src
+    ));
 
 $index_src = (string) file_get_contents(
     $plugin_root . '/includes/admin/ui/modules/canonical_shell/index.php'

@@ -237,6 +237,7 @@ $status_headers = [];
 $records_view = AA_Canonical_Shell_View_Composer::compose_preview_records(1, 1, 2);
 ac_assert('Preview records shell_view', ($records_view['shell_view'] ?? '') === 'records');
 ac_assert('Preview records resolved_page', ($records_view['read_state'] ?? '') === 'resolved_page');
+ac_assert('Preview records expose family_icon_key key', array_key_exists('family_icon_key', $records_view));
 ac_assert('Preview records back uses containers_page', strpos((string) ($records_view['back_url'] ?? ''), 'page=2') !== false
     && strpos((string) ($records_view['back_url'] ?? ''), 'view=') === false);
 
