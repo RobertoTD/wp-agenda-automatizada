@@ -6,7 +6,7 @@
  * Optional actions: $show_edit_record (bool), $card_record_id (int).
  * Optional presentation: $shell_record_presentation ('card'|'compact').
  * Optional capabilities: $card_capabilities (array|null) — mapa por clave del item.
- * Optional images: $card_images (list of public rows) — delete mínimo sin galería.
+ * Optional images: $card_image_summary_url (?string), $show_image_actions (bool).
  *
  * @package WP_Agenda_Automatizada
  */
@@ -22,8 +22,7 @@ $is_compact = ($shell_record_presentation === 'compact');
 $card_capabilities = isset($card_capabilities) && is_array($card_capabilities)
     ? $card_capabilities
     : null;
-$card_images = isset($card_images) && is_array($card_images) ? $card_images : [];
-$show_image_delete = !empty($show_image_delete);
+$show_image_actions = !empty($show_image_actions);
 
 $amount_card = AA_Canonical_Amount_Shell_Presenter::card_view($card_capabilities);
 $amount_edit = AA_Canonical_Amount_Shell_Presenter::edit_payload_fragment($card_capabilities);
@@ -32,6 +31,13 @@ $images_edit = AA_Canonical_Images_Shell_Presenter::edit_payload_fragment($card_
 $card_image_summary_url = isset($card_image_summary_url) && is_string($card_image_summary_url)
     ? $card_image_summary_url
     : null;
+
+$has_gallery = is_array($images_card) && ($images_card['kind'] ?? '') === 'gallery';
+$summary_image_id = $has_gallery && isset($images_card['image_id']) ? (int) $images_card['image_id'] : 0;
+$show_summary = $has_gallery
+    && $summary_image_id >= 1
+    && is_string($card_image_summary_url)
+    && $card_image_summary_url !== '';
 
 $edit_payload_attr = '';
 if ($show_edit_record && $card_record_id >= 1) {
@@ -79,6 +85,23 @@ $panel_id = $card_record_id >= 1
                 aria-expanded="false"
                 aria-controls="<?php echo esc_attr($panel_id); ?>"
             >
+                <?php if ($show_summary) : ?>
+                    <span
+                        class="aa-shell-record-image-summary aa-shell-record-image-summary--header"
+                        data-aa-summary-for-record="<?php echo esc_attr((string) $card_record_id); ?>"
+                        data-aa-image-id="<?php echo esc_attr((string) $summary_image_id); ?>"
+                    >
+                        <img
+                            class="aa-shell-record-image-summary__img"
+                            src="<?php echo esc_url($card_image_summary_url); ?>"
+                            alt=""
+                            width="40"
+                            height="40"
+                            loading="lazy"
+                            decoding="async"
+                        />
+                    </span>
+                <?php endif; ?>
                 <span class="aa-shell-record-title"><?php echo esc_html($card_title); ?></span>
             </button>
             <?php if ($edit_payload_attr !== '') : ?>
@@ -138,62 +161,17 @@ $panel_id = $card_record_id >= 1
                     No se pudo cargar el importe.
                 </p>
             <?php endif; ?>
-            <?php if (is_array($images_card) && ($images_card['kind'] ?? '') === 'thumb' && is_string($card_image_summary_url) && $card_image_summary_url !== '') : ?>
-                <div class="aa-shell-record-image-summary <?php echo ($has_details_text || is_array($amount_card)) ? 'mt-2' : ''; ?>">
-                    <img
-                        class="aa-shell-record-image-summary__img rounded border border-gray-200 max-w-[6rem] max-h-[6rem] object-cover"
-                        src="<?php echo esc_url($card_image_summary_url); ?>"
-                        alt=""
-                        width="96"
-                        height="96"
-                        loading="lazy"
-                        decoding="async"
-                    />
-                </div>
-            <?php endif; ?>
-            <?php if ($has_updated) : ?>
-                <p class="aa-shell-record-updated text-xs text-gray-500 <?php echo ($has_details_text || is_array($amount_card) || (is_array($images_card) && $card_image_summary_url)) ? 'mt-2' : ''; ?> m-0">
-                    <time datetime="<?php echo esc_attr($card_iso); ?>"><?php echo esc_html($card_display); ?></time>
+            <?php if ($has_gallery) : ?>
+                <?php require __DIR__ . '/record-images-gallery.php'; ?>
+            <?php elseif (is_array($images_card) && ($images_card['kind'] ?? '') === 'error') : ?>
+                <p class="aa-shell-record-images-error text-sm text-amber-800 <?php echo ($has_details_text || is_array($amount_card)) ? 'mt-2' : ''; ?> m-0" role="status">
+                    No se pudieron cargar las imágenes.
                 </p>
             <?php endif; ?>
-            <?php if ($show_image_delete && $card_images !== []) : ?>
-                <ul class="aa-shell-record-images mt-2 space-y-1 m-0 p-0 list-none" aria-label="Imágenes del registro">
-                    <?php foreach ($card_images as $img_row) : ?>
-                        <?php
-                        if (!is_array($img_row)) {
-                            continue;
-                        }
-                        $img_id = isset($img_row['id']) ? (int) $img_row['id'] : 0;
-                        if ($img_id < 1) {
-                            continue;
-                        }
-                        $img_payload = wp_json_encode(
-                            [
-                                'id' => $img_id,
-                                'record_id' => $card_record_id,
-                            ],
-                            JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT
-                        );
-                        if (!is_string($img_payload) || $img_payload === '') {
-                            continue;
-                        }
-                        ?>
-                        <li
-                            class="aa-shell-record-image flex items-center justify-between gap-2 text-xs text-gray-700"
-                            data-aa-image-id="<?php echo esc_attr((string) $img_id); ?>"
-                        >
-                            <span>Imagen #<?php echo esc_html((string) $img_id); ?></span>
-                            <button
-                                type="button"
-                                class="aa-shell-delete-image-btn inline-flex items-center px-2 py-1 text-xs font-semibold text-red-700 bg-red-50 border border-red-200 rounded hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-500"
-                                data-aa-image="<?php echo esc_attr($img_payload); ?>"
-                                aria-label="<?php echo esc_attr('Eliminar imagen ' . $img_id); ?>"
-                            >
-                                Eliminar imagen
-                            </button>
-                        </li>
-                    <?php endforeach; ?>
-                </ul>
+            <?php if ($has_updated) : ?>
+                <p class="aa-shell-record-updated text-xs text-gray-500 <?php echo ($has_details_text || is_array($amount_card) || $has_gallery) ? 'mt-2' : ''; ?> m-0">
+                    <time datetime="<?php echo esc_attr($card_iso); ?>"><?php echo esc_html($card_display); ?></time>
+                </p>
             <?php endif; ?>
         </div>
     </div>
@@ -216,8 +194,12 @@ $panel_id = $card_record_id >= 1
                 No se pudo cargar el importe.
             </p>
         <?php endif; ?>
-        <?php if (is_array($images_card) && ($images_card['kind'] ?? '') === 'thumb' && is_string($card_image_summary_url) && $card_image_summary_url !== '') : ?>
-            <div class="aa-shell-record-image-summary mt-2">
+        <?php if ($show_summary) : ?>
+            <div
+                class="aa-shell-record-image-summary mt-2"
+                data-aa-summary-for-record="<?php echo esc_attr((string) $card_record_id); ?>"
+                data-aa-image-id="<?php echo esc_attr((string) $summary_image_id); ?>"
+            >
                 <img
                     class="aa-shell-record-image-summary__img rounded border border-gray-200 max-w-[6rem] max-h-[6rem] object-cover"
                     src="<?php echo esc_url($card_image_summary_url); ?>"
@@ -229,49 +211,17 @@ $panel_id = $card_record_id >= 1
                 />
             </div>
         <?php endif; ?>
+        <?php if ($has_gallery) : ?>
+            <?php require __DIR__ . '/record-images-gallery.php'; ?>
+        <?php elseif (is_array($images_card) && ($images_card['kind'] ?? '') === 'error') : ?>
+            <p class="aa-shell-record-images-error mt-2 text-sm text-amber-800 m-0" role="status">
+                No se pudieron cargar las imágenes.
+            </p>
+        <?php endif; ?>
         <?php if ($has_updated) : ?>
             <p class="mt-3 text-xs text-gray-500">
                 <time datetime="<?php echo esc_attr($card_iso); ?>"><?php echo esc_html($card_display); ?></time>
             </p>
-        <?php endif; ?>
-        <?php if ($show_image_delete && $card_images !== []) : ?>
-            <ul class="aa-shell-record-images mt-3 space-y-1 m-0 p-0 list-none" aria-label="Imágenes del registro">
-                <?php foreach ($card_images as $img_row) : ?>
-                    <?php
-                    if (!is_array($img_row)) {
-                        continue;
-                    }
-                    $img_id = isset($img_row['id']) ? (int) $img_row['id'] : 0;
-                    if ($img_id < 1) {
-                        continue;
-                    }
-                    $img_payload = wp_json_encode(
-                        [
-                            'id' => $img_id,
-                            'record_id' => $card_record_id,
-                        ],
-                        JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT
-                    );
-                    if (!is_string($img_payload) || $img_payload === '') {
-                        continue;
-                    }
-                    ?>
-                    <li
-                        class="aa-shell-record-image flex items-center justify-between gap-2 text-xs text-gray-700"
-                        data-aa-image-id="<?php echo esc_attr((string) $img_id); ?>"
-                    >
-                        <span>Imagen #<?php echo esc_html((string) $img_id); ?></span>
-                        <button
-                            type="button"
-                            class="aa-shell-delete-image-btn inline-flex items-center px-2 py-1 text-xs font-semibold text-red-700 bg-red-50 border border-red-200 rounded hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-500"
-                            data-aa-image="<?php echo esc_attr($img_payload); ?>"
-                            aria-label="<?php echo esc_attr('Eliminar imagen ' . $img_id); ?>"
-                        >
-                            Eliminar imagen
-                        </button>
-                    </li>
-                <?php endforeach; ?>
-            </ul>
         <?php endif; ?>
         <?php if ($edit_payload_attr !== '') : ?>
             <div class="mt-4 pt-3 border-t border-gray-100 flex flex-wrap items-center gap-2">

@@ -28,6 +28,7 @@ $ajax_src = (string) file_get_contents($ajax_file);
 $boot_src = (string) file_get_contents($plugin_root . '/wp-agenda-automatizada.php');
 $shell_src = (string) file_get_contents($plugin_root . '/includes/admin/ui/modules/canonical_shell/index.php');
 $card_src = (string) file_get_contents($plugin_root . '/includes/admin/ui/modules/canonical_shell/partials/record-card.php');
+$gallery_src = (string) file_get_contents($plugin_root . '/includes/admin/ui/modules/canonical_shell/partials/record-images-gallery.php');
 $js_src = (string) file_get_contents($plugin_root . '/includes/admin/ui/modules/canonical_shell/canonical-shell-record-form.js');
 $uc_src = (string) file_get_contents($plugin_root . '/includes/application/canonical/images/RetireCanonicalRecordImageUseCase.php');
 
@@ -56,8 +57,9 @@ ac_assert('Códigos de estado', strpos($ajax_src, "'image_not_found'") !== false
 ac_assert('Boot nonces deleteImage', strpos($shell_src, 'deleteImageAction') !== false
     && strpos($shell_src, 'deleteImageNonce') !== false
     && strpos($shell_src, 'CanonicalDeleteRecordImageAjax') !== false);
-ac_assert('Card Eliminar imagen', strpos($card_src, 'aa-shell-delete-image-btn') !== false
-    && strpos($card_src, 'data-aa-image') !== false);
+ac_assert('Card incluye galería con Eliminar imagen', strpos($card_src, 'record-images-gallery.php') !== false
+    && strpos($gallery_src, 'aa-shell-delete-image-btn') !== false
+    && strpos($gallery_src, 'data-aa-image') !== false);
 ac_assert('Modal imagen + Continuar recovery', strpos($shell_src, 'aa-shell-delete-image-modal') !== false
     && strpos($shell_src, 'aa-shell-resume-image-delete-btn') !== false);
 ac_assert('JS one-click / incomplete / Cerrar', strpos($js_src, 'submitDeleteImage') !== false

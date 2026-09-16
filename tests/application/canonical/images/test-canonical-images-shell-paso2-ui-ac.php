@@ -1,10 +1,11 @@
 <?php
 /**
- * AC Paso 2 — presentación mínima images (presenter + contratos UI estáticos).
+ * AC Paso 2+ — presentación images (summary cabecera + galería panel).
  *
  * Ejecutar:
  *   php tests/application/canonical/images/test-canonical-images-shell-paso2-ui-ac.php
  *   scripts/safe-node-test.sh tests/js/canonical-shell-images-field.test.js
+ *   scripts/safe-node-test.sh tests/js/canonical-shell-images-gallery.test.js
  *   scripts/safe-node-test.sh tests/js/canonical-shell-record-form.test.js
  */
 
@@ -26,7 +27,7 @@ function ac_assert(string $label, bool $ok, string $detail = ''): void {
     echo '[FAIL] ' . $label . ($detail !== '' ? ' - ' . $detail : '') . "\n";
 }
 
-echo "=== 1. Contratos UI estáticos Paso 2 ===\n";
+echo "=== 1. Contratos UI estáticos ===\n";
 
 $index = (string) file_get_contents(
     $plugin_root . '/includes/admin/ui/modules/canonical_shell/index.php'
@@ -37,8 +38,14 @@ $form_js = (string) file_get_contents(
 $images_js = (string) file_get_contents(
     $plugin_root . '/includes/admin/ui/modules/canonical_shell/capabilities/canonical-shell-images-field.js'
 );
+$gallery_js = (string) file_get_contents(
+    $plugin_root . '/includes/admin/ui/modules/canonical_shell/capabilities/canonical-shell-images-gallery.js'
+);
 $card = (string) file_get_contents(
     $plugin_root . '/includes/admin/ui/modules/canonical_shell/partials/record-card.php'
+);
+$gallery_partial = (string) file_get_contents(
+    $plugin_root . '/includes/admin/ui/modules/canonical_shell/partials/record-images-gallery.php'
 );
 $defaults = (string) file_get_contents(
     $plugin_root . '/includes/infrastructure/canonical/class-aa-canonical-capability-defaults-lifecycle.php'
@@ -48,15 +55,31 @@ $bootstrap = (string) file_get_contents($plugin_root . '/wp-agenda-automatizada.
 ac_assert('Campo images SSR condicionado a offered', strpos($index, 'images_offered') !== false);
 ac_assert('Boot attachImageAction/Nonce', strpos($index, 'attachImageAction') !== false
     && strpos($index, 'attachImageNonce') !== false);
+ac_assert('Boot signReadAction/Nonce', strpos($index, 'signReadAction') !== false
+    && strpos($index, 'signReadNonce') !== false);
+ac_assert('Sin batch duplicado en index', strpos($index, 'records_page_images_by_record') === false
+    && strpos($index, 'find_public_rows_by_record_ids_for_container') === false);
+ac_assert('Advertencia delete lista menciona imágenes', strpos($index, 'sus imágenes asociadas') !== false
+    && strpos($index, 'Esta eliminación es irremediable') !== false);
+ac_assert('Visor modal shell', strpos($index, 'aa-shell-image-viewer-modal') !== false);
+ac_assert('Carga gallery.js antes del form', strpos($index, 'canonical-shell-images-gallery.js') !== false
+    && strpos($index, 'canonical-shell-images-gallery.js') < strpos($index, 'canonical-shell-record-form.js'));
 ac_assert('Carga images-field.js antes del form', strpos($index, 'canonical-shell-images-field.js') !== false
     && strpos($index, 'canonical-shell-images-field.js') < strpos($index, 'canonical-shell-record-form.js'));
 ac_assert('Form continueAfterRecordConfirmed', strpos($form_js, 'continueAfterRecordConfirmed') !== false);
 ac_assert('Form afterRecordSaved hook', strpos($form_js, 'afterRecordSaved') !== false);
+ac_assert('Form afterRetire galería', strpos($form_js, 'AACanonicalShellImagesGallery.afterRetire') !== false);
 ac_assert('Images no escribe WriteBag (collect vacío)', preg_match(
     '/function collect\(\)\s*\{\s*\/\/ Images no van en WriteBag/s',
     $images_js
 ) === 1);
-ac_assert('Card miniatura summary', strpos($card, 'aa-shell-record-image-summary') !== false);
+ac_assert('Gallery JS sin expediente-registros', strpos($gallery_js, 'expediente-registros') === false
+    && strpos($gallery_js, 'aa-expediente-') === false);
+ac_assert('Card summary cabecera compacta', strpos($card, 'aa-shell-record-image-summary--header') !== false);
+ac_assert('Card incluye partial galería', strpos($card, 'record-images-gallery.php') !== false);
+ac_assert('Partial galería principal display', strpos($gallery_partial, 'data-aa-read-version="display"') !== false);
+ac_assert('Partial galería mini gallery', strpos($gallery_partial, 'data-aa-read-version="gallery"') !== false);
+ac_assert('Partial sin lista textual Imagen #', strpos($gallery_partial, 'Imagen #') === false);
 ac_assert('Presenter images registrado', strpos($bootstrap, 'class-aa-canonical-images-shell-presenter.php') !== false);
 ac_assert('DEFAULTS_VERSION = 3', strpos($defaults, 'public const DEFAULTS_VERSION = 3;') !== false);
 
@@ -100,8 +123,7 @@ require_once $plugin_root . '/includes/application/canonical/capabilities/Canoni
 require_once $plugin_root . '/includes/admin/ui/modules/canonical_shell/presenters/class-aa-canonical-amount-shell-presenter.php';
 require_once $plugin_root . '/includes/admin/ui/modules/canonical_shell/presenters/class-aa-canonical-images-shell-presenter.php';
 
-echo "\n=== 2. Presenter: última = id DESC (primera del collection) ===\n";
-
+echo "\n=== 2. Presenter: galería id DESC ===\n";
 
 $absent = AA_Canonical_Images_Shell_Presenter::card_view([
     'images' => CanonicalCapabilityRecordReadState::known_absent()->to_array(),
@@ -117,10 +139,14 @@ $collection = CanonicalCapabilityRecordReadState::known_collection([
     ['id' => 20, 'width' => 1, 'height' => 1, 'byte_size' => 1, 'created_at' => '2026-01-02'],
     ['id' => 10, 'width' => 1, 'height' => 1, 'byte_size' => 1, 'created_at' => '2026-01-01'],
 ])->to_array();
-$thumb = AA_Canonical_Images_Shell_Presenter::card_view(['images' => $collection]);
+$gallery = AA_Canonical_Images_Shell_Presenter::card_view(['images' => $collection]);
 ac_assert(
-    'collection toma primera (id 20 = última persistida)',
-    is_array($thumb) && ($thumb['kind'] ?? '') === 'thumb' && (int) ($thumb['image_id'] ?? 0) === 20
+    'collection → gallery con última = 20',
+    is_array($gallery)
+    && ($gallery['kind'] ?? '') === 'gallery'
+    && (int) ($gallery['image_id'] ?? 0) === 20
+    && isset($gallery['image_ids'])
+    && $gallery['image_ids'] === [20, 10]
 );
 
 $reread = AA_Canonical_Images_Shell_Presenter::card_view(['images' => $collection]);
@@ -129,7 +155,7 @@ ac_assert(
     is_array($reread) && (int) ($reread['image_id'] ?? 0) === 20
 );
 
-echo "\n=== 3. Sign-read discreto (sin filtrar paths) ===\n";
+echo "\n=== 3. Sign-read discreto summary ===\n";
 
 $ok_uc = new class {
     public function execute($fk, $cid, $rid, $iid, $variant): array {
@@ -139,6 +165,8 @@ $ok_uc = new class {
 $url = AA_Canonical_Images_Shell_Presenter::resolve_summary_url($ok_uc, 'archive', 1, 2, 20);
 ac_assert('sign ok → URL https', $url === 'https://signed.example/summary.jpg');
 ac_assert('variant summary constante', AA_Canonical_Images_Shell_Presenter::SUMMARY_VARIANT === 'summary');
+ac_assert('constantes gallery/display', AA_Canonical_Images_Shell_Presenter::GALLERY_VARIANT === 'gallery'
+    && AA_Canonical_Images_Shell_Presenter::DISPLAY_VARIANT === 'display');
 
 $fail_uc = new class {
     public function execute($fk, $cid, $rid, $iid, $variant): array {
@@ -180,10 +208,12 @@ $db_schema = (string) file_get_contents(
 );
 ac_assert('DB_VERSION = 31 sin cambio', strpos($db_schema, "public const DB_VERSION = '31';") !== false);
 
-echo "\n=== 5. Card: delete textual sin URL; miniatura solo con URL ===\n";
+echo "\n=== 5. Card compacta: summary cabecera + galería; sin lista textual ===\n";
 
-$collection_seven = CanonicalCapabilityRecordReadState::known_collection([
-    ['id' => 7, 'width' => 1, 'height' => 1, 'byte_size' => 1, 'created_at' => '2026-01-02'],
+$collection_multi = CanonicalCapabilityRecordReadState::known_collection([
+    ['id' => 7, 'width' => 1, 'height' => 1, 'byte_size' => 1, 'created_at' => '2026-01-03'],
+    ['id' => 5, 'width' => 1, 'height' => 1, 'byte_size' => 1, 'created_at' => '2026-01-02'],
+    ['id' => 3, 'width' => 1, 'height' => 1, 'byte_size' => 1, 'created_at' => '2026-01-01'],
 ])->to_array();
 
 $card_title = 'Registro 192';
@@ -191,25 +221,34 @@ $card_details = 'woowow';
 $card_iso = '2026-09-15T12:00:00+00:00';
 $card_display = '15 sep 2026';
 $card_record_id = 192;
-$card_capabilities = ['images' => $collection_seven];
+$card_capabilities = ['images' => $collection_multi];
 $show_edit_record = false;
 $shell_record_presentation = 'compact';
-$card_images = [
-    ['id' => 7, 'record_id' => 192, 'width' => 1, 'height' => 1, 'byte_size' => 1, 'created_at' => '2026-01-02'],
-];
-$show_image_delete = true;
+$show_image_actions = true;
 $card_image_summary_url = null;
 
 ob_start();
 require $plugin_root . '/includes/admin/ui/modules/canonical_shell/partials/record-card.php';
 $html_no_url = (string) ob_get_clean();
-ac_assert('Sin URL: Imagen #7 visible', strpos($html_no_url, 'Imagen #7') !== false);
 ac_assert(
-    'Sin URL: sin miniatura summary',
-    strpos($html_no_url, 'aa-shell-record-image-summary') === false
+    'Sin URL: sin summary cabecera',
+    strpos($html_no_url, 'aa-shell-record-image-summary--header') === false
 );
 ac_assert(
-    'Sin URL: botón Eliminar imagen presente',
+    'Sin URL: galería presente (collection offered)',
+    strpos($html_no_url, 'aa-shell-record-gallery') !== false
+);
+ac_assert(
+    'Sin URL: sin lista textual Imagen #',
+    strpos($html_no_url, 'Imagen #') === false
+);
+ac_assert(
+    'Sin URL: tira + contador con 3 imágenes',
+    strpos($html_no_url, 'aa-shell-record-gallery-strip') !== false
+    && strpos($html_no_url, '1 de 3') !== false
+);
+ac_assert(
+    'Sin URL: papelera delete presente',
     strpos($html_no_url, 'aa-shell-delete-image-btn') !== false
 );
 
@@ -218,11 +257,48 @@ ob_start();
 require $plugin_root . '/includes/admin/ui/modules/canonical_shell/partials/record-card.php';
 $html_with_url = (string) ob_get_clean();
 ac_assert(
-    'Con URL: miniatura summary presente',
-    strpos($html_with_url, 'aa-shell-record-image-summary__img') !== false
+    'Con URL: summary en cabecera del toggle',
+    strpos($html_with_url, 'aa-shell-record-image-summary--header') !== false
     && strpos($html_with_url, 'https://signed.example/summary.jpg') !== false
+    && strpos($html_with_url, 'aa-shell-record-toggle') !== false
+    && preg_match(
+        '/aa-shell-record-toggle[\s\S]*aa-shell-record-image-summary--header[\s\S]*aa-shell-record-title/s',
+        $html_with_url
+    ) === 1
 );
-ac_assert('Con URL: Imagen #7 sigue en delete', strpos($html_with_url, 'Imagen #7') !== false);
+ac_assert(
+    'Con URL: galería en panel',
+    preg_match(
+        '/id="aa-shell-record-panel-\d+"[\s\S]*aa-shell-record-gallery/s',
+        $html_with_url
+    ) === 1
+);
+
+$collection_one = CanonicalCapabilityRecordReadState::known_collection([
+    ['id' => 9, 'width' => 1, 'height' => 1, 'byte_size' => 1, 'created_at' => '2026-01-02'],
+])->to_array();
+$card_capabilities = ['images' => $collection_one];
+$card_image_summary_url = 'https://signed.example/one.jpg';
+ob_start();
+require $plugin_root . '/includes/admin/ui/modules/canonical_shell/partials/record-card.php';
+$html_one = (string) ob_get_clean();
+ac_assert(
+    'Una imagen: sin tira ni contador',
+    strpos($html_one, 'aa-shell-record-gallery-strip') === false
+    && strpos($html_one, ' de ') === false
+    && strpos($html_one, 'aa-shell-record-gallery-main') !== false
+);
+
+$card_capabilities = null;
+$card_image_summary_url = 'https://signed.example/stale.jpg';
+ob_start();
+require $plugin_root . '/includes/admin/ui/modules/canonical_shell/partials/record-card.php';
+$html_inactive = (string) ob_get_clean();
+ac_assert(
+    'Sin capability offered: sin summary ni galería',
+    strpos($html_inactive, 'aa-shell-record-image-summary') === false
+    && strpos($html_inactive, 'aa-shell-record-gallery') === false
+);
 
 echo "\n--- Resumen: {$passed}/{$total} ---\n";
 exit($failed === [] ? 0 : 1);

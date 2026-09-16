@@ -1113,6 +1113,11 @@
     }
 
     function removeImageFromDom(imageId) {
+        if (window.AACanonicalShellImagesGallery
+            && typeof window.AACanonicalShellImagesGallery.afterRetire === 'function') {
+            window.AACanonicalShellImagesGallery.afterRetire(imageId);
+            return;
+        }
         var nodes = document.querySelectorAll('[data-aa-image-id="' + String(imageId) + '"]');
         for (var i = 0; i < nodes.length; i++) {
             var node = nodes[i];
@@ -1353,6 +1358,13 @@
             if (typeof e.preventDefault === 'function') {
                 e.preventDefault();
             }
+            return;
+        }
+        if (window.AACanonicalShellImagesGallery
+            && typeof window.AACanonicalShellImagesGallery.closeViewer === 'function'
+            && document.getElementById('aa-shell-image-viewer-modal')
+            && !document.getElementById('aa-shell-image-viewer-modal').classList.contains('hidden')) {
+            // El módulo de galería también escucha Escape; no interferir de más.
             return;
         }
         if (deleteModal && !deleteModal.classList.contains('hidden')) {

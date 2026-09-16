@@ -1,9 +1,17 @@
 <?php
 /**
- * Presentación mínima images en tarjeta del shell (Paso 2).
+ * Presentación images en tarjeta del shell.
  *
- * Solo última imagen confirmada (orden persistido id DESC = primera del collection).
- * Variant de lectura: summary. Sin galería, contador ni visor.
+ * Superficies:
+ * - summary (cabecera compacta): última imagen, SSR tras recarga.
+ * - galería (panel/card): principal display, tira gallery, visor display.
+ *
+ * Infra compartida de imágenes (nombres históricos; conservar si se retira
+ * la UI/tablas/AJAX de Expedientes): ExpedienteAdjuntoVariants,
+ * ExpedienteAdjuntoJpegValidator, AA_Expediente_Adjunto_Variant_Generator,
+ * AA_Expediente_Aggregate_Lock, AA_Expediente_Attachments_Backend_Client,
+ * AA_Expediente_Attachment_Signed_Uploader,
+ * AA_Expediente_Attachment_Read_Url_Validator.
  *
  * @package WP_Agenda_Automatizada
  * @subpackage Admin\UI\Canonical
@@ -14,13 +22,15 @@ defined('ABSPATH') or die('No direct access');
 final class AA_Canonical_Images_Shell_Presenter {
 
     public const SUMMARY_VARIANT = 'summary';
+    public const GALLERY_VARIANT = 'gallery';
+    public const DISPLAY_VARIANT = 'display';
 
     /**
-     * Vista de card: null = no ofrecer nodo; thumb = pendiente de URL firmada;
+     * Vista de card: null = no ofrecer; gallery = ids ordenados (id DESC);
      * error = fallo discreto de lectura (sin paths).
      *
      * @param array<string,mixed>|null $cap_map
-     * @return array{kind:string,image_id?:int}|null
+     * @return array{kind:string,image_id?:int,image_ids?:list<int>}|null
      */
     public static function card_view(?array $cap_map): ?array {
         if (!is_array($cap_map) || !isset($cap_map['images']) || !is_array($cap_map['images'])) {
@@ -39,12 +49,16 @@ final class AA_Canonical_Images_Shell_Presenter {
             return null;
         }
 
-        $latest_id = self::latest_image_id_from_collection($state);
-        if ($latest_id === null) {
+        $ids = self::image_ids_from_collection($state);
+        if ($ids === []) {
             return null;
         }
 
-        return ['kind' => 'thumb', 'image_id' => $latest_id];
+        return [
+            'kind' => 'gallery',
+            'image_id' => $ids[0],
+            'image_ids' => $ids,
+        ];
     }
 
     /**
@@ -66,21 +80,35 @@ final class AA_Canonical_Images_Shell_Presenter {
     }
 
     /**
+     * Ids del collection en orden persistido (id DESC = índice 0 = última).
+     *
+     * @param array<string,mixed> $state
+     * @return list<int>
+     */
+    public static function image_ids_from_collection(array $state): array {
+        $items = isset($state['items']) && is_array($state['items']) ? $state['items'] : [];
+        $ids = [];
+        foreach ($items as $item) {
+            if (!is_array($item)) {
+                continue;
+            }
+            $id = isset($item['id']) ? (int) $item['id'] : 0;
+            if ($id >= 1) {
+                $ids[] = $id;
+            }
+        }
+
+        return $ids;
+    }
+
+    /**
      * Primera entrada del collection = última persistida (ORDER BY id DESC).
      *
      * @param array<string,mixed> $state
      */
     public static function latest_image_id_from_collection(array $state): ?int {
-        $items = isset($state['items']) && is_array($state['items']) ? $state['items'] : [];
-        if ($items === []) {
-            return null;
-        }
-        $first = $items[0];
-        if (!is_array($first)) {
-            return null;
-        }
-        $id = isset($first['id']) ? (int) $first['id'] : 0;
-        return $id >= 1 ? $id : null;
+        $ids = self::image_ids_from_collection($state);
+        return $ids !== [] ? $ids[0] : null;
     }
 
     /**

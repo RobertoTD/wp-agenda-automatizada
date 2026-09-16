@@ -158,7 +158,6 @@ $show_container_write_ui = $show_create_ui || $show_edit_container_on_records;
 
 $list_retire_in_progress = false;
 $orphan_container_purges = [];
-$records_page_images_by_record = [];
 $open_image_purges_on_records = [];
 $shell_images_read_url_uc = null;
 $aa_shell_resolve_card_image_summary_url = static function (
@@ -175,7 +174,7 @@ $aa_shell_resolve_card_image_summary_url = static function (
         return null;
     }
     $images_card = AA_Canonical_Images_Shell_Presenter::card_view($card_capabilities);
-    if (!is_array($images_card) || ($images_card['kind'] ?? '') !== 'thumb') {
+    if (!is_array($images_card) || ($images_card['kind'] ?? '') !== 'gallery') {
         return null;
     }
     $image_id = isset($images_card['image_id']) ? (int) $images_card['image_id'] : 0;
@@ -219,34 +218,19 @@ try {
         if ($show_read_ui && !$is_preview && $route_state === 'resolved'
             && in_array($read_state, ['empty', 'resolved_page'], true)
         ) {
-            $record_ids_for_images = [];
+            $record_ids_for_purge_banner = [];
             if (is_array($items_view)) {
-                foreach ($items_view as $item_for_img) {
-                    if (!is_array($item_for_img)) {
+                foreach ($items_view as $item_for_purge) {
+                    if (!is_array($item_for_purge)) {
                         continue;
                     }
-                    $rid = isset($item_for_img['id']) ? (int) $item_for_img['id'] : 0;
+                    $rid = isset($item_for_purge['id']) ? (int) $item_for_purge['id'] : 0;
                     if ($rid >= 1) {
-                        $record_ids_for_images[] = $rid;
+                        $record_ids_for_purge_banner[] = $rid;
                     }
                 }
             }
-            if ($record_ids_for_images !== []) {
-                if (!class_exists('CanonicalRecordImagesRepository')) {
-                    require_once dirname(__DIR__, 4) . '/repositories/CanonicalRecordImagesRepository.php';
-                }
-                try {
-                    $images_repo_ui = new CanonicalRecordImagesRepository();
-                    $records_page_images_by_record = $images_repo_ui->find_public_rows_by_record_ids_for_container(
-                        $create_container_id,
-                        $record_ids_for_images
-                    );
-                } catch (\Throwable $e) {
-                    $records_page_images_by_record = [];
-                }
-            }
-
-            $record_id_set = array_fill_keys($record_ids_for_images, true);
+            $record_id_set = array_fill_keys($record_ids_for_purge_banner, true);
             foreach ($purge_runs_ui->list_open_by_scope(CanonicalPurgeRunsRepository::SCOPE_IMAGE) as $open_img_run) {
                 if ((int) ($open_img_run['container_id'] ?? 0) !== $create_container_id) {
                     continue;
@@ -256,8 +240,7 @@ try {
                 }
                 $run_record_id = (int) ($open_img_run['record_id'] ?? 0);
                 if ($run_record_id >= 1 && !isset($record_id_set[$run_record_id])) {
-                    // Aún mostrar Continuar si el registro sigue en la página o no:
-                    // si el registro no está en la vista, igual recuperamos por banner.
+                    // Banner de recuperación aunque el registro no esté en la página actual.
                 }
                 $open_image_purges_on_records[] = $open_img_run;
             }
@@ -292,7 +275,6 @@ try {
 } catch (\Throwable $e) {
     $list_retire_in_progress = false;
     $orphan_container_purges = [];
-    $records_page_images_by_record = [];
     $open_image_purges_on_records = [];
 }
 
@@ -564,11 +546,7 @@ $is_records_fill = $show_read_ui
                                             : null;
                                         $show_edit_record = $show_record_fab;
                                         $shell_record_presentation = 'compact';
-                                        $card_images = isset($records_page_images_by_record[$card_record_id])
-                                            && is_array($records_page_images_by_record[$card_record_id])
-                                            ? $records_page_images_by_record[$card_record_id]
-                                            : [];
-                                        $show_image_delete = $show_create_record_ui && !$list_retire_in_progress;
+                                        $show_image_actions = $show_create_record_ui && !$list_retire_in_progress;
                                         $card_image_summary_url = $aa_shell_resolve_card_image_summary_url(
                                             $card_capabilities,
                                             $card_record_id,
@@ -736,11 +714,7 @@ $is_records_fill = $show_read_ui
                                     : null;
                                 $show_edit_record = $show_record_fab;
                                 $shell_record_presentation = 'card';
-                                $card_images = isset($records_page_images_by_record[$card_record_id])
-                                    && is_array($records_page_images_by_record[$card_record_id])
-                                    ? $records_page_images_by_record[$card_record_id]
-                                    : [];
-                                $show_image_delete = $show_create_record_ui && !$list_retire_in_progress;
+                                $show_image_actions = $show_create_record_ui && !$list_retire_in_progress;
                                 $card_image_summary_url = $aa_shell_resolve_card_image_summary_url(
                                     $card_capabilities,
                                     $card_record_id,
@@ -1326,7 +1300,7 @@ $is_records_fill = $show_read_ui
                 </button>
             </div>
             <p id="aa-shell-delete-container-message" class="text-sm text-gray-600 mb-4">
-                Se eliminará permanentemente “<span id="aa-shell-delete-container-title"></span>” y todos los registros que contiene. Esta acción no se puede deshacer.
+                Se eliminará permanentemente “<span id="aa-shell-delete-container-title"></span>”, todos los registros que contiene y sus imágenes asociadas. Esta eliminación es irremediable.
             </p>
             <div
                 id="aa-shell-delete-container-status"
@@ -1406,6 +1380,12 @@ $is_records_fill = $show_read_ui
     }
     if (!class_exists('CanonicalDeleteRecordImageAjax')) {
         require_once dirname(__DIR__, 4) . '/http/ajax/CanonicalDeleteRecordImageAjax.php';
+    }
+    if (!class_exists('CanonicalAttachRecordImageAjax')) {
+        require_once dirname(__DIR__, 4) . '/http/ajax/CanonicalAttachRecordImageAjax.php';
+    }
+    if (!class_exists('CanonicalSignRecordImageReadAjax')) {
+        require_once dirname(__DIR__, 4) . '/http/ajax/CanonicalSignRecordImageReadAjax.php';
     }
     if (!class_exists('CanonicalCreateRecordCommand')) {
         require_once dirname(__DIR__, 4) . '/application/canonical/CanonicalCreateRecordCommand.php';
@@ -1618,7 +1598,7 @@ $is_records_fill = $show_read_ui
                 </button>
             </div>
             <p id="aa-shell-delete-record-message" class="text-sm text-gray-600 mb-4">
-                Se eliminará permanentemente “<span id="aa-shell-delete-record-title"></span>” y sus imágenes. Esta acción no se puede deshacer.
+                Se eliminará permanentemente “<span id="aa-shell-delete-record-title"></span>” y sus imágenes asociadas. Esta eliminación es irremediable.
             </p>
 
             <div
@@ -1732,6 +1712,35 @@ $is_records_fill = $show_read_ui
         </div>
     </div>
 
+    <div
+        id="aa-shell-image-viewer-modal"
+        class="fixed inset-0 z-[310] flex items-center justify-center p-4 hidden"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="aa-shell-image-viewer-modal-title"
+        aria-hidden="true"
+    >
+        <div id="aa-shell-image-viewer-modal-backdrop" class="fixed inset-0 bg-black/60 transition-opacity" aria-hidden="true"></div>
+        <div class="relative bg-white rounded-xl shadow-xl max-w-3xl w-full p-4 z-10">
+            <div class="flex items-center justify-between mb-2">
+                <h3 id="aa-shell-image-viewer-modal-title" class="text-lg font-bold text-gray-900 leading-tight">
+                    Imagen
+                </h3>
+                <button
+                    type="button"
+                    id="aa-shell-image-viewer-modal-close-btn"
+                    class="text-gray-400 hover:text-gray-600 p-1 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    aria-label="Cerrar visor"
+                >
+                    ✕
+                </button>
+            </div>
+            <div id="aa-shell-image-viewer-body" class="aa-shell-image-viewer min-h-[12rem] flex items-center justify-center">
+                <p id="aa-shell-image-viewer-status" class="text-sm text-gray-500 m-0" role="status">Cargando imagen…</p>
+            </div>
+        </div>
+    </div>
+
     <script>
     window.AA_CANONICAL_SHELL_RECORD_FORM = {
         ajaxUrl: <?php echo wp_json_encode(admin_url('admin-ajax.php')); ?>,
@@ -1745,6 +1754,8 @@ $is_records_fill = $show_read_ui
         deleteImageNonce: <?php echo wp_json_encode(wp_create_nonce(CanonicalDeleteRecordImageAjax::NONCE_ACTION)); ?>,
         attachImageAction: <?php echo wp_json_encode(CanonicalAttachRecordImageAjax::ACTION); ?>,
         attachImageNonce: <?php echo wp_json_encode(wp_create_nonce(CanonicalAttachRecordImageAjax::NONCE_ACTION)); ?>,
+        signReadAction: <?php echo wp_json_encode(CanonicalSignRecordImageReadAjax::ACTION); ?>,
+        signReadNonce: <?php echo wp_json_encode(wp_create_nonce(CanonicalSignRecordImageReadAjax::NONCE_ACTION)); ?>,
         familyKey: <?php echo wp_json_encode($create_family_key); ?>,
         containerId: <?php echo (int) $create_container_id; ?>,
         listsScope: <?php echo wp_json_encode($is_all_lists_scope ? 'all' : ''); ?>,
@@ -1765,6 +1776,9 @@ $is_records_fill = $show_read_ui
     <script src="<?php echo function_exists('aa_asset_url')
         ? aa_asset_url('includes/admin/ui/modules/canonical_shell/capabilities/canonical-shell-images-field.js')
         : esc_url((defined('AA_PLUGIN_URL') ? AA_PLUGIN_URL : '') . 'includes/admin/ui/modules/canonical_shell/capabilities/canonical-shell-images-field.js'); ?>"></script>
+    <script src="<?php echo function_exists('aa_asset_url')
+        ? aa_asset_url('includes/admin/ui/modules/canonical_shell/capabilities/canonical-shell-images-gallery.js')
+        : esc_url((defined('AA_PLUGIN_URL') ? AA_PLUGIN_URL : '') . 'includes/admin/ui/modules/canonical_shell/capabilities/canonical-shell-images-gallery.js'); ?>"></script>
     <script src="<?php echo function_exists('aa_asset_url')
         ? aa_asset_url('includes/admin/ui/modules/canonical_shell/canonical-shell-record-form.js')
         : esc_url((defined('AA_PLUGIN_URL') ? AA_PLUGIN_URL : '') . 'includes/admin/ui/modules/canonical_shell/canonical-shell-record-form.js'); ?>"></script>

@@ -132,7 +132,8 @@ $collection = CanonicalCapabilityRecordReadState::known_collection([
 $thumb = AA_Canonical_Images_Shell_Presenter::card_view(['images' => $collection]);
 ac_assert(
     'última summary = collection[0] (id 30)',
-    is_array($thumb) && ($thumb['kind'] ?? '') === 'thumb' && (int) ($thumb['image_id'] ?? 0) === 30
+    is_array($thumb) && ($thumb['kind'] ?? '') === 'gallery' && (int) ($thumb['image_id'] ?? 0) === 30
+    && isset($thumb['image_ids']) && $thumb['image_ids'] === [30, 10]
 );
 $absent = AA_Canonical_Images_Shell_Presenter::card_view([
     'images' => CanonicalCapabilityRecordReadState::known_absent()->to_array(),
