@@ -536,7 +536,7 @@ final class AA_Canonical_Shell_View_Composer {
      * @param list<array<string,mixed>> $items_view
      * @return array{
      *   items_view: list<array<string,mixed>>,
-     *   capability_contributions: array<string, array{offered:bool}>
+     *   capability_contributions: array<string, array{offered:bool,list_sum?:array{status:string,value?:string}}>
      * }
      */
     private static function enrich_records_with_capabilities(

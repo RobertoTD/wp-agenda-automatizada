@@ -112,6 +112,7 @@ require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/capabil
 require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/capabilities/CanonicalCapabilityWriteRejected.php';
 require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/capabilities/CanonicalCapabilityWriteBag.php';
 require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/capabilities/AA_Canonical_Amount_Normalizer.php';
+require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/capabilities/AA_Canonical_Amount_List_Sum.php';
 require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/capabilities/CanonicalContainerCapabilityConfigSnapshot.php';
 require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/capabilities/CanonicalContainerCapabilitySelection.php';
 require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/capabilities/CanonicalContainerCapabilitySelectionPreparer.php';

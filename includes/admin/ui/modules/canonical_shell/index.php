@@ -54,6 +54,9 @@ $back_url = is_array($view) && isset($view['back_url']) ? (string) $view['back_u
 $parent_container = is_array($view) && isset($view['container']) && is_array($view['container'])
     ? $view['container']
     : null;
+$capability_contributions = is_array($view) && isset($view['capability_contributions']) && is_array($view['capability_contributions'])
+    ? $view['capability_contributions']
+    : [];
 $containers_page_num = is_array($view) && isset($view['containers_page'])
     ? (int) $view['containers_page']
     : null;
@@ -412,6 +415,7 @@ $is_records_fill = $show_read_ui
                 $parent_has_details_text = is_string($parent_details) && $parent_details !== '';
                 $parent_has_updated = ($parent_iso !== '' && $parent_display !== '');
                 $parent_has_details_block = $parent_has_details_text || $parent_has_updated;
+                $amount_list_details = AA_Canonical_Amount_Shell_Presenter::list_details_view($capability_contributions);
                 $list_heading = $parent_title !== '' ? $parent_title : 'Contenedor';
                 $parent_heading_icon_svg = '';
                 $show_parent_heading_icon = false;
@@ -565,6 +569,26 @@ $is_records_fill = $show_read_ui
                                     <?php if ($parent_has_updated) : ?>
                                         <p class="<?php echo $parent_has_details_text ? 'mt-2' : ''; ?> text-xs text-gray-500 m-0">
                                             <time datetime="<?php echo esc_attr($parent_iso); ?>"><?php echo esc_html($parent_display); ?></time>
+                                        </p>
+                                    <?php endif; ?>
+                                    <?php if (is_array($amount_list_details) && ($amount_list_details['kind'] ?? '') === 'value') : ?>
+                                        <?php
+                                        $list_sum_classes = 'aa-shell-list-amount-sum text-base font-semibold m-0';
+                                        $list_sum_classes .= !empty($amount_list_details['is_negative'])
+                                            ? ' text-red-800'
+                                            : ' text-gray-900';
+                                        $list_sum_mt = ($parent_has_details_text || $parent_has_updated) ? ' mt-2' : '';
+                                        ?>
+                                        <p class="<?php echo esc_attr($list_sum_classes . $list_sum_mt); ?>">
+                                            <span class="sr-only">Total: </span>
+                                            <span aria-hidden="true">Total: $</span><?php echo esc_html((string) $amount_list_details['display']); ?>
+                                        </p>
+                                    <?php elseif (is_array($amount_list_details) && ($amount_list_details['kind'] ?? '') === 'error') : ?>
+                                        <p
+                                            class="aa-shell-list-amount-sum-error text-sm text-amber-800 <?php echo ($parent_has_details_text || $parent_has_updated) ? 'mt-2' : ''; ?> m-0"
+                                            role="status"
+                                        >
+                                            Total no disponible
                                         </p>
                                     <?php endif; ?>
                                 </div>
@@ -1535,9 +1559,6 @@ $is_records_fill = $show_read_ui
                         class="space-y-4"
                     >
                         <?php
-                        $capability_contributions = is_array($view) && isset($view['capability_contributions']) && is_array($view['capability_contributions'])
-                            ? $view['capability_contributions']
-                            : [];
                         $amount_offered = !empty($capability_contributions['amount']['offered']);
                         $images_offered = !empty($capability_contributions['images']['offered']);
                         if ($amount_offered) :

@@ -67,6 +67,13 @@ ac_assert(
     ) === 1
 );
 ac_assert('Card error distinguible', strpos($card, 'aa-shell-record-amount-error') !== false);
+ac_assert(
+    'Index detalles de lista con total amount',
+    strpos($index, 'list_details_view') !== false
+    && strpos($index, 'aa-shell-list-amount-sum') !== false
+    && strpos($index, 'Total no disponible') !== false
+    && strpos($index, 'amount_total') === false
+);
 $css_src_static = (string) file_get_contents(
     $plugin_root . '/includes/admin/ui/assets/css/admin.source.css'
 );

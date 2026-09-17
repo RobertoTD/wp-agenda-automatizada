@@ -19,13 +19,22 @@ final class CanonicalCapabilityRecordsPageContribution {
     /** @var array<int, CanonicalCapabilityRecordReadState> */
     private $records;
 
+    /** @var CanonicalCapabilityRecordReadState|null proyección de lista (p. ej. suma amount) */
+    private $list_sum;
+
     /**
      * @param array<int, CanonicalCapabilityRecordReadState> $records
      */
-    public function __construct(string $capability_key, bool $offered, array $records = []) {
+    public function __construct(
+        string $capability_key,
+        bool $offered,
+        array $records = [],
+        ?CanonicalCapabilityRecordReadState $list_sum = null
+    ) {
         $this->capability_key = $capability_key;
         $this->offered = $offered;
         $this->records = $records;
+        $this->list_sum = $list_sum;
     }
 
     public function capability_key(): string {
@@ -47,10 +56,19 @@ final class CanonicalCapabilityRecordsPageContribution {
         return isset($this->records[$record_id]) ? $this->records[$record_id] : null;
     }
 
+    public function list_sum(): ?CanonicalCapabilityRecordReadState {
+        return $this->list_sum;
+    }
+
     /**
-     * @return array{offered:bool}
+     * @return array{offered:bool,list_sum?:array{status:string,value?:string}}
      */
     public function list_summary(): array {
-        return ['offered' => $this->offered];
+        $out = ['offered' => $this->offered];
+        if ($this->offered && $this->list_sum !== null) {
+            $out['list_sum'] = $this->list_sum->to_array();
+        }
+
+        return $out;
     }
 }

@@ -127,7 +127,7 @@ La clave estable aprobada es **`amount`**.
 
 La denominación planaria histórica **`monetary_amount`** queda **supersedida** como nombre normativo. No se introduce un alias obligatorio de compatibilidad sin una necesidad real demostrada.
 
-### 8.2 Alcance funcional v1
+### 8.2 Alcance funcional
 
 Incluye:
 
@@ -138,16 +138,27 @@ Incluye:
 - positivos, negativos y cero, con precisión y límites explícitos;
 - ausencia de valor **distinguible** de cero;
 - en **update**: omitir `amount` **conserva** el valor; vaciarlo expresamente **elimina** el valor; cero es válido;
-- guardado coherente con el registro y con las reglas canónicas de recencia y eliminación.
+- guardado coherente con el registro y con las reglas canónicas de recencia y eliminación;
+- una **proyección derivada de total de lista**: suma de los valores de `amount` de **todos** los registros del contenedor (nunca de la página visible, filtro parcial u otro subconjunto cargado), presentada en la superficie común de detalles de la lista mediante contribución de capability.
 
-**No incluye** en v1:
+Los valores **persistidos** siguen perteneciendo a los registros. El total **no** es una capability nueva, **no** es un campo persistido en el contenedor y **no** convierte el contrato en moneda. Se configura por la activación de `amount` en la lista y es reutilizable en cualquier familia compatible; **no** pertenece a `finance` ni al shell base. El shell no decide el total con condiciones de familia ni conoce las tablas de la capability.
 
-- totalización en el contenedor;
+**Activación y presentación del total:**
+
+- solo se ofrece cuando `amount` está **activa** en la lista;
+- desactivar `amount` **conserva** los valores de registro existentes y **elimina** su presentación (tarjeta, formularios) y el total de la lista;
+- registros **sin** importe no aportan al total;
+- lista con `amount` activa y sin importes (o sin registros con valor) muestra total canónico **`0.00`**;
+- si el agregado **no** se puede leer: estado de total **no disponible** — no se fabrica `0`, no se omite en silencio y no se presenta un total parcial.
+
+**No incluye:**
+
 - moneda implícita;
 - reglas contables o conversiones;
-- varios importes nombrados por registro.
+- varios importes nombrados por registro;
+- persistencia de un total en el contenedor.
 
-Una futura totalización será responsabilidad separada (históricamente anticipada en el plan como agregado monetario / CAP-2; no forma parte de `amount` v1).
+**Historia:** A1b y la redacción D0 de `amount` v1 **excluyeron** la totalización de contenedor (anticipada entonces como responsabilidad separada / CAP-2). Esa exclusión queda **supersedida** por esta decisión: el total de lista es proyección de la capability `amount`, no una capability ni un ciclo CAP separado.
 
 ### 8.3 Contrato canónico de `amount` (límites operativos)
 
@@ -156,7 +167,7 @@ Reglas vigentes del normalizador y del almacenamiento tipado (sin referencia a c
 - almacenamiento: `decimal(19,2)` nullable firmado en `aa_canonical_record_amount.amount`;
 - normalización (`AA_Canonical_Amount_Normalizer`): cadena o null; vacío → null; longitud máxima de entrada 60; como máximo 2 decimales; como máximo 17 dígitos enteros; `-0` → `0.00`; códigos `invalid_amount`, `amount_too_many_decimals`, `amount_out_of_range`;
 - update canónico: **omitir = conservar**; vacío conocido = clear; cero válido;
-- totales de contenedor quedan fuera de `amount` v1.
+- total de lista: proyección derivada sobre el conjunto completo de registros del contenedor; precisión decimal **sin** `float`; el mecanismo técnico exacto de agregación y presentación queda para el incremento de implementación (no se fija aquí).
 
 La familia `finance` puede materializar `amount` por defecto en listas nuevas; **no es propietaria** de la capacidad.
 
@@ -198,8 +209,9 @@ Hechos del repositorio tras A1b + LEGACY-X Finance + selección por lista (no su
 - Persistencia universal `aa_canonical_*` (`DB_VERSION=25`) con CRUD de `title` / `details` en el shell.
 - **C1a:** tablas de configuración/`record_amount`; config Use Cases + Ops. (Nombre histórico de repertorio: `aa_canonical_family_capability_defaults`.)
 - **A1a:** `CanonicalCapabilityWriteBag` + handlers/effects; `CanonicalRecordAmountRepository`; TX registro+efectos+touch; materialización al crear listas; normalizador canónico.
-- **A1b:** `amount` **`is_ready=true`**; contributors de página + enrich en `build_records_view_data`; estados `known_value` / `known_absent` / `read_failed`; presenters + formulario genérico por clave + módulo JS amount; lifecycle insert-if-missing sin sobrescribir guardados; sin activación masiva de listas existentes.
+- **A1b:** `amount` **`is_ready=true`**; contributors de página + enrich en `build_records_view_data`; estados `known_value` / `known_absent` / `read_failed`; presenters + formulario genérico por clave + módulo JS amount; lifecycle insert-if-missing sin sobrescribir guardados; sin activación masiva de listas existentes. **A1b no implementó** total de lista (excluido en ese ciclo; la norma vigente de proyección de total es posterior — ver §8.2 y decisión del plan).
 - Familia `finance` / `archive` en registry; enablement de familia.
+- **Total de lista `amount` (decisión 47):** proyección derivada operativa sobre el contenedor completo mediante agregado exacto sin `float`, contributor/presenter de capability y presentación en detalles de lista; incluye `0.00` sin importes y estado visible ante fallo de agregado. Ver §8.2–8.3.
 - **LEGACY-X Finance:** módulo clásico retirado (`module=canonical`, `aa_finance_*`, normalizador duplicado). DB 24 dejó de instalar y eliminó esas tablas.
 - **DB 25 / selección por lista:** rename repertorio → `aa_canonical_family_capabilities` + `is_default`; wire `capability_selection_scope` / `capability_selection`; `CanonicalContainerCapabilitySelection` + preparer + effect en TX de create/update contenedor; UI de checkboxes en modal de lista (create/edit); edición desde vista records con `return_view=records` y payload `capabilities` en tarjeta; lectura fallida → `unavailable` sin fabricar selección.
 - **IMG-0:** paradigma `images` en §12 (docs).
@@ -224,8 +236,10 @@ Quedan abiertos para órdenes posteriores. **No** son arquitectura normativa cer
 - ~~aplicación explícita de capacidades a listas existentes vía selección en update~~ (**cerrada** en DB 25 / decisión 31; Ops puntual sigue disponible);
 - ~~retirada efectiva de Finance legacy~~ (**cerrada** en LEGACY-X / DB 24);
 - ~~paradigma de producto de `images`~~ (**cerrado** normativamente en §12 / IMG-0; diseño físico y ciclos en el plan);
-- totalización, API pública, Settings de capabilities;
-- implementación ejecutable de `images` (schema, backend path, UI, activación) — plan, no esta norma.
+- ~~totalización como responsabilidad separada de `amount`~~ (**supersedida e implementada**: el total de lista es proyección de `amount` — §8.2–8.3 / decisión 47);
+- ~~implementación del total de lista de `amount`~~ (**implementada**: agregado completo del contenedor, contribución/presentación en detalles de lista, precisión sin `float`; decisión 47);
+- API pública, Settings de capabilities;
+- implementación ejecutable restante de `images` (galería/`display`/visor y afines) — plan, no esta norma.
 
 Las alternativas exploradas en sesiones de diseño no obligan al diseño final salvo lo fijado en §12 y en las decisiones del plan.
 

@@ -21,7 +21,7 @@ final class CanonicalCapabilityShellRecordsEnricher {
      * @param list<array<string,mixed>> $items_view
      * @return array{
      *   items_view: list<array<string,mixed>>,
-     *   capability_contributions: array<string, array{offered:bool}>
+     *   capability_contributions: array<string, array{offered:bool,list_sum?:array{status:string,value?:string}}>
      * }
      */
     public function enrich(string $family_key, int $container_id, array $items_view): array {

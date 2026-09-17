@@ -40,6 +40,47 @@ final class AA_Canonical_Amount_Shell_Presenter {
     }
 
     /**
+     * Proyección de total de lista desde capability_contributions.
+     *
+     * @param array<string,mixed>|null $capability_contributions
+     * @return array{kind:string,value?:string,display?:string,is_negative?:bool}|null
+     */
+    public static function list_details_view(?array $capability_contributions): ?array {
+        if (!is_array($capability_contributions) || !isset($capability_contributions['amount'])) {
+            return null;
+        }
+        $amount = $capability_contributions['amount'];
+        if (!is_array($amount) || empty($amount['offered'])) {
+            return null;
+        }
+        if (!isset($amount['list_sum']) || !is_array($amount['list_sum'])) {
+            return ['kind' => 'error'];
+        }
+
+        $status = isset($amount['list_sum']['status']) ? (string) $amount['list_sum']['status'] : '';
+        if ($status === CanonicalCapabilityRecordReadState::STATUS_READ_FAILED) {
+            return ['kind' => 'error'];
+        }
+        if ($status !== CanonicalCapabilityRecordReadState::STATUS_KNOWN_VALUE) {
+            return ['kind' => 'error'];
+        }
+
+        $value = isset($amount['list_sum']['value']) ? (string) $amount['list_sum']['value'] : '';
+        try {
+            $display = AA_Canonical_Amount_List_Sum::format_display($value);
+        } catch (\InvalidArgumentException $e) {
+            return ['kind' => 'error'];
+        }
+
+        return [
+            'kind' => 'value',
+            'value' => $value,
+            'display' => $display,
+            'is_negative' => AA_Canonical_Amount_List_Sum::is_negative($value),
+        ];
+    }
+
+    /**
      * Payload para data-aa-record (solo si amount está ofrecido en la lista).
      *
      * @param array<string,mixed>|null $cap_map

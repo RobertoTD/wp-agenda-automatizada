@@ -128,6 +128,46 @@ final class CanonicalRecordAmountRepository {
     }
 
     /**
+     * Suma tipada de todos los amounts de registros del contenedor.
+     * Ausencias (sin fila) no aportan. Sin filas → "0.00".
+     * Resultado canónico string (2 decimales); no float ni normalizador individual.
+     *
+     * @throws CanonicalCapabilityPersistenceFailed
+     * @throws CanonicalCapabilitySchemaNotReady
+     */
+    public function sum_amounts_for_container(int $container_id): string {
+        if ($container_id < 1) {
+            throw new CanonicalCapabilityPersistenceFailed('Invalid container_id for amount sum.');
+        }
+
+        $amount_table = AA_Canonical_Schema::record_amount_table_name();
+        $records_table = AA_Canonical_Schema::records_table_name();
+        $this->assert_table_exists($amount_table);
+        $this->assert_table_exists($records_table);
+
+        $this->clear_error_state();
+        $raw = $this->wpdb->get_var(
+            $this->wpdb->prepare(
+                "SELECT CAST(COALESCE(SUM(a.amount), 0) AS CHAR)
+                 FROM `{$amount_table}` a
+                 INNER JOIN `{$records_table}` r ON r.id = a.record_id
+                 WHERE r.container_id = %d",
+                $container_id
+            )
+        );
+
+        if ($raw === false || $this->wpdb->last_error !== '') {
+            throw new CanonicalCapabilityPersistenceFailed('Failed to SUM record amounts for container.');
+        }
+
+        try {
+            return AA_Canonical_Amount_List_Sum::canonicalize_aggregate($raw);
+        } catch (\InvalidArgumentException $e) {
+            throw new CanonicalCapabilityPersistenceFailed('Failed to canonicalize container amount sum.');
+        }
+    }
+
+    /**
      * @throws CanonicalCapabilityPersistenceFailed
      * @throws CanonicalCapabilitySchemaNotReady
      */

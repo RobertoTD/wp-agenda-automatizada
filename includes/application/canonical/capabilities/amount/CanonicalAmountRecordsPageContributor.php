@@ -1,6 +1,6 @@
 <?php
 /**
- * Contributor amount para página de registros del shell (A1b).
+ * Contributor amount para página de registros del shell (A1b + total de lista).
  *
  * @package WP_Agenda_Automatizada
  * @subpackage Application\Canonical\Capabilities\Amount
@@ -56,15 +56,16 @@ final class CanonicalAmountRecordsPageContributor implements CanonicalCapability
         try {
             $assignment = $this->config_repo->find_container_capability($container_id, self::KEY);
         } catch (CanonicalCapabilitySchemaNotReady | CanonicalCapabilityPersistenceFailed $e) {
-            // Config indeterminable: no afirmar desactivada; marcar read_failed por registro.
-            return $this->offered_with_failed_reads($record_ids);
+            return $this->offered_with_failed_reads($record_ids, CanonicalCapabilityRecordReadState::read_failed());
         } catch (\Throwable $e) {
-            return $this->offered_with_failed_reads($record_ids);
+            return $this->offered_with_failed_reads($record_ids, CanonicalCapabilityRecordReadState::read_failed());
         }
 
         if ($assignment === null || empty($assignment['is_active'])) {
             return $this->not_offered();
         }
+
+        $list_sum = $this->read_list_sum($container_id);
 
         $records = [];
         try {
@@ -81,20 +82,32 @@ final class CanonicalAmountRecordsPageContributor implements CanonicalCapability
                 }
             }
         } catch (\Throwable $e) {
-            return $this->offered_with_failed_reads($record_ids);
+            return $this->offered_with_failed_reads($record_ids, $list_sum);
         }
 
-        return new CanonicalCapabilityRecordsPageContribution(self::KEY, true, $records);
+        return new CanonicalCapabilityRecordsPageContribution(self::KEY, true, $records, $list_sum);
+    }
+
+    private function read_list_sum(int $container_id): CanonicalCapabilityRecordReadState {
+        try {
+            $sum = $this->amount_repo->sum_amounts_for_container($container_id);
+            return CanonicalCapabilityRecordReadState::known_value($sum);
+        } catch (\Throwable $e) {
+            return CanonicalCapabilityRecordReadState::read_failed();
+        }
     }
 
     private function not_offered(): CanonicalCapabilityRecordsPageContribution {
-        return new CanonicalCapabilityRecordsPageContribution(self::KEY, false, []);
+        return new CanonicalCapabilityRecordsPageContribution(self::KEY, false, [], null);
     }
 
     /**
      * @param list<int> $record_ids
      */
-    private function offered_with_failed_reads(array $record_ids): CanonicalCapabilityRecordsPageContribution {
+    private function offered_with_failed_reads(
+        array $record_ids,
+        ?CanonicalCapabilityRecordReadState $list_sum = null
+    ): CanonicalCapabilityRecordsPageContribution {
         $records = [];
         foreach ($record_ids as $id) {
             $id = (int) $id;
@@ -103,6 +116,10 @@ final class CanonicalAmountRecordsPageContributor implements CanonicalCapability
             }
         }
 
-        return new CanonicalCapabilityRecordsPageContribution(self::KEY, true, $records);
+        if ($list_sum === null) {
+            $list_sum = CanonicalCapabilityRecordReadState::read_failed();
+        }
+
+        return new CanonicalCapabilityRecordsPageContribution(self::KEY, true, $records, $list_sum);
     }
 }
