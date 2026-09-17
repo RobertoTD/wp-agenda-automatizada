@@ -195,8 +195,43 @@ try {
 
     $card_value = AA_Canonical_Amount_Shell_Presenter::card_view($enriched['items_view'][0]['capabilities']);
     $card_absent = AA_Canonical_Amount_Shell_Presenter::card_view($enriched['items_view'][2]['capabilities']);
-    ac_assert('Presenter value', is_array($card_value) && ($card_value['kind'] ?? '') === 'value');
+    ac_assert(
+        'Presenter value positivo',
+        is_array($card_value)
+        && ($card_value['kind'] ?? '') === 'value'
+        && ($card_value['value'] ?? null) === '12.50'
+        && array_key_exists('is_negative', $card_value)
+        && $card_value['is_negative'] === false
+    );
     ac_assert('Presenter known_absent → null (sin nodo)', $card_absent === null);
+
+    $card_zero = AA_Canonical_Amount_Shell_Presenter::card_view([
+        'amount' => [
+            'status' => CanonicalCapabilityRecordReadState::STATUS_KNOWN_VALUE,
+            'value' => '0.00',
+        ],
+    ]);
+    ac_assert(
+        'Presenter cero no es negativo',
+        is_array($card_zero)
+        && ($card_zero['kind'] ?? '') === 'value'
+        && ($card_zero['value'] ?? null) === '0.00'
+        && ($card_zero['is_negative'] ?? true) === false
+    );
+
+    $card_neg = AA_Canonical_Amount_Shell_Presenter::card_view([
+        'amount' => [
+            'status' => CanonicalCapabilityRecordReadState::STATUS_KNOWN_VALUE,
+            'value' => '-25.50',
+        ],
+    ]);
+    ac_assert(
+        'Presenter negativo marca is_negative',
+        is_array($card_neg)
+        && ($card_neg['kind'] ?? '') === 'value'
+        && ($card_neg['value'] ?? null) === '-25.50'
+        && ($card_neg['is_negative'] ?? false) === true
+    );
 
     // read_failed: forzar fallo de lote renombrando la tabla.
     $amt_table = AA_Canonical_Schema::record_amount_table_name();

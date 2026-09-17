@@ -223,6 +223,12 @@ try {
     require $plugin_root . '/includes/admin/ui/modules/canonical_shell/partials/record-card.php';
     $html_compact = (string) ob_get_clean();
     ac_assert('Compact muestra 99.01', strpos($html_compact, '99.01') !== false);
+    ac_assert('Compact prefijo $ visual', strpos($html_compact, 'aria-hidden="true">$</span>') !== false);
+    ac_assert(
+        'Compact tipografía amount positiva',
+        strpos($html_compact, 'aa-shell-record-amount text-base font-semibold m-0 text-gray-900') !== false
+        && strpos($html_compact, 'aa-shell-record-amount text-base font-semibold m-0 text-red-800') === false
+    );
     ac_assert('Compact data-aa-record incluye capabilities', strpos($html_compact, 'known_value') !== false);
 
     $shell_record_presentation = 'card';
@@ -230,6 +236,58 @@ try {
     require $plugin_root . '/includes/admin/ui/modules/canonical_shell/partials/record-card.php';
     $html_card = (string) ob_get_clean();
     ac_assert('Card mode muestra importe', strpos($html_card, '99.01') !== false);
+    ac_assert('Card mode prefijo $ visual', strpos($html_card, 'aria-hidden="true">$</span>') !== false);
+    ac_assert(
+        'Card tipografía amount positiva',
+        strpos($html_card, 'aa-shell-record-amount text-base font-semibold m-0 text-gray-900') !== false
+        && strpos($html_card, 'aa-shell-record-amount text-base font-semibold m-0 text-red-800') === false
+    );
+
+    $card_capabilities = [
+        'amount' => [
+            'status' => CanonicalCapabilityRecordReadState::STATUS_KNOWN_VALUE,
+            'value' => '0.00',
+        ],
+    ];
+    $shell_record_presentation = 'compact';
+    ob_start();
+    require $plugin_root . '/includes/admin/ui/modules/canonical_shell/partials/record-card.php';
+    $html_zero = (string) ob_get_clean();
+    ac_assert('Cero muestra 0.00 canónico', strpos($html_zero, '0.00') !== false);
+    ac_assert('Cero prefijo $ visual', strpos($html_zero, 'aria-hidden="true">$</span>') !== false);
+    ac_assert(
+        'Cero no usa rojo',
+        strpos($html_zero, 'aa-shell-record-amount text-base font-semibold m-0 text-gray-900') !== false
+        && strpos($html_zero, 'aa-shell-record-amount text-base font-semibold m-0 text-red-800') === false
+    );
+
+    $card_capabilities = [
+        'amount' => [
+            'status' => CanonicalCapabilityRecordReadState::STATUS_KNOWN_VALUE,
+            'value' => '-25.50',
+        ],
+    ];
+    ob_start();
+    require $plugin_root . '/includes/admin/ui/modules/canonical_shell/partials/record-card.php';
+    $html_neg_compact = (string) ob_get_clean();
+    ac_assert('Negativo compact muestra valor canónico', strpos($html_neg_compact, '-25.50') !== false);
+    ac_assert('Negativo compact prefijo $', strpos($html_neg_compact, 'aria-hidden="true">$</span>') !== false);
+    ac_assert(
+        'Negativo compact usa text-red-800',
+        strpos($html_neg_compact, 'aa-shell-record-amount text-base font-semibold m-0 text-red-800') !== false
+        && strpos($html_neg_compact, 'aa-shell-record-amount text-base font-semibold m-0 text-gray-900') === false
+    );
+
+    $shell_record_presentation = 'card';
+    ob_start();
+    require $plugin_root . '/includes/admin/ui/modules/canonical_shell/partials/record-card.php';
+    $html_neg_card = (string) ob_get_clean();
+    ac_assert(
+        'Negativo card usa text-red-800',
+        strpos($html_neg_card, '-25.50') !== false
+        && strpos($html_neg_card, 'aa-shell-record-amount text-base font-semibold m-0 text-red-800') !== false
+        && strpos($html_neg_card, 'aa-shell-record-amount text-base font-semibold m-0 text-gray-900') === false
+    );
 
     $card_capabilities = [
         'amount' => ['status' => CanonicalCapabilityRecordReadState::STATUS_KNOWN_ABSENT],

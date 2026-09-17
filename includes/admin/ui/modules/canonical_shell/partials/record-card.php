@@ -67,6 +67,12 @@ if ($show_edit_record && $card_record_id >= 1) {
 
 $has_details_text = is_string($card_details) && $card_details !== '';
 $has_updated = ($card_iso !== '' && $card_display !== '');
+$amount_value_classes = 'aa-shell-record-amount text-base font-semibold m-0';
+if (is_array($amount_card) && ($amount_card['kind'] ?? '') === 'value' && !empty($amount_card['is_negative'])) {
+    $amount_value_classes .= ' text-red-800';
+} else {
+    $amount_value_classes .= ' text-gray-900';
+}
 $panel_id = $card_record_id >= 1
     ? ('aa-shell-record-panel-' . $card_record_id)
     : ('aa-shell-record-panel-' . uniqid('', false));
@@ -153,8 +159,8 @@ $panel_id = $card_record_id >= 1
                 <p class="aa-shell-record-details text-sm text-gray-700 whitespace-pre-wrap m-0"><?php echo esc_html($card_details); ?></p>
             <?php endif; ?>
             <?php if (is_array($amount_card) && ($amount_card['kind'] ?? '') === 'value') : ?>
-                <p class="aa-shell-record-amount text-sm text-gray-800 <?php echo $has_details_text ? 'mt-2' : ''; ?> m-0">
-                    <span class="sr-only">Importe: </span><?php echo esc_html((string) $amount_card['value']); ?>
+                <p class="<?php echo esc_attr($amount_value_classes . ($has_details_text ? ' mt-2' : '')); ?>">
+                    <span class="sr-only">Importe: </span><span aria-hidden="true">$</span><?php echo esc_html((string) $amount_card['value']); ?>
                 </p>
             <?php elseif (is_array($amount_card) && ($amount_card['kind'] ?? '') === 'error') : ?>
                 <p class="aa-shell-record-amount-error text-sm text-amber-800 <?php echo $has_details_text ? 'mt-2' : ''; ?> m-0" role="status">
@@ -186,8 +192,8 @@ $panel_id = $card_record_id >= 1
             <p class="mt-2 text-sm text-gray-600 whitespace-pre-wrap"><?php echo esc_html($card_details); ?></p>
         <?php endif; ?>
         <?php if (is_array($amount_card) && ($amount_card['kind'] ?? '') === 'value') : ?>
-            <p class="aa-shell-record-amount mt-2 text-sm text-gray-800 m-0">
-                <span class="sr-only">Importe: </span><?php echo esc_html((string) $amount_card['value']); ?>
+            <p class="<?php echo esc_attr($amount_value_classes . ' mt-2'); ?>">
+                <span class="sr-only">Importe: </span><span aria-hidden="true">$</span><?php echo esc_html((string) $amount_card['value']); ?>
             </p>
         <?php elseif (is_array($amount_card) && ($amount_card['kind'] ?? '') === 'error') : ?>
             <p class="aa-shell-record-amount-error mt-2 text-sm text-amber-800 m-0" role="status">
