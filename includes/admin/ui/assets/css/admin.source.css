@@ -1738,6 +1738,19 @@ html.aa-shell-records-fill body.aa-shell-records-fill .aa-shell-list-panel-body-
     @apply flex-1 min-w-0 text-base font-semibold leading-snug break-words;
 }
 
+/* Amount en cabecera compacta: visible solo con la fila cerrada (espejo de opciones). */
+.aa-shell-record-amount--header {
+    @apply shrink-0 whitespace-nowrap;
+}
+
+.aa-shell-record:not(.is-open) .aa-shell-record-amount--header {
+    display: inline;
+}
+
+.aa-shell-record.is-open .aa-shell-record-amount--header {
+    display: none;
+}
+
 .aa-shell-record-panel {
     @apply absolute left-0 right-0 top-full z-20;
     @apply px-4 py-3 rounded-b-lg border border-gray-200 border-t-0;

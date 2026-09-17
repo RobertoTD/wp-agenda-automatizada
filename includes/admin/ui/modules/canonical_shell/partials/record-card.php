@@ -67,12 +67,12 @@ if ($show_edit_record && $card_record_id >= 1) {
 
 $has_details_text = is_string($card_details) && $card_details !== '';
 $has_updated = ($card_iso !== '' && $card_display !== '');
-$amount_value_classes = 'aa-shell-record-amount text-base font-semibold m-0';
-if (is_array($amount_card) && ($amount_card['kind'] ?? '') === 'value' && !empty($amount_card['is_negative'])) {
-    $amount_value_classes .= ' text-red-800';
-} else {
-    $amount_value_classes .= ' text-gray-900';
-}
+$amount_has_value = is_array($amount_card) && ($amount_card['kind'] ?? '') === 'value';
+$amount_color_class = ($amount_has_value && !empty($amount_card['is_negative']))
+    ? 'text-red-800'
+    : 'text-gray-900';
+$amount_value_classes = 'aa-shell-record-amount text-base font-semibold m-0 ' . $amount_color_class;
+$amount_header_classes = 'aa-shell-record-amount aa-shell-record-amount--header text-base font-semibold ' . $amount_color_class;
 $panel_id = $card_record_id >= 1
     ? ('aa-shell-record-panel-' . $card_record_id)
     : ('aa-shell-record-panel-' . uniqid('', false));
@@ -109,6 +109,11 @@ $panel_id = $card_record_id >= 1
                     </span>
                 <?php endif; ?>
                 <span class="aa-shell-record-title"><?php echo esc_html($card_title); ?></span>
+                <?php if ($amount_has_value) : ?>
+                    <span class="<?php echo esc_attr($amount_header_classes); ?>">
+                        <span aria-hidden="true">$</span><?php echo esc_html((string) $amount_card['value']); ?>
+                    </span>
+                <?php endif; ?>
             </button>
             <?php if ($edit_payload_attr !== '') : ?>
                 <div class="aa-shell-record-options absolute inset-y-0 right-0 w-12 flex items-center justify-center pointer-events-none">

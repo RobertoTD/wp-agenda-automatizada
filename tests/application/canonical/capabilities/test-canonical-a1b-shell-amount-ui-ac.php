@@ -57,7 +57,25 @@ ac_assert('Amount read_failed omite envío', strpos($amount_js, "sendMode = 'omi
     && strpos($amount_js, 'STATUS_READ_FAILED') !== false);
 ac_assert('Amount vacío se envía (clear A1a)', strpos($amount_js, "formData.append('amount', input.value)") !== false);
 ac_assert('Card importe en panel compacto', strpos($card, 'aa-shell-record-amount') !== false);
+ac_assert(
+    'Card header amount compacto',
+    strpos($card, 'aa-shell-record-amount--header') !== false
+    && strpos($card, '$amount_header_classes') !== false
+    && preg_match(
+        '/aa-shell-record-title[\s\S]*?\$amount_header_classes[\s\S]*?aa-shell-record-panel/s',
+        $card
+    ) === 1
+);
 ac_assert('Card error distinguible', strpos($card, 'aa-shell-record-amount-error') !== false);
+$css_src_static = (string) file_get_contents(
+    $plugin_root . '/includes/admin/ui/assets/css/admin.source.css'
+);
+ac_assert(
+    'CSS header amount visible cerrado / oculto abierto',
+    strpos($css_src_static, '.aa-shell-record:not(.is-open) .aa-shell-record-amount--header') !== false
+    && strpos($css_src_static, '.aa-shell-record.is-open .aa-shell-record-amount--header') !== false
+    && strpos($css_src_static, '.aa-shell-record-amount--header') !== false
+);
 ac_assert('build_records_view_data usa enrich', strpos($composer, 'enrich_records_with_capabilities') !== false);
 ac_assert('Preview salta enrich', preg_match('/if\s*\(\s*!\s*\$is_preview\b/', $composer) === 1);
 
@@ -229,6 +247,18 @@ try {
         strpos($html_compact, 'aa-shell-record-amount text-base font-semibold m-0 text-gray-900') !== false
         && strpos($html_compact, 'aa-shell-record-amount text-base font-semibold m-0 text-red-800') === false
     );
+    ac_assert(
+        'Compact header+cuerpo positivos',
+        strpos($html_compact, 'aa-shell-record-amount--header text-base font-semibold text-gray-900') !== false
+        && preg_match(
+            '/aa-shell-record-toggle[\s\S]*?aa-shell-record-amount--header[\s\S]*?>\$<\/span>99\.01[\s\S]*?<\/button>/s',
+            $html_compact
+        ) === 1
+        && preg_match(
+            '/aa-shell-record-panel[\s\S]*?aa-shell-record-amount text-base font-semibold m-0 text-gray-900[\s\S]*?>\$<\/span>99\.01/s',
+            $html_compact
+        ) === 1
+    );
     ac_assert('Compact data-aa-record incluye capabilities', strpos($html_compact, 'known_value') !== false);
 
     $shell_record_presentation = 'card';
@@ -242,6 +272,7 @@ try {
         strpos($html_card, 'aa-shell-record-amount text-base font-semibold m-0 text-gray-900') !== false
         && strpos($html_card, 'aa-shell-record-amount text-base font-semibold m-0 text-red-800') === false
     );
+    ac_assert('Card preview sin header amount', strpos($html_card, 'aa-shell-record-amount--header') === false);
 
     $card_capabilities = [
         'amount' => [
@@ -260,6 +291,18 @@ try {
         strpos($html_zero, 'aa-shell-record-amount text-base font-semibold m-0 text-gray-900') !== false
         && strpos($html_zero, 'aa-shell-record-amount text-base font-semibold m-0 text-red-800') === false
     );
+    ac_assert(
+        'Cero header+cuerpo',
+        strpos($html_zero, 'aa-shell-record-amount--header text-base font-semibold text-gray-900') !== false
+        && preg_match(
+            '/aa-shell-record-toggle[\s\S]*?aa-shell-record-amount--header[\s\S]*?>\$<\/span>0\.00[\s\S]*?<\/button>/s',
+            $html_zero
+        ) === 1
+        && preg_match(
+            '/aa-shell-record-panel[\s\S]*?aa-shell-record-amount text-base font-semibold m-0 text-gray-900[\s\S]*?>\$<\/span>0\.00/s',
+            $html_zero
+        ) === 1
+    );
 
     $card_capabilities = [
         'amount' => [
@@ -277,6 +320,18 @@ try {
         strpos($html_neg_compact, 'aa-shell-record-amount text-base font-semibold m-0 text-red-800') !== false
         && strpos($html_neg_compact, 'aa-shell-record-amount text-base font-semibold m-0 text-gray-900') === false
     );
+    ac_assert(
+        'Negativo header+cuerpo',
+        strpos($html_neg_compact, 'aa-shell-record-amount--header text-base font-semibold text-red-800') !== false
+        && preg_match(
+            '/aa-shell-record-toggle[\s\S]*?aa-shell-record-amount--header[\s\S]*?>\$<\/span>-25\.50[\s\S]*?<\/button>/s',
+            $html_neg_compact
+        ) === 1
+        && preg_match(
+            '/aa-shell-record-panel[\s\S]*?aa-shell-record-amount text-base font-semibold m-0 text-red-800[\s\S]*?>\$<\/span>-25\.50/s',
+            $html_neg_compact
+        ) === 1
+    );
 
     $shell_record_presentation = 'card';
     ob_start();
@@ -288,14 +343,17 @@ try {
         && strpos($html_neg_card, 'aa-shell-record-amount text-base font-semibold m-0 text-red-800') !== false
         && strpos($html_neg_card, 'aa-shell-record-amount text-base font-semibold m-0 text-gray-900') === false
     );
+    ac_assert('Negativo card sin header amount', strpos($html_neg_card, 'aa-shell-record-amount--header') === false);
 
     $card_capabilities = [
         'amount' => ['status' => CanonicalCapabilityRecordReadState::STATUS_KNOWN_ABSENT],
     ];
+    $shell_record_presentation = 'compact';
     ob_start();
     require $plugin_root . '/includes/admin/ui/modules/canonical_shell/partials/record-card.php';
     $html_absent = (string) ob_get_clean();
     ac_assert('known_absent sin nodo amount', strpos($html_absent, 'aa-shell-record-amount') === false);
+    ac_assert('known_absent sin header amount', strpos($html_absent, 'aa-shell-record-amount--header') === false);
 
     $card_capabilities = [
         'amount' => ['status' => CanonicalCapabilityRecordReadState::STATUS_READ_FAILED],
@@ -304,6 +362,7 @@ try {
     require $plugin_root . '/includes/admin/ui/modules/canonical_shell/partials/record-card.php';
     $html_fail = (string) ob_get_clean();
     ac_assert('read_failed muestra error', strpos($html_fail, 'aa-shell-record-amount-error') !== false);
+    ac_assert('read_failed sin header amount', strpos($html_fail, 'aa-shell-record-amount--header') === false);
 } catch (\Throwable $e) {
     ac_assert('Excepción inesperada: ' . $e->getMessage(), false);
 } finally {

@@ -872,6 +872,12 @@ ac_assert('CSS reserves options inside toggle and suppresses open focus ring', s
     && strpos($css_src, '.aa-shell-record.is-open .aa-shell-record-toggle') !== false
     && strpos($css_src, 'focus:ring-0') !== false
     && strpos($css_src, '.aa-shell-record.is-open:has(.aa-shell-record-toggle:focus) .aa-shell-record-panel') === false);
+ac_assert(
+    'CSS amount header swaps with is-open',
+    strpos($css_src, '.aa-shell-record-amount--header') !== false
+    && strpos($css_src, '.aa-shell-record:not(.is-open) .aa-shell-record-amount--header') !== false
+    && strpos($css_src, '.aa-shell-record.is-open .aa-shell-record-amount--header') !== false
+);
 ac_assert('Compact JS measures max panel/menu and outside click scopes options or menu', strpos($compact_js, 'aa-shell-record-header') !== false
     && strpos($compact_js, 'aa-shell-record-options-menu') !== false
     && strpos($compact_js, '.aa-shell-record-options, .aa-shell-record-options-menu') !== false
