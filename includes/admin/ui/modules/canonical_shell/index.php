@@ -1190,6 +1190,8 @@ $is_records_fill = $show_read_ui
                 }
                 if ($cap_key === 'amount') {
                     $cap_label = 'Importe';
+                } elseif ($cap_key === 'phone') {
+                    $cap_label = 'Teléfono';
                 } elseif ($cap_key === 'images') {
                     $cap_label = 'Imágenes';
                 } else {
@@ -1542,6 +1544,50 @@ $is_records_fill = $show_read_ui
                         />
                         <p id="aa-shell-record-title-error" class="hidden mt-1 text-xs text-red-600 font-medium"></p>
                     </div>
+                    <?php
+                    $phone_offered = !empty($capability_contributions['phone']['offered']);
+                    if ($phone_offered) :
+                        $phone_country_options = AA_Canonical_Phone_Normalizer::country_options();
+                        ?>
+                    <div
+                        id="aa-shell-record-phone-field"
+                        class="aa-shell-capability-field hidden"
+                        data-aa-capability-key="phone"
+                        hidden
+                    >
+                        <label for="aa-shell-record-phone" class="block text-xs font-semibold text-gray-700 mb-1">
+                            Teléfono (opcional)
+                        </label>
+                        <div class="aa-shell-phone-row flex gap-2">
+                            <select
+                                id="aa-shell-record-phone-country"
+                                name="phone_country"
+                                class="aa-form-country-select shrink-0 text-sm border border-gray-300 rounded-lg px-2 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-50 disabled:text-gray-500"
+                                disabled
+                            >
+                                <?php foreach ($phone_country_options as $phone_opt) : ?>
+                                    <option value="<?php echo esc_attr((string) $phone_opt['code']); ?>">
+                                        <?php echo esc_html((string) $phone_opt['label']); ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                            <input
+                                type="tel"
+                                id="aa-shell-record-phone"
+                                name="phone_national"
+                                inputmode="tel"
+                                autocomplete="tel-national"
+                                class="aa-form-input-phone min-w-0 flex-1 text-sm border border-gray-300 rounded-lg px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-50 disabled:text-gray-500"
+                                disabled
+                            />
+                        </div>
+                        <p id="aa-shell-record-phone-help" class="hidden mt-1 text-xs text-gray-500"></p>
+                        <p id="aa-shell-record-phone-error" class="hidden mt-1 text-xs text-red-600 font-medium"></p>
+                        <p id="aa-shell-record-phone-unavailable" class="hidden mt-1 text-xs text-amber-800 font-medium" role="status">
+                            El teléfono no está disponible ahora. Puedes guardar el título y los detalles.
+                        </p>
+                    </div>
+                    <?php endif; ?>
                     <div>
                         <label for="aa-shell-record-details" class="block text-xs font-semibold text-gray-700 mb-1">
                             Detalles (opcional)
@@ -1869,6 +1915,9 @@ $is_records_fill = $show_read_ui
     <script src="<?php echo function_exists('aa_asset_url')
         ? aa_asset_url('includes/admin/ui/modules/canonical_shell/capabilities/canonical-shell-amount-field.js')
         : esc_url((defined('AA_PLUGIN_URL') ? AA_PLUGIN_URL : '') . 'includes/admin/ui/modules/canonical_shell/capabilities/canonical-shell-amount-field.js'); ?>"></script>
+    <script src="<?php echo function_exists('aa_asset_url')
+        ? aa_asset_url('includes/admin/ui/modules/canonical_shell/capabilities/canonical-shell-phone-field.js')
+        : esc_url((defined('AA_PLUGIN_URL') ? AA_PLUGIN_URL : '') . 'includes/admin/ui/modules/canonical_shell/capabilities/canonical-shell-phone-field.js'); ?>"></script>
     <script src="<?php echo function_exists('aa_asset_url')
         ? aa_asset_url('includes/admin/ui/modules/canonical_shell/capabilities/canonical-shell-images-field.js')
         : esc_url((defined('AA_PLUGIN_URL') ? AA_PLUGIN_URL : '') . 'includes/admin/ui/modules/canonical_shell/capabilities/canonical-shell-images-field.js'); ?>"></script>

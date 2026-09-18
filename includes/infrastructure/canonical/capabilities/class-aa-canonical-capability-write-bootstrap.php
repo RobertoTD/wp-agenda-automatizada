@@ -30,12 +30,18 @@ final class AA_Canonical_Capability_Write_Bootstrap {
         $capability_registry = AA_Canonical_Capability_Registry_Bootstrap::instance();
         $config_repository = new CanonicalCapabilityConfigRepository($wpdb);
         $amount_repository = new CanonicalRecordAmountRepository($wpdb);
+        $phone_repository = new CanonicalRecordPhoneRepository($wpdb);
 
         $handlers = new CanonicalCapabilityWriteHandlerRegistry();
         $handlers->register(new AA_Canonical_Amount_Write_Handler(
             $capability_registry,
             $config_repository,
             $amount_repository
+        ));
+        $handlers->register(new AA_Canonical_Phone_Write_Handler(
+            $capability_registry,
+            $config_repository,
+            $phone_repository
         ));
         $handlers->freeze();
 
@@ -78,11 +84,16 @@ final class AA_Canonical_Capability_Write_Bootstrap {
             $app . '/CanonicalCapabilityWriteRejected.php',
             $app . '/CanonicalCapabilityInactive.php',
             $app . '/AA_Canonical_Amount_Normalizer.php',
+            $app . '/AA_Canonical_Phone_Normalizer.php',
             $repos . '/CanonicalCapabilityConfigRepository.php',
             $repos . '/CanonicalRecordAmountRepository.php',
+            $repos . '/CanonicalRecordPhoneRepository.php',
             $infra . '/class-aa-canonical-amount-set-effect.php',
             $infra . '/class-aa-canonical-amount-clear-effect.php',
             $infra . '/class-aa-canonical-amount-write-handler.php',
+            $infra . '/class-aa-canonical-phone-set-effect.php',
+            $infra . '/class-aa-canonical-phone-clear-effect.php',
+            $infra . '/class-aa-canonical-phone-write-handler.php',
             $infra . '/class-aa-canonical-capability-defaults-materializer.php',
             $infra . '/class-aa-canonical-materialize-family-defaults-effect.php',
             $infra . '/class-aa-canonical-apply-container-capability-selection-effect.php',

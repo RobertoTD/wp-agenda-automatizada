@@ -1,6 +1,6 @@
 <?php
 /**
- * AC Paso 5 — flip readiness images + DEFAULTS_VERSION=3.
+ * AC Paso 5 — flip readiness images + DEFAULTS_VERSION=4.
  *
  * Tres baterías:
  *   1) Lifecycle/seeds (fuente + insert-if-missing / no overwrite)
@@ -51,8 +51,8 @@ ac_assert(
         $boot
     ) === 1
 );
-ac_assert('DEFAULTS_VERSION=3', strpos($life, 'public const DEFAULTS_VERSION = 3;') !== false);
-ac_assert('DB_VERSION permanece 31', strpos($schema, "public const DB_VERSION = '31';") !== false);
+ac_assert('DEFAULTS_VERSION=4', strpos($life, 'public const DEFAULTS_VERSION = 4;') !== false);
+ac_assert('DB_VERSION actual 32', strpos($schema, "public const DB_VERSION = '32';") !== false);
 ac_assert('ensure usa insert_family_capability_if_missing', strpos($life, 'insert_family_capability_if_missing') !== false);
 ac_assert('ensure salta !is_ready', strpos($life, '!$definition->is_ready()') !== false);
 
@@ -220,7 +220,7 @@ try {
     $wpdb->prefix = $temp_prefix;
     $cleanup();
     AA_Canonical_Schema::install();
-    update_option('aa_db_version', '31');
+    update_option('aa_db_version', '32');
 
     $family_registry = AA_Canonical_Core_Bootstrap::build_registry();
     (new AA_Canonical_Family_Provisioner($wpdb))->ensure_declared_families($family_registry);

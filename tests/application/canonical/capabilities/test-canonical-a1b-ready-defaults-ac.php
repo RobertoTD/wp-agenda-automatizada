@@ -36,7 +36,7 @@ ac_assert(
     'images is_ready=true',
     preg_match("/new AA_Canonical_Capability_Definition\(\s*'images'\s*,\s*AA_Canonical_Capability_Definition::SCOPE_RECORD\s*,\s*true\s*\)/s", $boot) === 1
 );
-ac_assert('DEFAULTS_VERSION=3', strpos($life, 'DEFAULTS_VERSION = 3') !== false);
+ac_assert('DEFAULTS_VERSION=4', strpos($life, 'DEFAULTS_VERSION = 4') !== false);
 ac_assert('declared_seeds incluye images', strpos($life, "'capability_key' => 'images'") !== false);
 
 $wp_root = getenv('AA_WP_ROOT') ?: '';

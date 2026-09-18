@@ -112,6 +112,7 @@ require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/capabil
 require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/capabilities/CanonicalCapabilityWriteRejected.php';
 require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/capabilities/CanonicalCapabilityWriteBag.php';
 require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/capabilities/AA_Canonical_Amount_Normalizer.php';
+require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/capabilities/AA_Canonical_Phone_Normalizer.php';
 require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/capabilities/AA_Canonical_Amount_List_Sum.php';
 require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/capabilities/CanonicalContainerCapabilityConfigSnapshot.php';
 require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/capabilities/CanonicalContainerCapabilitySelection.php';
@@ -127,11 +128,13 @@ require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/capabil
 require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/capabilities/CanonicalCapabilityRecordPageContributorRegistry.php';
 require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/capabilities/CanonicalCapabilityShellRecordsEnricher.php';
 require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/capabilities/amount/CanonicalAmountRecordsPageContributor.php';
+require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/capabilities/phone/CanonicalPhoneRecordsPageContributor.php';
 require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/images/CanonicalRecordImagePublicDto.php';
 require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/capabilities/images/CanonicalImagesRecordsPageContributor.php';
 require_once plugin_dir_path(__FILE__) . 'includes/repositories/CanonicalRecordImagesRepository.php';
 require_once plugin_dir_path(__FILE__) . 'includes/repositories/CanonicalCapabilityConfigRepository.php';
 require_once plugin_dir_path(__FILE__) . 'includes/repositories/CanonicalRecordAmountRepository.php';
+require_once plugin_dir_path(__FILE__) . 'includes/repositories/CanonicalRecordPhoneRepository.php';
 require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/canonical/class-aa-canonical-family-enablement-store.php';
 require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/canonical/class-aa-canonical-family-enablement-nav.php';
 require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/canonical/class-aa-canonical-read-binding-registry.php';
@@ -140,6 +143,7 @@ require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/canonical/clas
 require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/canonical/capabilities/class-aa-canonical-capability-ops.php';
 require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/canonical/capabilities/class-aa-canonical-capability-write-bootstrap.php';
 require_once plugin_dir_path(__FILE__) . 'includes/admin/ui/modules/canonical_shell/presenters/class-aa-canonical-amount-shell-presenter.php';
+require_once plugin_dir_path(__FILE__) . 'includes/admin/ui/modules/canonical_shell/presenters/class-aa-canonical-phone-shell-presenter.php';
 require_once plugin_dir_path(__FILE__) . 'includes/admin/ui/modules/canonical_shell/presenters/class-aa-canonical-images-shell-presenter.php';
 AA_Canonical_Capability_Page_Contributor_Bootstrap::bootstrap();
 require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/wp/class-aa-canonical-shell-base-url-policy.php';

@@ -26,6 +26,8 @@ $show_image_actions = !empty($show_image_actions);
 
 $amount_card = AA_Canonical_Amount_Shell_Presenter::card_view($card_capabilities);
 $amount_edit = AA_Canonical_Amount_Shell_Presenter::edit_payload_fragment($card_capabilities);
+$phone_card = AA_Canonical_Phone_Shell_Presenter::card_view($card_capabilities);
+$phone_edit = AA_Canonical_Phone_Shell_Presenter::edit_payload_fragment($card_capabilities);
 $images_card = AA_Canonical_Images_Shell_Presenter::card_view($card_capabilities);
 $images_edit = AA_Canonical_Images_Shell_Presenter::edit_payload_fragment($card_capabilities);
 $card_image_summary_url = isset($card_image_summary_url) && is_string($card_image_summary_url)
@@ -50,6 +52,9 @@ if ($show_edit_record && $card_record_id >= 1) {
     if ($amount_edit !== null) {
         $edit_caps['amount'] = $amount_edit;
     }
+    if ($phone_edit !== null) {
+        $edit_caps['phone'] = $phone_edit;
+    }
     if ($images_edit !== null) {
         $edit_caps['images'] = $images_edit;
     }
@@ -67,12 +72,15 @@ if ($show_edit_record && $card_record_id >= 1) {
 
 $has_details_text = is_string($card_details) && $card_details !== '';
 $has_updated = ($card_iso !== '' && $card_display !== '');
+$phone_has_value = is_array($phone_card) && ($phone_card['kind'] ?? '') === 'value';
+$phone_has_error = is_array($phone_card) && ($phone_card['kind'] ?? '') === 'error';
 $amount_has_value = is_array($amount_card) && ($amount_card['kind'] ?? '') === 'value';
 $amount_color_class = ($amount_has_value && !empty($amount_card['is_negative']))
     ? 'text-red-800'
     : 'text-gray-900';
 $amount_value_classes = 'aa-shell-record-amount text-base font-semibold m-0 ' . $amount_color_class;
 $amount_header_classes = 'aa-shell-record-amount aa-shell-record-amount--header text-base font-semibold ' . $amount_color_class;
+$phone_value_classes = 'aa-shell-record-phone text-sm text-gray-700 m-0';
 $panel_id = $card_record_id >= 1
     ? ('aa-shell-record-panel-' . $card_record_id)
     : ('aa-shell-record-panel-' . uniqid('', false));
@@ -160,27 +168,36 @@ $panel_id = $card_record_id >= 1
             class="aa-shell-record-panel"
             hidden
         >
+            <?php if ($phone_has_value) : ?>
+                <p class="<?php echo esc_attr($phone_value_classes); ?>">
+                    <span class="sr-only">Teléfono: </span><?php echo esc_html((string) $phone_card['display']); ?>
+                </p>
+            <?php elseif ($phone_has_error) : ?>
+                <p class="aa-shell-record-phone-error text-sm text-amber-800 m-0" role="status">
+                    No se pudo cargar el teléfono.
+                </p>
+            <?php endif; ?>
             <?php if ($has_details_text) : ?>
-                <p class="aa-shell-record-details text-sm text-gray-700 whitespace-pre-wrap m-0"><?php echo esc_html($card_details); ?></p>
+                <p class="aa-shell-record-details text-sm text-gray-700 whitespace-pre-wrap m-0<?php echo ($phone_has_value || $phone_has_error) ? ' mt-2' : ''; ?>"><?php echo esc_html($card_details); ?></p>
             <?php endif; ?>
             <?php if (is_array($amount_card) && ($amount_card['kind'] ?? '') === 'value') : ?>
-                <p class="<?php echo esc_attr($amount_value_classes . ($has_details_text ? ' mt-2' : '')); ?>">
+                <p class="<?php echo esc_attr($amount_value_classes . (($has_details_text || $phone_has_value || $phone_has_error) ? ' mt-2' : '')); ?>">
                     <span class="sr-only">Importe: </span><span aria-hidden="true">$</span><?php echo esc_html((string) $amount_card['value']); ?>
                 </p>
             <?php elseif (is_array($amount_card) && ($amount_card['kind'] ?? '') === 'error') : ?>
-                <p class="aa-shell-record-amount-error text-sm text-amber-800 <?php echo $has_details_text ? 'mt-2' : ''; ?> m-0" role="status">
+                <p class="aa-shell-record-amount-error text-sm text-amber-800 <?php echo ($has_details_text || $phone_has_value || $phone_has_error) ? 'mt-2' : ''; ?> m-0" role="status">
                     No se pudo cargar el importe.
                 </p>
             <?php endif; ?>
             <?php if ($has_gallery) : ?>
                 <?php require __DIR__ . '/record-images-gallery.php'; ?>
             <?php elseif (is_array($images_card) && ($images_card['kind'] ?? '') === 'error') : ?>
-                <p class="aa-shell-record-images-error text-sm text-amber-800 <?php echo ($has_details_text || is_array($amount_card)) ? 'mt-2' : ''; ?> m-0" role="status">
+                <p class="aa-shell-record-images-error text-sm text-amber-800 <?php echo ($has_details_text || $phone_has_value || $phone_has_error || is_array($amount_card)) ? 'mt-2' : ''; ?> m-0" role="status">
                     No se pudieron cargar las imágenes.
                 </p>
             <?php endif; ?>
             <?php if ($has_updated) : ?>
-                <p class="aa-shell-record-updated text-xs text-gray-500 <?php echo ($has_details_text || is_array($amount_card) || $has_gallery) ? 'mt-2' : ''; ?> m-0">
+                <p class="aa-shell-record-updated text-xs text-gray-500 <?php echo ($has_details_text || $phone_has_value || $phone_has_error || is_array($amount_card) || $has_gallery) ? 'mt-2' : ''; ?> m-0">
                     <time datetime="<?php echo esc_attr($card_iso); ?>"><?php echo esc_html($card_display); ?></time>
                 </p>
             <?php endif; ?>
@@ -193,6 +210,15 @@ $panel_id = $card_record_id >= 1
         <h4 class="text-base font-semibold text-gray-900 leading-snug">
             <?php echo esc_html($card_title); ?>
         </h4>
+        <?php if ($phone_has_value) : ?>
+            <p class="<?php echo esc_attr($phone_value_classes . ' mt-2'); ?>">
+                <span class="sr-only">Teléfono: </span><?php echo esc_html((string) $phone_card['display']); ?>
+            </p>
+        <?php elseif ($phone_has_error) : ?>
+            <p class="aa-shell-record-phone-error mt-2 text-sm text-amber-800 m-0" role="status">
+                No se pudo cargar el teléfono.
+            </p>
+        <?php endif; ?>
         <?php if ($has_details_text) : ?>
             <p class="mt-2 text-sm text-gray-600 whitespace-pre-wrap"><?php echo esc_html($card_details); ?></p>
         <?php endif; ?>

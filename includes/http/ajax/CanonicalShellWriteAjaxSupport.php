@@ -327,6 +327,24 @@ final class CanonicalShellWriteAjaxSupport {
             }
             $present['amount'] = ($raw === null) ? null : (string) $raw;
         }
+        if (array_key_exists('phone', $source)) {
+            $raw = $source['phone'];
+            if (is_array($raw) || is_object($raw)) {
+                throw new CanonicalShellWriteAjaxRejection(
+                    'invalid_payload',
+                    'La solicitud contiene campos no válidos.',
+                    400
+                );
+            }
+            if ($raw !== null && !is_string($raw)) {
+                throw new CanonicalShellWriteAjaxRejection(
+                    'invalid_payload',
+                    'La solicitud contiene campos no válidos.',
+                    400
+                );
+            }
+            $present['phone'] = ($raw === null) ? null : (string) $raw;
+        }
 
         return CanonicalCapabilityWriteBag::from_present_fields($present);
     }

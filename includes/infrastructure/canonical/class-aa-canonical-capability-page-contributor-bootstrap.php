@@ -8,6 +8,12 @@
 
 defined('ABSPATH') or die('No direct access');
 
+if (!class_exists('CanonicalPhoneRecordsPageContributor')) {
+    require_once dirname(__DIR__, 2) . '/application/canonical/capabilities/phone/CanonicalPhoneRecordsPageContributor.php';
+}
+if (!class_exists('CanonicalRecordPhoneRepository')) {
+    require_once dirname(__DIR__, 2) . '/repositories/CanonicalRecordPhoneRepository.php';
+}
 if (!class_exists('CanonicalImagesRecordsPageContributor')) {
     require_once dirname(__DIR__, 2) . '/application/canonical/capabilities/images/CanonicalImagesRecordsPageContributor.php';
 }
@@ -33,6 +39,14 @@ final class AA_Canonical_Capability_Page_Contributor_Bootstrap {
             new CanonicalAmountRecordsPageContributor(
                 new CanonicalCapabilityConfigRepository($wpdb),
                 new CanonicalRecordAmountRepository($wpdb),
+                $capability_registry
+            )
+        );
+
+        $registry->register(
+            new CanonicalPhoneRecordsPageContributor(
+                new CanonicalCapabilityConfigRepository($wpdb),
+                new CanonicalRecordPhoneRepository($wpdb),
                 $capability_registry
             )
         );

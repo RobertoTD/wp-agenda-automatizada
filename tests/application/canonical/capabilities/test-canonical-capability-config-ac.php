@@ -46,7 +46,7 @@ ac_assert('Ops no menciona FinanceSchema/aa_finance', stripos($ops_src, 'aa_fina
 ac_assert('Repo config no menciona finance', stripos($repo_src, 'finance') === false);
 ac_assert('Bootstrap registra amount is_ready true', strpos($boot_src, "'amount'") !== false && preg_match("/new AA_Canonical_Capability_Definition\(\s*'amount'\s*,\s*AA_Canonical_Capability_Definition::SCOPE_RECORD\s*,\s*true\s*\)/", $boot_src) === 1);
 ac_assert('Bootstrap registra images is_ready true', preg_match("/new AA_Canonical_Capability_Definition\(\s*'images'\s*,\s*AA_Canonical_Capability_Definition::SCOPE_RECORD\s*,\s*true\s*\)/", $boot_src) === 1);
-ac_assert('Lifecycle DEFAULTS_VERSION=3', strpos($life_src, 'DEFAULTS_VERSION = 3') !== false);
+ac_assert('Lifecycle DEFAULTS_VERSION=4', strpos($life_src, 'DEFAULTS_VERSION = 4') !== false);
 ac_assert('Lifecycle usa insert_family_capability_if_missing', strpos($life_src, 'insert_family_capability_if_missing') !== false);
 ac_assert('Lifecycle filtra !is_ready', strpos($life_src, 'is_ready()') !== false);
 ac_assert('Ops sin AJAX/Settings', stripos($ops_src, 'wp_ajax') === false && stripos($ops_src, 'options.php') === false);
@@ -138,18 +138,28 @@ try {
     ac_assert('images scope record', $images->scope() === AA_Canonical_Capability_Definition::SCOPE_RECORD);
     ac_assert('images ready tras Paso 5', $images->is_ready() === true);
 
+    $phone = $capability_registry->get('phone');
+    ac_assert('phone registrado', $phone->key() === 'phone');
+    ac_assert('phone scope record', $phone->scope() === AA_Canonical_Capability_Definition::SCOPE_RECORD);
+    ac_assert('phone ready', $phone->is_ready() === true);
+
     $declared = AA_Canonical_Capability_Defaults_Lifecycle::declared_seeds();
     $images_defaults = [];
     $amount_seed_ok = false;
+    $phone_seed_ok = false;
     foreach ($declared as $seed) {
         if (($seed['capability_key'] ?? '') === 'amount' && ($seed['family_key'] ?? '') === 'finance') {
             $amount_seed_ok = !empty($seed['is_default']);
+        }
+        if (($seed['capability_key'] ?? '') === 'phone' && ($seed['family_key'] ?? '') === 'contact') {
+            $phone_seed_ok = array_key_exists('is_default', $seed) && $seed['is_default'] === false;
         }
         if (($seed['capability_key'] ?? '') === 'images') {
             $images_defaults[(string) $seed['family_key']] = !empty($seed['is_default']);
         }
     }
     ac_assert('Lifecycle conserva seed finance/amount default on', $amount_seed_ok);
+    ac_assert('Lifecycle declara seed contact/phone default off', $phone_seed_ok);
     ac_assert(
         'Lifecycle declara exactamente 4 seeds images',
         count($images_defaults) === 4
