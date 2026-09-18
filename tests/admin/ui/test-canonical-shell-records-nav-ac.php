@@ -203,6 +203,8 @@ require_once $plugin_root . '/includes/application/canonical/capabilities/Canoni
 require_once $plugin_root . '/includes/application/canonical/capabilities/CanonicalCapabilityShellRecordsEnricher.php';
 require_once $plugin_root . '/includes/application/canonical/capabilities/CanonicalCapabilityRecordReadState.php';
 require_once $plugin_root . '/includes/admin/ui/modules/canonical_shell/presenters/class-aa-canonical-amount-shell-presenter.php';
+require_once $plugin_root . '/includes/admin/ui/modules/canonical_shell/presenters/class-aa-canonical-whatsapp-shell-presenter.php';
+require_once $plugin_root . '/includes/admin/ui/modules/canonical_shell/presenters/class-aa-canonical-phone-shell-presenter.php';
 require_once $plugin_root . '/includes/admin/ui/modules/canonical_shell/presenters/class-aa-canonical-images-shell-presenter.php';
 require_once $plugin_root . '/includes/admin/ui/modules/canonical_shell/class-aa-canonical-family-icon-markup.php';
 
@@ -904,6 +906,182 @@ ac_assert('No onclick in container card', strpos(file_get_contents($plugin_root 
 ac_assert('Templates do not concatenate query', strpos($module_src, 'http_build_query') === false
     && strpos($module_src, 'add_query_arg') === false);
 ac_assert('Manifest not given view fields in composer records path uses UC', strpos($composer_src, 'ReadCanonicalShellRecordsUseCase') !== false);
+
+// Regresión: repertorio en records con lists_scope=all vs sin él; multifamilia en agregado.
+ac_assert(
+    'Bootstrap prioriza create_family_key sobre available_families de all_lists',
+    (bool) preg_match(
+        '/\$families_for_capability_options\s*=\s*\[\];\s*if\s*\(\s*\$create_family_key\s*!==\s*\'\'\s*\)/',
+        $module_src
+    )
+    && strpos($module_src, '} elseif ($is_all_lists_scope) {') !== false
+);
+
+/**
+ * @return mixed
+ */
+function aa_shell_boot_prop(string $html, string $prop) {
+    $needle = $prop . ':';
+    $pos = strpos($html, $needle);
+    if ($pos === false) {
+        return null;
+    }
+    $i = $pos + strlen($needle);
+    $len = strlen($html);
+    while ($i < $len && ctype_space($html[$i])) {
+        $i++;
+    }
+    if ($i >= $len) {
+        return null;
+    }
+    if (substr($html, $i, 4) === 'null') {
+        return null;
+    }
+    if ($html[$i] === '"') {
+        $j = $i + 1;
+        while ($j < $len && $html[$j] !== '"') {
+            if ($html[$j] === '\\') {
+                $j++;
+            }
+            $j++;
+        }
+        $raw = substr($html, $i, $j - $i + 1);
+        $decoded = json_decode($raw, true);
+        return json_last_error() === JSON_ERROR_NONE ? $decoded : null;
+    }
+    if ($html[$i] !== '{' && $html[$i] !== '[') {
+        return null;
+    }
+    $depth = 0;
+    $in_str = false;
+    $esc = false;
+    for ($j = $i; $j < $len; $j++) {
+        $c = $html[$j];
+        if ($in_str) {
+            if ($esc) {
+                $esc = false;
+                continue;
+            }
+            if ($c === '\\') {
+                $esc = true;
+                continue;
+            }
+            if ($c === '"') {
+                $in_str = false;
+            }
+            continue;
+        }
+        if ($c === '"') {
+            $in_str = true;
+            continue;
+        }
+        if ($c === '{' || $c === '[') {
+            $depth++;
+            continue;
+        }
+        if ($c === '}' || $c === ']') {
+            $depth--;
+            if ($depth === 0) {
+                $raw = substr($html, $i, $j - $i + 1);
+                $decoded = json_decode($raw, true);
+                return json_last_error() === JSON_ERROR_NONE ? $decoded : null;
+            }
+        }
+    }
+    return null;
+}
+
+$fill_family_scope = $fill_empty_view;
+$fill_family_scope['lists_scope'] = '';
+$html_caps_family = render_shell([
+    'aa_shell_route_state' => 'resolved',
+    'aa_shell_route_message' => '',
+    'aa_shell_view' => $fill_family_scope,
+    'aa_canonical_family' => $family,
+]);
+$fill_all_scope = $fill_empty_view;
+$fill_all_scope['lists_scope'] = 'all';
+$fill_all_scope['available_families'] = [];
+$fill_all_scope['back_url'] = AA_Canonical_Shell_Base_Url_Policy::build_module_url(null);
+$html_caps_all = render_shell([
+    'aa_shell_route_state' => 'resolved',
+    'aa_shell_route_message' => '',
+    'aa_shell_view' => $fill_all_scope,
+    'aa_canonical_family' => $family,
+]);
+$opts_family = aa_shell_boot_prop($html_caps_family, 'familyCapabilityOptions');
+$opts_all = aa_shell_boot_prop($html_caps_all, 'familyCapabilityOptions');
+$lists_scope_family = aa_shell_boot_prop($html_caps_family, 'listsScope');
+$lists_scope_all = aa_shell_boot_prop($html_caps_all, 'listsScope');
+$edit_caps_family = aa_shell_boot_prop($html_caps_family, 'editContainerCapabilities');
+$edit_caps_all = aa_shell_boot_prop($html_caps_all, 'editContainerCapabilities');
+
+ac_assert(
+    'Records sin lists_scope boots repertorio de la familia real',
+    is_array($opts_family) && array_key_exists('finance', $opts_family) && is_array($opts_family['finance'])
+);
+ac_assert(
+    'Records con lists_scope=all boots repertorio de la familia real (no mapa vacío)',
+    is_array($opts_all) && array_key_exists('finance', $opts_all) && is_array($opts_all['finance'])
+);
+ac_assert(
+    'Repertorio records all_scope ≡ family_scope (claves/orden)',
+    is_array($opts_family) && is_array($opts_all)
+    && json_encode($opts_family['finance'] ?? null) === json_encode($opts_all['finance'] ?? null)
+);
+ac_assert('listsScope vacío en records familiar', $lists_scope_family === '');
+ac_assert('listsScope=all conservado en records desde Todas', $lists_scope_all === 'all');
+ac_assert(
+    'editContainerCapabilities status alineado con/sin lists_scope',
+    is_array($edit_caps_family) && is_array($edit_caps_all)
+    && ($edit_caps_family['status'] ?? '') === ($edit_caps_all['status'] ?? '')
+    && json_encode($edit_caps_family['active'] ?? null) === json_encode($edit_caps_all['active'] ?? null)
+);
+
+$html_agg = render_shell([
+    'aa_shell_route_state' => 'resolved',
+    'aa_shell_route_message' => '',
+    'aa_shell_view' => [
+        'shell_view' => 'containers',
+        'lists_scope' => 'all',
+        'read_state' => 'empty',
+        'family_label' => 'Todas las listas',
+        'qualified_key' => '',
+        'is_preview' => false,
+        'preview_banner' => '',
+        'preview_enabled' => false,
+        'preview_url' => '',
+        'available_families' => [
+            ['family_key' => 'finance', 'label' => 'Finanzas'],
+            ['family_key' => 'archive', 'label' => 'Archivo'],
+        ],
+        'items_view' => [],
+        'page' => 1,
+        'per_page' => 15,
+        'total' => 0,
+        'total_pages' => 0,
+        'has_previous' => false,
+        'has_next' => false,
+        'prev_url' => '',
+        'next_url' => '',
+    ],
+]);
+$opts_agg = aa_shell_boot_prop($html_agg, 'familyCapabilityOptions');
+$lists_agg = aa_shell_boot_prop($html_agg, 'listsScope');
+$avail_agg = aa_shell_boot_prop($html_agg, 'availableFamilies');
+ac_assert(
+    'Listado agregado boots repertorio multifamilia para create/edit',
+    is_array($opts_agg)
+    && array_key_exists('finance', $opts_agg)
+    && array_key_exists('archive', $opts_agg)
+    && is_array($opts_agg['finance'])
+    && is_array($opts_agg['archive'])
+);
+ac_assert('Listado agregado conserva listsScope=all', $lists_agg === 'all');
+ac_assert(
+    'Listado agregado expone availableFamilies multifamilia',
+    is_array($avail_agg) && count($avail_agg) === 2
+);
 
 echo "\n--- Resumen: {$passed}/{$total} ---\n";
 if ($failed !== []) {

@@ -115,12 +115,21 @@
         }
     }
 
-    function optionsForFamily(nextFamilyKey) {
+    function hasFamilyCapabilityRepertoire(nextFamilyKey) {
         if (!nextFamilyKey || typeof familyCapabilityOptions !== 'object' || familyCapabilityOptions === null) {
+            return false;
+        }
+        if (!Object.prototype.hasOwnProperty.call(familyCapabilityOptions, nextFamilyKey)) {
+            return false;
+        }
+        return Array.isArray(familyCapabilityOptions[nextFamilyKey]);
+    }
+
+    function optionsForFamily(nextFamilyKey) {
+        if (!hasFamilyCapabilityRepertoire(nextFamilyKey)) {
             return [];
         }
-        var list = familyCapabilityOptions[nextFamilyKey];
-        return Array.isArray(list) ? list : [];
+        return familyCapabilityOptions[nextFamilyKey];
     }
 
     function clearCapabilitiesStatus() {
@@ -221,6 +230,11 @@
             ? capabilitiesState
             : editContainerCapabilities;
         if (!state || state.status !== 'ok') {
+            setCapabilitiesUnavailable();
+            return;
+        }
+        // Ausencia del mapa ≠ repertorio [] legítimo: omitir selección en update.
+        if (!hasFamilyCapabilityRepertoire(nextFamilyKey)) {
             setCapabilitiesUnavailable();
             return;
         }

@@ -1133,14 +1133,16 @@ $is_records_fill = $show_read_ui
         require_once dirname(__DIR__, 4) . '/application/canonical/capabilities/CanonicalContainerCapabilityConfigSnapshot.php';
     }
 
+    // Familia real del contexto (records / filtro familiar) antes que available_families:
+    // lists_scope=all es solo retorno; en records no trae available_families.
     $families_for_capability_options = [];
-    if ($is_all_lists_scope) {
-        $families_for_capability_options = $normalized_available_families;
-    } elseif ($create_family_key !== '') {
+    if ($create_family_key !== '') {
         $families_for_capability_options[] = [
             'family_key' => $create_family_key,
             'label' => $family_label !== '' ? $family_label : $create_family_key,
         ];
+    } elseif ($is_all_lists_scope) {
+        $families_for_capability_options = $normalized_available_families;
     }
 
     $family_capability_options = [];

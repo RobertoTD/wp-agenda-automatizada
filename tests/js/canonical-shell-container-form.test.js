@@ -943,6 +943,60 @@ describe('canonical-shell-container-form', () => {
         assert.equal(Object.prototype.hasOwnProperty.call(body, 'capability_selection'), false);
     });
 
+    it('update con familia ausente del mapa es unavailable y omite seleccion', async () => {
+        const ui = boot(async () => ({
+            status: 200,
+            text: async () => JSON.stringify({
+                success: true,
+                data: { status: 'confirmed', redirect_url: 'https://example.test/ok' }
+            })
+        }), [
+            { id: 34, title: 'Sin mapa', details: '' }
+        ], {
+            familyCapabilityOptions: {},
+            editContainerCapabilities: {
+                status: 'ok',
+                active: ['amount'],
+                assigned: ['amount']
+            }
+        });
+        ui.editBtns[0]._listeners.click[0]();
+        assert.equal(ui.capabilitiesMount.querySelectorAll('input[data-aa-capability-key]').length, 0);
+        assert.equal(ui.capabilitiesStatus.classList.contains('hidden'), false);
+        ui.titleInput.value = 'Sin mapa';
+        ui.form._listeners.submit[0]({ preventDefault() {} });
+        const body = ui.getLastFormData();
+        assert.equal(Object.prototype.hasOwnProperty.call(body, 'capability_selection_scope'), false);
+        assert.equal(Object.prototype.hasOwnProperty.call(body, 'capability_selection'), false);
+    });
+
+    it('update con repertorio vacio legitimo envia scope/selection vacios', async () => {
+        const ui = boot(async () => ({
+            status: 200,
+            text: async () => JSON.stringify({
+                success: true,
+                data: { status: 'confirmed', redirect_url: 'https://example.test/ok' }
+            })
+        }), [
+            { id: 35, title: 'Vacío legítimo', details: '' }
+        ], {
+            familyCapabilityOptions: { finance: [] },
+            editContainerCapabilities: {
+                status: 'ok',
+                active: [],
+                assigned: []
+            }
+        });
+        ui.editBtns[0]._listeners.click[0]();
+        assert.equal(ui.capabilitiesMount.querySelectorAll('input[data-aa-capability-key]').length, 0);
+        assert.equal(ui.capabilitiesStatus.classList.contains('hidden'), true);
+        ui.titleInput.value = 'Vacío legítimo';
+        ui.form._listeners.submit[0]({ preventDefault() {} });
+        const body = ui.getLastFormData();
+        assert.equal(body.capability_selection_scope, '[]');
+        assert.equal(body.capability_selection, '[]');
+    });
+
     it('records update envía return_view y selección activa del repertorio', async () => {
         const ui = boot(async () => ({
             status: 200,

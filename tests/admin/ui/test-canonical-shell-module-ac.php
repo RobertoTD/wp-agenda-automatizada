@@ -624,6 +624,14 @@ ac_assert(
     strpos($module_src, '$show_container_write_ui = $show_create_ui || $show_edit_container_on_records') !== false
 );
 ac_assert(
+    'Bootstrap prioriza familia real antes que available_families de all_lists',
+    (bool) preg_match(
+        '/\$families_for_capability_options\s*=\s*\[\];\s*if\s*\(\s*\$create_family_key\s*!==\s*\'\'\s*\)/',
+        $module_src
+    )
+    && strpos($module_src, '} elseif ($is_all_lists_scope) {') !== false
+);
+ac_assert(
     'Shell records header can edit list',
     strpos($module_src, 'Editar lista') !== false
     && strpos($module_src, '$show_edit_container_on_records') !== false
