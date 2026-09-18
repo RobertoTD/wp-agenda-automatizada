@@ -64,7 +64,7 @@ $runs_src = (string) file_get_contents($runs_file);
 
 ac_assert('archivos del incremento 5 existen', is_file($uc_file) && is_file($cmd_file) && is_file($result_file)
     && is_file($cap_file) && is_file($ajax_file));
-ac_assert('DB_VERSION=32', strpos($schema_src, "DB_VERSION = '32'") !== false);
+ac_assert('DB_VERSION=33', strpos($schema_src, "DB_VERSION = '33'") !== false);
 ac_assert('ensure_purge_image_retire_v31', strpos($cschema_src, 'ensure_purge_image_retire_v31') !== false
     && strpos($cschema_src, 'record_id bigint(20) unsigned DEFAULT NULL') !== false);
 ac_assert('SCOPE_IMAGE + blocking por record_id', strpos($runs_src, "SCOPE_IMAGE = 'image'") !== false
@@ -461,7 +461,7 @@ $now = gmdate('Y-m-d H:i:s');
 try {
     AA_Canonical_Schema::install();
     ac_assert('schema verify tras install v31', true);
-    ac_assert('aa_db_version option no requerida aquí', AA_Schema::DB_VERSION === '32');
+    ac_assert('aa_db_version option no requerida aquí', AA_Schema::DB_VERSION === '33');
 
     // Reaplicar ensure v31 es idempotente.
     AA_Canonical_Schema::ensure_purge_image_retire_v31();

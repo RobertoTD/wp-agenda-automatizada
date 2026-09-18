@@ -7,6 +7,7 @@
  * Paso 5: images ready + DEFAULTS_VERSION=3 → insert-if-missing de la matriz §12.1
  * (archive default on; finance/catalog/contact default off). Sin tocar listas ya persistidas.
  * Phone: DEFAULTS_VERSION=4 → contact/phone default off (insert-if-missing).
+ * WhatsApp: DEFAULTS_VERSION=5 → contact/whatsapp default on (insert-if-missing; solo listas nuevas).
  *
  * @package WP_Agenda_Automatizada
  * @subpackage Infrastructure\Canonical
@@ -16,7 +17,7 @@ defined('ABSPATH') or die('No direct access');
 
 final class AA_Canonical_Capability_Defaults_Lifecycle {
 
-    public const DEFAULTS_VERSION = 4;
+    public const DEFAULTS_VERSION = 5;
 
     public const OPTION_VERSION = 'aa_canonical_capability_defaults_version';
 
@@ -128,6 +129,7 @@ final class AA_Canonical_Capability_Defaults_Lifecycle {
      * Seeds declarados. Ensure solo inserta filas de capacidades is_ready.
      * amount (A1b) + images (Paso 5 / DEFAULTS_VERSION=3): matriz §12.1.
      * phone (DEFAULTS_VERSION=4): solo contact, default off.
+     * whatsapp (DEFAULTS_VERSION=5): solo contact, default on (listas nuevas).
      *
      * @return list<array{family_key:string,capability_key:string,is_default:bool}>
      */
@@ -162,6 +164,11 @@ final class AA_Canonical_Capability_Defaults_Lifecycle {
                 'family_key' => 'contact',
                 'capability_key' => 'phone',
                 'is_default' => false,
+            ],
+            [
+                'family_key' => 'contact',
+                'capability_key' => 'whatsapp',
+                'is_default' => true,
             ],
         ];
     }

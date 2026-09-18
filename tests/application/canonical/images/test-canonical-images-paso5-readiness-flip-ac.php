@@ -1,6 +1,6 @@
 <?php
 /**
- * AC Paso 5 — flip readiness images + DEFAULTS_VERSION=4.
+ * AC Paso 5 — flip readiness images + DEFAULTS_VERSION=5.
  *
  * Tres baterías:
  *   1) Lifecycle/seeds (fuente + insert-if-missing / no overwrite)
@@ -51,8 +51,8 @@ ac_assert(
         $boot
     ) === 1
 );
-ac_assert('DEFAULTS_VERSION=4', strpos($life, 'public const DEFAULTS_VERSION = 4;') !== false);
-ac_assert('DB_VERSION actual 32', strpos($schema, "public const DB_VERSION = '32';") !== false);
+ac_assert('DEFAULTS_VERSION=5', strpos($life, 'public const DEFAULTS_VERSION = 5;') !== false);
+ac_assert('DB_VERSION actual 33', strpos($schema, "public const DB_VERSION = '33';") !== false);
 ac_assert('ensure usa insert_family_capability_if_missing', strpos($life, 'insert_family_capability_if_missing') !== false);
 ac_assert('ensure salta !is_ready', strpos($life, '!$definition->is_ready()') !== false);
 

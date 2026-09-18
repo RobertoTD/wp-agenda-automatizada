@@ -31,6 +31,7 @@ final class AA_Canonical_Capability_Write_Bootstrap {
         $config_repository = new CanonicalCapabilityConfigRepository($wpdb);
         $amount_repository = new CanonicalRecordAmountRepository($wpdb);
         $phone_repository = new CanonicalRecordPhoneRepository($wpdb);
+        $whatsapp_repository = new CanonicalRecordWhatsappRepository($wpdb);
 
         $handlers = new CanonicalCapabilityWriteHandlerRegistry();
         $handlers->register(new AA_Canonical_Amount_Write_Handler(
@@ -42,6 +43,11 @@ final class AA_Canonical_Capability_Write_Bootstrap {
             $capability_registry,
             $config_repository,
             $phone_repository
+        ));
+        $handlers->register(new AA_Canonical_Whatsapp_Write_Handler(
+            $capability_registry,
+            $config_repository,
+            $whatsapp_repository
         ));
         $handlers->freeze();
 
@@ -88,12 +94,16 @@ final class AA_Canonical_Capability_Write_Bootstrap {
             $repos . '/CanonicalCapabilityConfigRepository.php',
             $repos . '/CanonicalRecordAmountRepository.php',
             $repos . '/CanonicalRecordPhoneRepository.php',
+            $repos . '/CanonicalRecordWhatsappRepository.php',
             $infra . '/class-aa-canonical-amount-set-effect.php',
             $infra . '/class-aa-canonical-amount-clear-effect.php',
             $infra . '/class-aa-canonical-amount-write-handler.php',
             $infra . '/class-aa-canonical-phone-set-effect.php',
             $infra . '/class-aa-canonical-phone-clear-effect.php',
             $infra . '/class-aa-canonical-phone-write-handler.php',
+            $infra . '/class-aa-canonical-whatsapp-set-effect.php',
+            $infra . '/class-aa-canonical-whatsapp-clear-effect.php',
+            $infra . '/class-aa-canonical-whatsapp-write-handler.php',
             $infra . '/class-aa-canonical-capability-defaults-materializer.php',
             $infra . '/class-aa-canonical-materialize-family-defaults-effect.php',
             $infra . '/class-aa-canonical-apply-container-capability-selection-effect.php',

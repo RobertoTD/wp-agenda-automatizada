@@ -55,7 +55,7 @@ $canonical_src = file_get_contents($canonical_schema_file);
 
 ac_assert('Schema.php es legible', is_string($schema_src) && $schema_src !== '');
 ac_assert('CanonicalSchema.php es legible', is_string($canonical_src) && $canonical_src !== '');
-ac_assert("AA_Schema::DB_VERSION es '32'", strpos($schema_src, "DB_VERSION = '32'") !== false);
+ac_assert("AA_Schema::DB_VERSION es '33'", strpos($schema_src, "DB_VERSION = '33'") !== false);
 ac_assert('Schema.php delega en AA_Canonical_Schema::install()', strpos($schema_src, 'AA_Canonical_Schema::install()') !== false);
 ac_assert(
     'Sin AA_Finance_Schema::install()',
@@ -115,6 +115,7 @@ ac_assert('TABLE_FAMILY_CAPABILITIES', strpos($canonical_src, "TABLE_FAMILY_CAPA
 ac_assert('TABLE_CONTAINER_CAPABILITIES', strpos($canonical_src, "TABLE_CONTAINER_CAPABILITIES = 'aa_canonical_container_capabilities'") !== false);
 ac_assert('TABLE_RECORD_AMOUNT', strpos($canonical_src, "TABLE_RECORD_AMOUNT = 'aa_canonical_record_amount'") !== false);
 ac_assert('TABLE_RECORD_PHONE', strpos($canonical_src, "TABLE_RECORD_PHONE = 'aa_canonical_record_phone'") !== false);
+ac_assert('TABLE_RECORD_WHATSAPP', strpos($canonical_src, "TABLE_RECORD_WHATSAPP = 'aa_canonical_record_whatsapp'") !== false);
 ac_assert('TABLE_RECORD_IMAGES', strpos($canonical_src, "TABLE_RECORD_IMAGES = 'aa_canonical_record_images'") !== false);
 ac_assert('TABLE_IMAGE_UPLOAD_OPERATIONS', strpos($canonical_src, "TABLE_IMAGE_UPLOAD_OPERATIONS = 'aa_canonical_image_upload_operations'") !== false);
 ac_assert('TABLE_PURGE_RUNS', strpos($canonical_src, "TABLE_PURGE_RUNS = 'aa_canonical_purge_runs'") !== false);
@@ -159,6 +160,8 @@ preg_match('/\$record_amount_sql\s*=\s*"([^"]+)";/s', $canonical_src, $m_ra);
 $record_amount_sql = $m_ra[1] ?? '';
 preg_match('/\$record_phone_sql\s*=\s*"([^"]+)";/s', $canonical_src, $m_rp);
 $record_phone_sql = $m_rp[1] ?? '';
+preg_match('/\$record_whatsapp_sql\s*=\s*"([^"]+)";/s', $canonical_src, $m_rwa);
+$record_whatsapp_sql = $m_rwa[1] ?? '';
 
 ac_assert('Families PRIMARY KEY  (id) con dos espacios', strpos($families_sql, 'PRIMARY KEY  (id)') !== false);
 ac_assert('Families family_key varchar(64) NOT NULL', strpos($families_sql, 'family_key varchar(64) NOT NULL') !== false);
@@ -199,6 +202,10 @@ ac_assert('Record phone PK record_id', strpos($record_phone_sql, 'PRIMARY KEY  (
 ac_assert('Record phone varchar(16) NOT NULL', strpos($record_phone_sql, 'phone varchar(16) NOT NULL') !== false);
 ac_assert('Record phone sin UNIQUE phone', stripos($record_phone_sql, 'UNIQUE') === false);
 ac_assert('Record phone sin id surrogate', !preg_match('/\bid\b/', $record_phone_sql));
+ac_assert('Record whatsapp PK record_id', strpos($record_whatsapp_sql, 'PRIMARY KEY  (record_id)') !== false);
+ac_assert('Record whatsapp varchar(16) NOT NULL', strpos($record_whatsapp_sql, 'whatsapp varchar(16) NOT NULL') !== false);
+ac_assert('Record whatsapp sin UNIQUE', stripos($record_whatsapp_sql, 'UNIQUE') === false);
+ac_assert('Record whatsapp sin id surrogate', !preg_match('/\bid\b/', $record_whatsapp_sql));
 
 ac_assert('FK RESTRICT presente', strpos($canonical_src, "ON DELETE RESTRICT") !== false || strpos($canonical_src, "'RESTRICT'") !== false);
 ac_assert('FK CASCADE presente', strpos($canonical_src, "ON DELETE CASCADE") !== false || strpos($canonical_src, "'CASCADE'") !== false);
@@ -270,6 +277,7 @@ if ($has_real_wp) {
             $p . AA_Canonical_Schema::TABLE_PURGE_RUNS,
             $p . AA_Canonical_Schema::TABLE_IMAGE_UPLOAD_OPERATIONS,
             $p . AA_Canonical_Schema::TABLE_RECORD_IMAGES,
+            $p . AA_Canonical_Schema::TABLE_RECORD_WHATSAPP,
             $p . AA_Canonical_Schema::TABLE_RECORD_PHONE,
             $p . AA_Canonical_Schema::TABLE_RECORD_AMOUNT,
             $p . AA_Canonical_Schema::TABLE_CONTAINER_CAPABILITIES,
@@ -306,18 +314,20 @@ if ($has_real_wp) {
         $cc1 = AA_Canonical_Schema::container_capabilities_table_name();
         $ra1 = AA_Canonical_Schema::record_amount_table_name();
         $rp1 = AA_Canonical_Schema::record_phone_table_name();
+        $rwa1 = AA_Canonical_Schema::record_whatsapp_table_name();
         $ri1 = AA_Canonical_Schema::record_images_table_name();
         $iuo1 = AA_Canonical_Schema::image_upload_operations_table_name();
         $pr1 = AA_Canonical_Schema::purge_runs_table_name();
         $piv1 = AA_Canonical_Schema::purge_inventory_items_table_name();
 
-        ac_assert('MySQL: once tablas canónicas existen', $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $f1)) === $f1
+        ac_assert('MySQL: doce tablas canónicas existen', $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $f1)) === $f1
             && $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $c1)) === $c1
             && $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $r1)) === $r1
             && $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $fd1)) === $fd1
             && $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $cc1)) === $cc1
             && $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $ra1)) === $ra1
             && $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $rp1)) === $rp1
+            && $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $rwa1)) === $rwa1
             && $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $ri1)) === $ri1
             && $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $iuo1)) === $iuo1
             && $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $pr1)) === $pr1
@@ -640,6 +650,16 @@ if ($has_real_wp) {
             ],
             ['%d', '%s', '%s', '%s']
         );
+        $wpdb->insert(
+            $rwa1,
+            [
+                'record_id' => $record_id_cap,
+                'whatsapp' => '+525555555555',
+                'created_at' => $now,
+                'updated_at' => $now,
+            ],
+            ['%d', '%s', '%s', '%s']
+        );
 
         ac_assert('MySQL: fixtures C1a creados', $family_id_cap >= 1 && $container_id_cap >= 1 && $record_id_cap >= 1);
 
@@ -651,6 +671,10 @@ if ($has_real_wp) {
         ac_assert(
             'MySQL: CASCADE borra record_phone al borrar registro',
             (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM `{$rp1}` WHERE record_id = %d", $record_id_cap)) === 0
+        );
+        ac_assert(
+            'MySQL: CASCADE borra record_whatsapp al borrar registro',
+            (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM `{$rwa1}` WHERE record_id = %d", $record_id_cap)) === 0
         );
 
         // Images Ciclo 1: RESTRICT conserva inventario al intentar borrar registro/lista
@@ -981,7 +1005,7 @@ if ($has_real_wp) {
             update_option('aa_db_version', '20');
             AA_Schema::install();
             $stored = (string) get_option('aa_db_version', '0');
-            ac_assert("MySQL: AA_Schema::install deja aa_db_version=32", $stored === '32');
+            ac_assert("MySQL: AA_Schema::install deja aa_db_version=33", $stored === '33');
             $uf = $wpdb->prefix . AA_Canonical_Schema::TABLE_FAMILIES;
             $uc = $wpdb->prefix . AA_Canonical_Schema::TABLE_CONTAINERS;
             $ur = $wpdb->prefix . AA_Canonical_Schema::TABLE_RECORDS;
@@ -989,6 +1013,7 @@ if ($has_real_wp) {
             $ucc = $wpdb->prefix . AA_Canonical_Schema::TABLE_CONTAINER_CAPABILITIES;
             $ura = $wpdb->prefix . AA_Canonical_Schema::TABLE_RECORD_AMOUNT;
             $urp = $wpdb->prefix . AA_Canonical_Schema::TABLE_RECORD_PHONE;
+            $urwa = $wpdb->prefix . AA_Canonical_Schema::TABLE_RECORD_WHATSAPP;
             $uri = $wpdb->prefix . AA_Canonical_Schema::TABLE_RECORD_IMAGES;
             $uio = $wpdb->prefix . AA_Canonical_Schema::TABLE_IMAGE_UPLOAD_OPERATIONS;
             $upr = $wpdb->prefix . AA_Canonical_Schema::TABLE_PURGE_RUNS;
@@ -1002,6 +1027,7 @@ if ($has_real_wp) {
                 && $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $ucc)) === $ucc
                 && $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $ura)) === $ura
                 && $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $urp)) === $urp
+                && $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $urwa)) === $urwa
                 && $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $uri)) === $uri
                 && $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $uio)) === $uio
                 && $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $upr)) === $upr

@@ -66,8 +66,8 @@ final class AA_Schema {
      * Independiente de la versión del plugin. Solo refleja el estado
      * de las tablas/columnas/índices.
      */
-    /** DB 32: capability phone — aa_canonical_record_phone (E.164 tipado 1:1). */
-    public const DB_VERSION = '32';
+    /** DB 33: capability whatsapp — aa_canonical_record_whatsapp (E.164 tipado 1:1). */
+    public const DB_VERSION = '33';
 
     public const OPTION_INSTALLATION_INITIALIZED_AT = 'aa_installation_initialized_at';
 

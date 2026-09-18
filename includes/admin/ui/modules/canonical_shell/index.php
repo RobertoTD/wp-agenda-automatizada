@@ -1190,6 +1190,8 @@ $is_records_fill = $show_read_ui
                 }
                 if ($cap_key === 'amount') {
                     $cap_label = 'Importe';
+                } elseif ($cap_key === 'whatsapp') {
+                    $cap_label = 'WhatsApp';
                 } elseif ($cap_key === 'phone') {
                     $cap_label = 'Teléfono';
                 } elseif ($cap_key === 'images') {
@@ -1203,6 +1205,29 @@ $is_records_fill = $show_read_ui
                     'is_default' => !empty($repertoire_row['is_default']),
                 ];
             }
+            // WhatsApp inmediatamente antes de Phone; resto conserva orden de repertorio.
+            $cap_opts = $family_capability_options[$option_family_key];
+            $decorated = [];
+            foreach ($cap_opts as $cap_i => $cap_item) {
+                $decorated[] = ['i' => $cap_i, 'item' => $cap_item];
+            }
+            usort($decorated, static function ($a, $b) {
+                $ka = (string) ($a['item']['key'] ?? '');
+                $kb = (string) ($b['item']['key'] ?? '');
+                if (
+                    ($ka === 'whatsapp' && $kb === 'phone')
+                    || ($ka === 'phone' && $kb === 'whatsapp')
+                ) {
+                    return $ka === 'whatsapp' ? -1 : 1;
+                }
+                return $a['i'] <=> $b['i'];
+            });
+            $family_capability_options[$option_family_key] = array_map(
+                static function ($row) {
+                    return $row['item'];
+                },
+                $decorated
+            );
         } catch (Throwable $e) {
             $family_capability_options[$option_family_key] = [];
         }
@@ -1545,7 +1570,51 @@ $is_records_fill = $show_read_ui
                         <p id="aa-shell-record-title-error" class="hidden mt-1 text-xs text-red-600 font-medium"></p>
                     </div>
                     <?php
+                    $whatsapp_offered = !empty($capability_contributions['whatsapp']['offered']);
                     $phone_offered = !empty($capability_contributions['phone']['offered']);
+                    if ($whatsapp_offered) :
+                        $whatsapp_country_options = AA_Canonical_Phone_Normalizer::country_options();
+                        ?>
+                    <div
+                        id="aa-shell-record-whatsapp-field"
+                        class="aa-shell-capability-field hidden"
+                        data-aa-capability-key="whatsapp"
+                        hidden
+                    >
+                        <label for="aa-shell-record-whatsapp" class="block text-xs font-semibold text-gray-700 mb-1">
+                            WhatsApp (opcional)
+                        </label>
+                        <div class="aa-shell-whatsapp-row flex gap-2">
+                            <select
+                                id="aa-shell-record-whatsapp-country"
+                                name="whatsapp_country"
+                                class="aa-form-country-select shrink-0 text-sm border border-gray-300 rounded-lg px-2 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-50 disabled:text-gray-500"
+                                disabled
+                            >
+                                <?php foreach ($whatsapp_country_options as $whatsapp_opt) : ?>
+                                    <option value="<?php echo esc_attr((string) $whatsapp_opt['code']); ?>">
+                                        <?php echo esc_html((string) $whatsapp_opt['label']); ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                            <input
+                                type="tel"
+                                id="aa-shell-record-whatsapp"
+                                name="whatsapp_national"
+                                inputmode="tel"
+                                autocomplete="tel-national"
+                                class="aa-form-input-phone min-w-0 flex-1 text-sm border border-gray-300 rounded-lg px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-50 disabled:text-gray-500"
+                                disabled
+                            />
+                        </div>
+                        <p id="aa-shell-record-whatsapp-help" class="hidden mt-1 text-xs text-gray-500"></p>
+                        <p id="aa-shell-record-whatsapp-error" class="hidden mt-1 text-xs text-red-600 font-medium"></p>
+                        <p id="aa-shell-record-whatsapp-unavailable" class="hidden mt-1 text-xs text-amber-800 font-medium" role="status">
+                            WhatsApp no está disponible ahora. Puedes guardar el título y los detalles.
+                        </p>
+                    </div>
+                    <?php endif; ?>
+                    <?php
                     if ($phone_offered) :
                         $phone_country_options = AA_Canonical_Phone_Normalizer::country_options();
                         ?>
@@ -1915,6 +1984,9 @@ $is_records_fill = $show_read_ui
     <script src="<?php echo function_exists('aa_asset_url')
         ? aa_asset_url('includes/admin/ui/modules/canonical_shell/capabilities/canonical-shell-amount-field.js')
         : esc_url((defined('AA_PLUGIN_URL') ? AA_PLUGIN_URL : '') . 'includes/admin/ui/modules/canonical_shell/capabilities/canonical-shell-amount-field.js'); ?>"></script>
+    <script src="<?php echo function_exists('aa_asset_url')
+        ? aa_asset_url('includes/admin/ui/modules/canonical_shell/capabilities/canonical-shell-whatsapp-field.js')
+        : esc_url((defined('AA_PLUGIN_URL') ? AA_PLUGIN_URL : '') . 'includes/admin/ui/modules/canonical_shell/capabilities/canonical-shell-whatsapp-field.js'); ?>"></script>
     <script src="<?php echo function_exists('aa_asset_url')
         ? aa_asset_url('includes/admin/ui/modules/canonical_shell/capabilities/canonical-shell-phone-field.js')
         : esc_url((defined('AA_PLUGIN_URL') ? AA_PLUGIN_URL : '') . 'includes/admin/ui/modules/canonical_shell/capabilities/canonical-shell-phone-field.js'); ?>"></script>

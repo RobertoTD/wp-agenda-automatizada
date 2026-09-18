@@ -14,6 +14,12 @@ if (!class_exists('CanonicalPhoneRecordsPageContributor')) {
 if (!class_exists('CanonicalRecordPhoneRepository')) {
     require_once dirname(__DIR__, 2) . '/repositories/CanonicalRecordPhoneRepository.php';
 }
+if (!class_exists('CanonicalWhatsappRecordsPageContributor')) {
+    require_once dirname(__DIR__, 2) . '/application/canonical/capabilities/whatsapp/CanonicalWhatsappRecordsPageContributor.php';
+}
+if (!class_exists('CanonicalRecordWhatsappRepository')) {
+    require_once dirname(__DIR__, 2) . '/repositories/CanonicalRecordWhatsappRepository.php';
+}
 if (!class_exists('CanonicalImagesRecordsPageContributor')) {
     require_once dirname(__DIR__, 2) . '/application/canonical/capabilities/images/CanonicalImagesRecordsPageContributor.php';
 }
@@ -47,6 +53,14 @@ final class AA_Canonical_Capability_Page_Contributor_Bootstrap {
             new CanonicalPhoneRecordsPageContributor(
                 new CanonicalCapabilityConfigRepository($wpdb),
                 new CanonicalRecordPhoneRepository($wpdb),
+                $capability_registry
+            )
+        );
+
+        $registry->register(
+            new CanonicalWhatsappRecordsPageContributor(
+                new CanonicalCapabilityConfigRepository($wpdb),
+                new CanonicalRecordWhatsappRepository($wpdb),
                 $capability_registry
             )
         );
