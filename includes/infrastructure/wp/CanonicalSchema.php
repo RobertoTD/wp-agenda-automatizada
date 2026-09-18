@@ -13,6 +13,7 @@
  * - aa_canonical_record_amount (tabla de valores; uso en A1a+)
  * - aa_canonical_record_phone (valores E.164; DB 32)
  * - aa_canonical_record_whatsapp (valores E.164; DB 33)
+ * - aa_canonical_record_email (correo ASCII; DB 34)
  *
  * Images Ciclo 1 (DB 26; sin semántica de producto todavía):
  * - aa_canonical_record_images
@@ -51,6 +52,7 @@ final class AA_Canonical_Schema {
     public const TABLE_RECORD_AMOUNT = 'aa_canonical_record_amount';
     public const TABLE_RECORD_PHONE = 'aa_canonical_record_phone';
     public const TABLE_RECORD_WHATSAPP = 'aa_canonical_record_whatsapp';
+    public const TABLE_RECORD_EMAIL = 'aa_canonical_record_email';
     public const TABLE_RECORD_IMAGES = 'aa_canonical_record_images';
     public const TABLE_IMAGE_UPLOAD_OPERATIONS = 'aa_canonical_image_upload_operations';
     public const TABLE_PURGE_RUNS = 'aa_canonical_purge_runs';
@@ -106,6 +108,11 @@ final class AA_Canonical_Schema {
     public static function record_whatsapp_table_name(): string {
         global $wpdb;
         return $wpdb->prefix . self::TABLE_RECORD_WHATSAPP;
+    }
+
+    public static function record_email_table_name(): string {
+        global $wpdb;
+        return $wpdb->prefix . self::TABLE_RECORD_EMAIL;
     }
 
     public static function record_images_table_name(): string {
@@ -226,6 +233,17 @@ final class AA_Canonical_Schema {
     }
 
     /**
+     * FK record_email.record_id → records.id.
+     */
+    public static function record_email_foreign_key_name(?string $prefix = null): string {
+        return self::build_foreign_key_name(
+            $prefix,
+            'aa_canonical_record_email:record_id',
+            'aa_can_eml_'
+        );
+    }
+
+    /**
      * FK record_images.record_id → records.id (RESTRICT).
      */
     public static function record_images_foreign_key_name(?string $prefix = null): string {
@@ -293,6 +311,7 @@ final class AA_Canonical_Schema {
         $record_amount_table = self::record_amount_table_name();
         $record_phone_table = self::record_phone_table_name();
         $record_whatsapp_table = self::record_whatsapp_table_name();
+        $record_email_table = self::record_email_table_name();
         $record_images_table = self::record_images_table_name();
         $image_upload_operations_table = self::image_upload_operations_table_name();
         $purge_runs_table = self::purge_runs_table_name();
@@ -368,6 +387,14 @@ final class AA_Canonical_Schema {
         $record_whatsapp_sql = "CREATE TABLE {$record_whatsapp_table} (
             record_id bigint(20) unsigned NOT NULL,
             whatsapp varchar(16) NOT NULL,
+            created_at datetime NOT NULL,
+            updated_at datetime NOT NULL,
+            PRIMARY KEY  (record_id)
+        ) ENGINE=InnoDB {$charset};";
+
+        $record_email_sql = "CREATE TABLE {$record_email_table} (
+            record_id bigint(20) unsigned NOT NULL,
+            email varchar(254) NOT NULL,
             created_at datetime NOT NULL,
             updated_at datetime NOT NULL,
             PRIMARY KEY  (record_id)
@@ -479,6 +506,7 @@ final class AA_Canonical_Schema {
         dbDelta($record_amount_sql);
         dbDelta($record_phone_sql);
         dbDelta($record_whatsapp_sql);
+        dbDelta($record_email_sql);
         dbDelta($record_images_sql);
         dbDelta($image_upload_operations_sql);
         dbDelta($purge_runs_sql);
@@ -1211,6 +1239,13 @@ final class AA_Canonical_Schema {
             'CASCADE'
         );
         self::ensure_foreign_key(
+            self::record_email_table_name(),
+            self::record_email_foreign_key_name(),
+            'record_id',
+            self::records_table_name(),
+            'CASCADE'
+        );
+        self::ensure_foreign_key(
             self::record_images_table_name(),
             self::record_images_foreign_key_name(),
             'record_id',
@@ -1276,6 +1311,7 @@ final class AA_Canonical_Schema {
         $record_amount = self::record_amount_table_name();
         $record_phone = self::record_phone_table_name();
         $record_whatsapp = self::record_whatsapp_table_name();
+        $record_email = self::record_email_table_name();
         $record_images = self::record_images_table_name();
         $image_upload_operations = self::image_upload_operations_table_name();
         $purge_runs = self::purge_runs_table_name();
@@ -1289,6 +1325,7 @@ final class AA_Canonical_Schema {
         self::verify_table_existence_and_engine($record_amount);
         self::verify_table_existence_and_engine($record_phone);
         self::verify_table_existence_and_engine($record_whatsapp);
+        self::verify_table_existence_and_engine($record_email);
         self::verify_table_existence_and_engine($record_images);
         self::verify_table_existence_and_engine($image_upload_operations);
         self::verify_table_existence_and_engine($purge_runs);
@@ -1302,6 +1339,7 @@ final class AA_Canonical_Schema {
         self::verify_record_amount_structure($record_amount);
         self::verify_record_phone_structure($record_phone);
         self::verify_record_whatsapp_structure($record_whatsapp);
+        self::verify_record_email_structure($record_email);
         self::verify_record_images_structure($record_images);
         self::verify_image_upload_operations_structure($image_upload_operations);
         self::verify_purge_runs_structure($purge_runs);
@@ -1353,6 +1391,13 @@ final class AA_Canonical_Schema {
             $record_whatsapp,
             $records,
             self::record_whatsapp_foreign_key_name(),
+            'record_id',
+            'CASCADE'
+        );
+        self::verify_foreign_key(
+            $record_email,
+            $records,
+            self::record_email_foreign_key_name(),
             'record_id',
             'CASCADE'
         );
@@ -1631,11 +1676,33 @@ final class AA_Canonical_Schema {
         }
 
         self::assert_forbidden_columns($table, $cols, [
-            'id', 'family_key', 'variant_key', 'title', 'details', 'amount', 'phone',
+            'id', 'family_key', 'variant_key', 'title', 'details', 'amount', 'phone', 'email',
         ]);
 
         self::assert_bigint_unsigned_not_null($table, $cols['record_id'], 'record_id');
         self::assert_varchar_not_null_no_default($table, $cols['whatsapp'], 'whatsapp', 16);
+        self::assert_datetime_not_null_no_default($table, $cols['created_at'], 'created_at');
+        self::assert_datetime_not_null_no_default($table, $cols['updated_at'], 'updated_at');
+
+        self::verify_index($table, 'PRIMARY', ['record_id']);
+    }
+
+    private static function verify_record_email_structure(string $table): void {
+        $cols = self::columns_by_name($table);
+
+        $expected = ['record_id', 'email', 'created_at', 'updated_at'];
+        foreach ($expected as $field) {
+            if (!isset($cols[$field])) {
+                throw new \RuntimeException("[AA_Canonical_Schema] Columna requerida ausente en {$table}: {$field}");
+            }
+        }
+
+        self::assert_forbidden_columns($table, $cols, [
+            'id', 'family_key', 'variant_key', 'title', 'details', 'amount', 'phone', 'whatsapp',
+        ]);
+
+        self::assert_bigint_unsigned_not_null($table, $cols['record_id'], 'record_id');
+        self::assert_varchar_not_null_no_default($table, $cols['email'], 'email', 254);
         self::assert_datetime_not_null_no_default($table, $cols['created_at'], 'created_at');
         self::assert_datetime_not_null_no_default($table, $cols['updated_at'], 'updated_at');
 

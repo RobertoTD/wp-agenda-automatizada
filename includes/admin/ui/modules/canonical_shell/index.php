@@ -1196,6 +1196,8 @@ $is_records_fill = $show_read_ui
                     $cap_label = 'WhatsApp';
                 } elseif ($cap_key === 'phone') {
                     $cap_label = 'Teléfono';
+                } elseif ($cap_key === 'email') {
+                    $cap_label = 'Email';
                 } elseif ($cap_key === 'images') {
                     $cap_label = 'Imágenes';
                 } else {
@@ -1207,29 +1209,26 @@ $is_records_fill = $show_read_ui
                     'is_default' => !empty($repertoire_row['is_default']),
                 ];
             }
-            // WhatsApp inmediatamente antes de Phone; resto conserva orden de repertorio.
+            // Bloque contacto: whatsapp → phone → email; resto conserva orden de repertorio.
             $cap_opts = $family_capability_options[$option_family_key];
-            $decorated = [];
-            foreach ($cap_opts as $cap_i => $cap_item) {
-                $decorated[] = ['i' => $cap_i, 'item' => $cap_item];
-            }
-            usort($decorated, static function ($a, $b) {
-                $ka = (string) ($a['item']['key'] ?? '');
-                $kb = (string) ($b['item']['key'] ?? '');
-                if (
-                    ($ka === 'whatsapp' && $kb === 'phone')
-                    || ($ka === 'phone' && $kb === 'whatsapp')
-                ) {
-                    return $ka === 'whatsapp' ? -1 : 1;
+            $block_order = ['whatsapp', 'phone', 'email'];
+            $block_by_key = [];
+            $rest = [];
+            foreach ($cap_opts as $cap_item) {
+                $k = (string) ($cap_item['key'] ?? '');
+                if (in_array($k, $block_order, true)) {
+                    $block_by_key[$k] = $cap_item;
+                } else {
+                    $rest[] = $cap_item;
                 }
-                return $a['i'] <=> $b['i'];
-            });
-            $family_capability_options[$option_family_key] = array_map(
-                static function ($row) {
-                    return $row['item'];
-                },
-                $decorated
-            );
+            }
+            $block = [];
+            foreach ($block_order as $block_key) {
+                if (isset($block_by_key[$block_key])) {
+                    $block[] = $block_by_key[$block_key];
+                }
+            }
+            $family_capability_options[$option_family_key] = array_merge($rest, $block);
         } catch (Throwable $e) {
             $family_capability_options[$option_family_key] = [];
         }
@@ -1574,6 +1573,7 @@ $is_records_fill = $show_read_ui
                     <?php
                     $whatsapp_offered = !empty($capability_contributions['whatsapp']['offered']);
                     $phone_offered = !empty($capability_contributions['phone']['offered']);
+                    $email_offered = !empty($capability_contributions['email']['offered']);
                     if ($whatsapp_offered) :
                         $whatsapp_country_options = AA_Canonical_Phone_Normalizer::country_options();
                         ?>
@@ -1656,6 +1656,31 @@ $is_records_fill = $show_read_ui
                         <p id="aa-shell-record-phone-error" class="hidden mt-1 text-xs text-red-600 font-medium"></p>
                         <p id="aa-shell-record-phone-unavailable" class="hidden mt-1 text-xs text-amber-800 font-medium" role="status">
                             El teléfono no está disponible ahora. Puedes guardar el título y los detalles.
+                        </p>
+                    </div>
+                    <?php endif; ?>
+                    <?php if ($email_offered) : ?>
+                    <div
+                        id="aa-shell-record-email-field"
+                        class="aa-shell-capability-field hidden"
+                        data-aa-capability-key="email"
+                        hidden
+                    >
+                        <label for="aa-shell-record-email" class="block text-xs font-semibold text-gray-700 mb-1">
+                            Email (opcional)
+                        </label>
+                        <input
+                            type="email"
+                            id="aa-shell-record-email"
+                            name="email"
+                            autocomplete="email"
+                            inputmode="email"
+                            class="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-50 disabled:text-gray-500"
+                            disabled
+                        />
+                        <p id="aa-shell-record-email-error" class="hidden mt-1 text-xs text-red-600 font-medium"></p>
+                        <p id="aa-shell-record-email-unavailable" class="hidden mt-1 text-xs text-amber-800 font-medium" role="status">
+                            El correo no está disponible ahora. Puedes guardar el título y los detalles.
                         </p>
                     </div>
                     <?php endif; ?>
@@ -1992,6 +2017,9 @@ $is_records_fill = $show_read_ui
     <script src="<?php echo function_exists('aa_asset_url')
         ? aa_asset_url('includes/admin/ui/modules/canonical_shell/capabilities/canonical-shell-phone-field.js')
         : esc_url((defined('AA_PLUGIN_URL') ? AA_PLUGIN_URL : '') . 'includes/admin/ui/modules/canonical_shell/capabilities/canonical-shell-phone-field.js'); ?>"></script>
+    <script src="<?php echo function_exists('aa_asset_url')
+        ? aa_asset_url('includes/admin/ui/modules/canonical_shell/capabilities/canonical-shell-email-field.js')
+        : esc_url((defined('AA_PLUGIN_URL') ? AA_PLUGIN_URL : '') . 'includes/admin/ui/modules/canonical_shell/capabilities/canonical-shell-email-field.js'); ?>"></script>
     <script src="<?php echo function_exists('aa_asset_url')
         ? aa_asset_url('includes/admin/ui/modules/canonical_shell/capabilities/canonical-shell-images-field.js')
         : esc_url((defined('AA_PLUGIN_URL') ? AA_PLUGIN_URL : '') . 'includes/admin/ui/modules/canonical_shell/capabilities/canonical-shell-images-field.js'); ?>"></script>

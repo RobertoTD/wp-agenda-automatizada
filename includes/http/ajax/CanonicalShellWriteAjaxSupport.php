@@ -363,6 +363,17 @@ final class CanonicalShellWriteAjaxSupport {
             }
             $present['whatsapp'] = ($raw === null) ? null : (string) $raw;
         }
+        if (array_key_exists('email', $source)) {
+            $raw = $source['email'];
+            if ($raw === null || is_array($raw) || is_object($raw) || !is_string($raw)) {
+                throw new CanonicalShellWriteAjaxRejection(
+                    'invalid_payload',
+                    'La solicitud contiene campos no válidos.',
+                    400
+                );
+            }
+            $present['email'] = (string) $raw;
+        }
 
         return CanonicalCapabilityWriteBag::from_present_fields($present);
     }

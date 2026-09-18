@@ -32,6 +32,7 @@ final class AA_Canonical_Capability_Write_Bootstrap {
         $amount_repository = new CanonicalRecordAmountRepository($wpdb);
         $phone_repository = new CanonicalRecordPhoneRepository($wpdb);
         $whatsapp_repository = new CanonicalRecordWhatsappRepository($wpdb);
+        $email_repository = new CanonicalRecordEmailRepository($wpdb);
 
         $handlers = new CanonicalCapabilityWriteHandlerRegistry();
         $handlers->register(new AA_Canonical_Amount_Write_Handler(
@@ -48,6 +49,11 @@ final class AA_Canonical_Capability_Write_Bootstrap {
             $capability_registry,
             $config_repository,
             $whatsapp_repository
+        ));
+        $handlers->register(new AA_Canonical_Email_Write_Handler(
+            $capability_registry,
+            $config_repository,
+            $email_repository
         ));
         $handlers->freeze();
 
@@ -91,10 +97,12 @@ final class AA_Canonical_Capability_Write_Bootstrap {
             $app . '/CanonicalCapabilityInactive.php',
             $app . '/AA_Canonical_Amount_Normalizer.php',
             $app . '/AA_Canonical_Phone_Normalizer.php',
+            $app . '/AA_Canonical_Email_Normalizer.php',
             $repos . '/CanonicalCapabilityConfigRepository.php',
             $repos . '/CanonicalRecordAmountRepository.php',
             $repos . '/CanonicalRecordPhoneRepository.php',
             $repos . '/CanonicalRecordWhatsappRepository.php',
+            $repos . '/CanonicalRecordEmailRepository.php',
             $infra . '/class-aa-canonical-amount-set-effect.php',
             $infra . '/class-aa-canonical-amount-clear-effect.php',
             $infra . '/class-aa-canonical-amount-write-handler.php',
@@ -104,6 +112,9 @@ final class AA_Canonical_Capability_Write_Bootstrap {
             $infra . '/class-aa-canonical-whatsapp-set-effect.php',
             $infra . '/class-aa-canonical-whatsapp-clear-effect.php',
             $infra . '/class-aa-canonical-whatsapp-write-handler.php',
+            $infra . '/class-aa-canonical-email-set-effect.php',
+            $infra . '/class-aa-canonical-email-clear-effect.php',
+            $infra . '/class-aa-canonical-email-write-handler.php',
             $infra . '/class-aa-canonical-capability-defaults-materializer.php',
             $infra . '/class-aa-canonical-materialize-family-defaults-effect.php',
             $infra . '/class-aa-canonical-apply-container-capability-selection-effect.php',
