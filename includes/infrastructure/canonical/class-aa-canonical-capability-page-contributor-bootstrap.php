@@ -26,6 +26,21 @@ if (!class_exists('CanonicalEmailRecordsPageContributor')) {
 if (!class_exists('CanonicalRecordEmailRepository')) {
     require_once dirname(__DIR__, 2) . '/repositories/CanonicalRecordEmailRepository.php';
 }
+if (!class_exists('CanonicalDossierRecordsPageContributor')) {
+    require_once dirname(__DIR__, 2) . '/application/canonical/capabilities/dossier/CanonicalDossierRecordsPageContributor.php';
+}
+if (!class_exists('CanonicalContactDossierRepository')) {
+    require_once dirname(__DIR__, 2) . '/repositories/CanonicalContactDossierRepository.php';
+}
+if (!class_exists('CanonicalPurgeRunsRepository')) {
+    require_once dirname(__DIR__, 2) . '/repositories/CanonicalPurgeRunsRepository.php';
+}
+if (!class_exists('ReadCanonicalFamilyEnablementUseCase')) {
+    require_once dirname(__DIR__, 2) . '/application/canonical/ReadCanonicalFamilyEnablementUseCase.php';
+}
+if (!class_exists('AA_Canonical_Family_Enablement_Store')) {
+    require_once __DIR__ . '/class-aa-canonical-family-enablement-store.php';
+}
 if (!class_exists('CanonicalImagesRecordsPageContributor')) {
     require_once dirname(__DIR__, 2) . '/application/canonical/capabilities/images/CanonicalImagesRecordsPageContributor.php';
 }
@@ -76,6 +91,27 @@ final class AA_Canonical_Capability_Page_Contributor_Bootstrap {
                 new CanonicalCapabilityConfigRepository($wpdb),
                 new CanonicalRecordEmailRepository($wpdb),
                 $capability_registry
+            )
+        );
+
+        $registry->register(
+            new CanonicalDossierRecordsPageContributor(
+                new CanonicalCapabilityConfigRepository($wpdb),
+                new CanonicalContactDossierRepository($wpdb),
+                $capability_registry,
+                new CanonicalPurgeRunsRepository($wpdb),
+                static function (): bool {
+                    try {
+                        $core = AA_Canonical_Core_Bootstrap::instance();
+                        $snapshot = (new ReadCanonicalFamilyEnablementUseCase(
+                            new AA_Canonical_Family_Enablement_Store()
+                        ))->execute($core);
+
+                        return $snapshot->is_provisioned('archive') && $snapshot->is_enabled('archive');
+                    } catch (\Throwable $e) {
+                        throw $e;
+                    }
+                }
             )
         );
 

@@ -12,7 +12,7 @@
 - **Estado implementado** — lo que existe hoy en el repositorio.
 - **Mecanismo técnico pendiente** — diseño o código aún no aprobado o no construido.
 
-Hoy (tras IMG-5 etapa de eliminaciones cerrada / DB 31 + Paso 1 images declarativo): schema `DB_VERSION=31`; repertorio familiar en `aa_canonical_family_capabilities`; selección explícita de capacidades por lista en create/update del shell; familia canónica `finance` y capability `amount` (`is_ready=true`) sobre `aa_canonical_*`; escritura/lectura/UI amount operativas; único normalizador `AA_Canonical_Amount_Normalizer`; tablas físicas `images`/ops/purge + inventario de captura de retiro + checkpoints de retiro de lista + `record_id` durable en purge_runs; helper de consumo de instalación; attach Application/AJAX canónico (`aa_attach_canonical_record_image`) implementado; cliente HMAC de mandatos + captura durable de purge (IMG-5 inc. 1–2); retiro de un registro, de una lista y de **una imagen** vía mandatos (`aa_delete_canonical_record` / `aa_delete_canonical_container` / `aa_delete_canonical_record_image`) — **desarrollo de eliminaciones cerrado** (plan §9); capability `images` **registrada `is_ready=false`**; **Paso 1:** seeds declarados para `archive`/`finance`/`catalog`/`contact` + label «Imágenes» (lifecycle **no** inserta mientras not-ready; `DEFAULTS_VERSION` permanece 2). Observaciones residuales Continuar/Cerrar/banner conservadas sin PASS. Plan §§10–12. Worker ops antes de producción. El módulo Finance legacy (`module=canonical`, `aa_finance_*`) está **retirado**.
+Hoy (tras IMG-5 etapa de eliminaciones cerrada / DB 31 + Paso 1 images declarativo + phone/whatsapp/email/dossier): schema `DB_VERSION=35`; repertorio familiar en `aa_canonical_family_capabilities`; selección explícita de capacidades por lista en create/update del shell; familia canónica `finance` y capability `amount` (`is_ready=true`) sobre `aa_canonical_*`; escritura/lectura/UI amount operativas; único normalizador `AA_Canonical_Amount_Normalizer`; tablas físicas `images`/ops/purge + inventario de captura de retiro + checkpoints de retiro de lista + `record_id` durable en purge_runs; helper de consumo de instalación; attach Application/AJAX canónico (`aa_attach_canonical_record_image`) implementado; cliente HMAC de mandatos + captura durable de purge (IMG-5 inc. 1–2); retiro de un registro, de una lista y de **una imagen** vía mandatos (`aa_delete_canonical_record` / `aa_delete_canonical_container` / `aa_delete_canonical_record_image`) — **desarrollo de eliminaciones cerrado** (plan §9); capability `images` **registrada `is_ready=true`**; capabilities de contacto `phone`/`whatsapp`/`email`/`dossier` ready; `dossier` asocia contacto→lista Archivo (`aa_canonical_contact_dossier`, `DEFAULTS_VERSION=7`). Observaciones residuales Continuar/Cerrar/banner conservadas sin PASS. Plan §§10–12. Worker ops antes de producción. El módulo Finance legacy (`module=canonical`, `aa_finance_*`) está **retirado**.
 
 ---
 
@@ -311,3 +311,29 @@ La **primera etapa visible** planificada en `docs/plans/canonical-images-retire-
 ### 12.6 Qué no fija esta norma
 
 El detalle físico (nombres de tablas, estados de operación, fingerprints, paths Storage, tandas de purge, cálculo exacto de reserva) es **diseño de implementación** registrado en `docs/plans/shell-canonical-base-v1.md` (decisión IMG / Ciclo 1). Ese diseño debe respetar §12; no se eleva aquí a obligación constitucional ni a DDL ejecutado.
+
+---
+
+## 13. Capacidad `dossier` (decisión aceptada — «Expediente»)
+
+### 13.1 Identidad y configuración
+
+- Clave estable: **`dossier`**. Label de producto: **«Expediente»**.
+- Ofrecida **solo** a la familia `contact`; `is_default=0` (desactivada en listas nuevas sin selección explícita).
+- Alcance de configuración: lista de Contactos (`SCOPE_RECORD` en catálogo; activación por lista).
+- Persistencia tipada de la relación: `aa_canonical_contact_dossier` (`contact_record_id` PK → records CASCADE; `archive_container_id` UNIQUE → containers CASCADE). Relación 1:1 exclusiva contacto→lista Archivo.
+- Independiente del módulo legacy de clientes/expedientes. Sin dual-write.
+
+### 13.2 Comportamiento de producto
+
+- Con la capability activa, cada tarjeta de contacto muestra la acción **Expediente** al final del cuerpo (tarjeta normal y compacta).
+- Un clic abre la lista Archivo asociada o, si no hay asociación válida, crea una lista `archive` con defaults vigentes, asocia y navega. Título inicial `Exp — {nombre del contacto}` (límites de título de lista); renombrar el contacto **no** renombra el expediente.
+- Lectura/SSR **no** crea. Mutación solo por POST protegido.
+- Desactivar `dossier` oculta la acción y conserva vínculo y contenido. Reactivar recupera el acceso.
+- Borrar el contacto o su lista de Contactos elimina la asociación (CASCADE del registro) y **conserva** la lista Archivo. Borrar definitivamente la lista Archivo elimina la asociación.
+- Con Archivo desactivado: acción visible **deshabilitada** con indicación; **no** auto-activar Archivo.
+- Lista Archivo en retiro/purga bloqueante: no tratar como inexistente ni crear reemplazo. Destino de familia incorrecta o fallo de lectura: conservar vínculo, sin create. Solo destino **definitivamente inexistente** permite borrar la fila de asociación y crear de nuevo.
+
+### 13.3 Qué no incluye esta etapa
+
+Vinculación manual a listas existentes, múltiples expedientes, sincronización de nombres, agenda, motor universal de relaciones, export/import, páginas virtuales ni integración con legacy.

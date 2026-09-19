@@ -1198,6 +1198,8 @@ $is_records_fill = $show_read_ui
                     $cap_label = 'Teléfono';
                 } elseif ($cap_key === 'email') {
                     $cap_label = 'Email';
+                } elseif ($cap_key === 'dossier') {
+                    $cap_label = 'Expediente';
                 } elseif ($cap_key === 'images') {
                     $cap_label = 'Imágenes';
                 } else {
@@ -1513,6 +1515,9 @@ $is_records_fill = $show_read_ui
     }
     if (!class_exists('CanonicalSignRecordImageReadAjax')) {
         require_once dirname(__DIR__, 4) . '/http/ajax/CanonicalSignRecordImageReadAjax.php';
+    }
+    if (!class_exists('CanonicalOpenContactDossierAjax')) {
+        require_once dirname(__DIR__, 4) . '/http/ajax/CanonicalOpenContactDossierAjax.php';
     }
     if (!class_exists('CanonicalCreateRecordCommand')) {
         require_once dirname(__DIR__, 4) . '/application/canonical/CanonicalCreateRecordCommand.php';
@@ -2020,6 +2025,21 @@ $is_records_fill = $show_read_ui
     <script src="<?php echo function_exists('aa_asset_url')
         ? aa_asset_url('includes/admin/ui/modules/canonical_shell/capabilities/canonical-shell-email-field.js')
         : esc_url((defined('AA_PLUGIN_URL') ? AA_PLUGIN_URL : '') . 'includes/admin/ui/modules/canonical_shell/capabilities/canonical-shell-email-field.js'); ?>"></script>
+    <script>
+    window.AA_CANONICAL_SHELL_DOSSIER = {
+        ajaxUrl: <?php echo wp_json_encode(admin_url('admin-ajax.php')); ?>,
+        action: <?php echo wp_json_encode(CanonicalOpenContactDossierAjax::ACTION); ?>,
+        nonce: <?php echo wp_json_encode(wp_create_nonce(CanonicalOpenContactDossierAjax::NONCE_ACTION)); ?>,
+        familyKey: <?php echo wp_json_encode($create_family_key); ?>,
+        containerId: <?php echo (int) $create_container_id; ?>,
+        listsScope: <?php echo wp_json_encode($is_all_lists_scope ? 'all' : ''); ?>,
+        page: <?php echo wp_json_encode($page_num !== null && $page_num > 1 ? $page_num : null); ?>,
+        containersPage: <?php echo wp_json_encode($containers_page_num !== null && $containers_page_num > 1 ? $containers_page_num : null); ?>
+    };
+    </script>
+    <script src="<?php echo function_exists('aa_asset_url')
+        ? aa_asset_url('includes/admin/ui/modules/canonical_shell/capabilities/canonical-shell-dossier-action.js')
+        : esc_url((defined('AA_PLUGIN_URL') ? AA_PLUGIN_URL : '') . 'includes/admin/ui/modules/canonical_shell/capabilities/canonical-shell-dossier-action.js'); ?>"></script>
     <script src="<?php echo function_exists('aa_asset_url')
         ? aa_asset_url('includes/admin/ui/modules/canonical_shell/capabilities/canonical-shell-images-field.js')
         : esc_url((defined('AA_PLUGIN_URL') ? AA_PLUGIN_URL : '') . 'includes/admin/ui/modules/canonical_shell/capabilities/canonical-shell-images-field.js'); ?>"></script>

@@ -279,6 +279,50 @@ final class CanonicalRelationalRepository {
     }
 
     /**
+     * Resolución por id de contenedor con family_key (p. ej. destino dossier).
+     *
+     * @return array{id:int,public_id:string,family_id:int,family_key:string,title:string,details:?string,created_at:string,updated_at:string}|null
+     * @throws CanonicalRelationalQueryFailed
+     */
+    public function find_container_by_id(int $container_id): ?array {
+        if ($container_id < 1) {
+            return null;
+        }
+
+        $containers = $this->containers_table();
+        $families = $this->families_table();
+        $this->clear_error_state();
+        $row = $this->wpdb->get_row(
+            $this->wpdb->prepare(
+                "SELECT c.id, c.public_id, c.family_id, f.family_key, c.title, c.details, c.created_at, c.updated_at
+                 FROM `{$containers}` c
+                 INNER JOIN `{$families}` f ON f.id = c.family_id
+                 WHERE c.id = %d
+                 LIMIT 1",
+                $container_id
+            ),
+            ARRAY_A
+        );
+
+        if ($row === false || $this->wpdb->last_error !== '') {
+            throw new CanonicalRelationalQueryFailed('find_container_by_id query failed.');
+        }
+
+        if (!is_array($row)) {
+            return null;
+        }
+
+        $mapped = $this->map_container_row($row);
+        if ($mapped === null) {
+            return null;
+        }
+
+        $mapped['family_key'] = (string) ($row['family_key'] ?? '');
+
+        return $mapped;
+    }
+
+    /**
      * @throws CanonicalRelationalQueryFailed
      */
     public function count_records(int $container_id): int {

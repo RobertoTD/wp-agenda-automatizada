@@ -55,7 +55,7 @@ $canonical_src = file_get_contents($canonical_schema_file);
 
 ac_assert('Schema.php es legible', is_string($schema_src) && $schema_src !== '');
 ac_assert('CanonicalSchema.php es legible', is_string($canonical_src) && $canonical_src !== '');
-ac_assert("AA_Schema::DB_VERSION es '34'", strpos($schema_src, "DB_VERSION = '34'") !== false);
+ac_assert("AA_Schema::DB_VERSION es '35'", strpos($schema_src, "DB_VERSION = '35'") !== false);
 ac_assert('Schema.php delega en AA_Canonical_Schema::install()', strpos($schema_src, 'AA_Canonical_Schema::install()') !== false);
 ac_assert(
     'Sin AA_Finance_Schema::install()',
@@ -117,6 +117,7 @@ ac_assert('TABLE_RECORD_AMOUNT', strpos($canonical_src, "TABLE_RECORD_AMOUNT = '
 ac_assert('TABLE_RECORD_PHONE', strpos($canonical_src, "TABLE_RECORD_PHONE = 'aa_canonical_record_phone'") !== false);
 ac_assert('TABLE_RECORD_WHATSAPP', strpos($canonical_src, "TABLE_RECORD_WHATSAPP = 'aa_canonical_record_whatsapp'") !== false);
 ac_assert('TABLE_RECORD_EMAIL', strpos($canonical_src, "TABLE_RECORD_EMAIL = 'aa_canonical_record_email'") !== false);
+ac_assert('TABLE_CONTACT_DOSSIER', strpos($canonical_src, "TABLE_CONTACT_DOSSIER = 'aa_canonical_contact_dossier'") !== false);
 ac_assert('TABLE_RECORD_IMAGES', strpos($canonical_src, "TABLE_RECORD_IMAGES = 'aa_canonical_record_images'") !== false);
 ac_assert('TABLE_IMAGE_UPLOAD_OPERATIONS', strpos($canonical_src, "TABLE_IMAGE_UPLOAD_OPERATIONS = 'aa_canonical_image_upload_operations'") !== false);
 ac_assert('TABLE_PURGE_RUNS', strpos($canonical_src, "TABLE_PURGE_RUNS = 'aa_canonical_purge_runs'") !== false);
@@ -165,6 +166,8 @@ preg_match('/\$record_whatsapp_sql\s*=\s*"([^"]+)";/s', $canonical_src, $m_rwa);
 $record_whatsapp_sql = $m_rwa[1] ?? '';
 preg_match('/\$record_email_sql\s*=\s*"([^"]+)";/s', $canonical_src, $m_re);
 $record_email_sql = $m_re[1] ?? '';
+preg_match('/\$contact_dossier_sql\s*=\s*"([^"]+)";/s', $canonical_src, $m_cd);
+$contact_dossier_sql = $m_cd[1] ?? '';
 
 ac_assert('Families PRIMARY KEY  (id) con dos espacios', strpos($families_sql, 'PRIMARY KEY  (id)') !== false);
 ac_assert('Families family_key varchar(64) NOT NULL', strpos($families_sql, 'family_key varchar(64) NOT NULL') !== false);
@@ -213,6 +216,9 @@ ac_assert('Record email PK record_id', strpos($record_email_sql, 'PRIMARY KEY  (
 ac_assert('Record email varchar(254) NOT NULL', strpos($record_email_sql, 'email varchar(254) NOT NULL') !== false);
 ac_assert('Record email sin UNIQUE', stripos($record_email_sql, 'UNIQUE') === false);
 ac_assert('Record email sin id surrogate', !preg_match('/\bid\b/', $record_email_sql));
+ac_assert('Contact dossier PK contact_record_id', strpos($contact_dossier_sql, 'PRIMARY KEY  (contact_record_id)') !== false);
+ac_assert('Contact dossier UNIQUE archive', strpos($contact_dossier_sql, 'uq_dossier_archive_container') !== false);
+ac_assert('Contact dossier sin id surrogate', !preg_match('/\bid\b/', $contact_dossier_sql));
 
 ac_assert('FK RESTRICT presente', strpos($canonical_src, "ON DELETE RESTRICT") !== false || strpos($canonical_src, "'RESTRICT'") !== false);
 ac_assert('FK CASCADE presente', strpos($canonical_src, "ON DELETE CASCADE") !== false || strpos($canonical_src, "'CASCADE'") !== false);
@@ -1029,7 +1035,7 @@ if ($has_real_wp) {
             update_option('aa_db_version', '20');
             AA_Schema::install();
             $stored = (string) get_option('aa_db_version', '0');
-            ac_assert("MySQL: AA_Schema::install deja aa_db_version=34", $stored === '34');
+            ac_assert("MySQL: AA_Schema::install deja aa_db_version=35", $stored === '35');
             $uf = $wpdb->prefix . AA_Canonical_Schema::TABLE_FAMILIES;
             $uc = $wpdb->prefix . AA_Canonical_Schema::TABLE_CONTAINERS;
             $ur = $wpdb->prefix . AA_Canonical_Schema::TABLE_RECORDS;

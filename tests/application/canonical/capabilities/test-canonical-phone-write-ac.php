@@ -35,7 +35,7 @@ ac_assert(
 $life = (string) file_get_contents(
     $plugin_root . '/includes/infrastructure/canonical/class-aa-canonical-capability-defaults-lifecycle.php'
 );
-ac_assert('DEFAULTS_VERSION=6', strpos($life, 'DEFAULTS_VERSION = 6') !== false);
+ac_assert('DEFAULTS_VERSION=7', strpos($life, 'DEFAULTS_VERSION = 7') !== false);
 ac_assert(
     'Seed contact/phone/false',
     strpos($life, "'capability_key' => 'phone'") !== false

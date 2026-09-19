@@ -132,6 +132,7 @@ require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/capabil
 require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/capabilities/phone/CanonicalPhoneRecordsPageContributor.php';
 require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/capabilities/whatsapp/CanonicalWhatsappRecordsPageContributor.php';
 require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/capabilities/email/CanonicalEmailRecordsPageContributor.php';
+require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/capabilities/dossier/CanonicalDossierRecordsPageContributor.php';
 require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/images/CanonicalRecordImagePublicDto.php';
 require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/capabilities/images/CanonicalImagesRecordsPageContributor.php';
 require_once plugin_dir_path(__FILE__) . 'includes/repositories/CanonicalRecordImagesRepository.php';
@@ -140,6 +141,7 @@ require_once plugin_dir_path(__FILE__) . 'includes/repositories/CanonicalRecordA
 require_once plugin_dir_path(__FILE__) . 'includes/repositories/CanonicalRecordPhoneRepository.php';
 require_once plugin_dir_path(__FILE__) . 'includes/repositories/CanonicalRecordWhatsappRepository.php';
 require_once plugin_dir_path(__FILE__) . 'includes/repositories/CanonicalRecordEmailRepository.php';
+require_once plugin_dir_path(__FILE__) . 'includes/repositories/CanonicalContactDossierRepository.php';
 require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/canonical/class-aa-canonical-family-enablement-store.php';
 require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/canonical/class-aa-canonical-family-enablement-nav.php';
 require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/canonical/class-aa-canonical-read-binding-registry.php';
@@ -151,6 +153,7 @@ require_once plugin_dir_path(__FILE__) . 'includes/admin/ui/modules/canonical_sh
 require_once plugin_dir_path(__FILE__) . 'includes/admin/ui/modules/canonical_shell/presenters/class-aa-canonical-phone-shell-presenter.php';
 require_once plugin_dir_path(__FILE__) . 'includes/admin/ui/modules/canonical_shell/presenters/class-aa-canonical-whatsapp-shell-presenter.php';
 require_once plugin_dir_path(__FILE__) . 'includes/admin/ui/modules/canonical_shell/presenters/class-aa-canonical-email-shell-presenter.php';
+require_once plugin_dir_path(__FILE__) . 'includes/admin/ui/modules/canonical_shell/presenters/class-aa-canonical-dossier-shell-presenter.php';
 require_once plugin_dir_path(__FILE__) . 'includes/admin/ui/modules/canonical_shell/presenters/class-aa-canonical-images-shell-presenter.php';
 AA_Canonical_Capability_Page_Contributor_Bootstrap::bootstrap();
 require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/wp/class-aa-canonical-shell-base-url-policy.php';
@@ -414,6 +417,9 @@ CanonicalDeleteContainerAjax::register();
 
 require_once __DIR__ . '/includes/http/ajax/CanonicalCreateRecordAjax.php';
 CanonicalCreateRecordAjax::register();
+
+require_once __DIR__ . '/includes/http/ajax/CanonicalOpenContactDossierAjax.php';
+CanonicalOpenContactDossierAjax::register();
 
 require_once __DIR__ . '/includes/http/ajax/CanonicalUpdateRecordAjax.php';
 CanonicalUpdateRecordAjax::register();
