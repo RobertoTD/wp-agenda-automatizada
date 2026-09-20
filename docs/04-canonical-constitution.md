@@ -49,9 +49,11 @@ La tabla de contenedores identifica la familia. Un registro pertenece obligatori
 
 Las tablas base almacenan exclusivamente estado y campos universales del contrato. No admiten columnas particulares de ninguna familia (`amount`, imágenes, SKU, teléfonos, datos de agenda u equivalentes), ni JSON genérico, ni EAV, ni payloads arbitrarios como sustituto de persistencia tipada.
 
-Toda característica no universal se implementa como capability. Cada capability exige estructura y validación explícitas para sus datos; la forma de persistencia es propia del contrato de esa capability (p. ej. extensión decimal tipada para `amount`), referida al contenedor, al registro o a ambos según su alcance. No se impone “un campo / una tabla” como regla universal, ni se exime a capacidades complejas de datos tipados. Una capability se implementa una vez y puede contribuir a persistencia, validación, formularios, cards, API y runtime público. El desarrollo normativo de asignación, configuración, activación y valores está en `docs/05-canonical-capabilities.md`.
+Toda característica no universal reutilizable se implementa como capability. Cada capability exige estructura y validación explícitas para sus datos; la forma de persistencia es propia del contrato de esa capability (p. ej. extensión decimal tipada para `amount`), referida al contenedor, al registro o a ambos según su alcance. No se impone “un campo / una tabla” como regla universal, ni se exime a capacidades complejas de datos tipados. Una capability se implementa una vez y puede contribuir a persistencia, validación, formularios, cards, API y runtime público. El desarrollo normativo de asignación, configuración, activación y valores está en `docs/05-canonical-capabilities.md`.
 
-Las definiciones de familia son contratos de producto declarados en código. La base de datos guarda estado de instalación y habilitación, contenedores, registros y —según `docs/05-canonical-capabilities.md`— la configuración de capabilities (repertorio y defaults de familia, selección/asignación por lista); nunca clases, callbacks, SQL ni definiciones ejecutables.
+Una solution no sustituye una capability ni crea una cuarta persistencia base canónica. Es una composición instalable de producto que coordina familias, listas, capabilities, relaciones, vistas, acciones y flujos para cumplir una intención concreta. Puede poseer configuración y relaciones tipadas propias fuera de las tres tablas base, siempre que declare su ciclo de vida, no duplique el CRUD canónico y no convierta sus detalles verticales en conocimiento del shell. Su norma es `docs/06-canonical-solutions.md`.
+
+Las definiciones de familia y de solutions son contratos de producto declarados en código. La base de datos guarda estado de instalación y habilitación, contenedores, registros y —según `docs/05-canonical-capabilities.md` y `docs/06-canonical-solutions.md`— configuración persistida de capabilities y solutions; nunca clases, callbacks, SQL ni definiciones ejecutables.
 
 Los timestamps técnicos de las tablas canónicas universales se almacenan en UTC. UTC es la fuente de verdad; la conversión a la zona configurada ocurre en la presentación.
 
@@ -114,13 +116,19 @@ Una característica particular nunca debe añadirse al shell base solamente porq
 
 La lista (contenedor) es la unidad de asignación y configuración efectiva de capabilities. El repertorio y defaults de familia, la selección por lista, la materialización al crear, la activación frente a los datos y el marco de `amount` se desarrollan de forma vinculante en `docs/05-canonical-capabilities.md`. Este documento no duplica esas reglas.
 
+## Solutions
+
+Una solution es una composición instalable de una experiencia y no una capability de gran tamaño. Declara los contextos donde puede aplicarse, sus prerrequisitos y recursos, y puede aplicar configuración por lista o por otro contexto declarado. Una solution puede usar capabilities sin redefinirlas y puede crear relaciones o recursos tipados propios; su configuración no se almacena en el repertorio ni en la selección de capabilities.
+
+El shell conserva sus mecanismos universales. Las acciones, vistas o flujos particulares aportados por una solution se integran mediante contratos de Application y presentación, sin que el shell conozca su nombre, tabla o regla de negocio. El contrato vinculante y sus límites están en `docs/06-canonical-solutions.md`.
+
 ## Contrato canónico común
 
 Cada familia implementa un adaptador que transforma sus datos al mismo contrato canónico.
 
 El shell, el runtime público y la API no deben acceder directamente a tablas ni repositorios de familia. Deben consumir servicios de Application o un gateway canónico.
 
-La estructura común debe permanecer estable; los datos particulares se exponen mediante extensiones identificadas por su capability.
+La estructura común debe permanecer estable; los datos particulares se exponen mediante extensiones identificadas por una capability o, cuando sean el resultado de una composición vertical, por una solution aplicable.
 
 ## Consumidores
 
@@ -146,11 +154,12 @@ Una familia se integra al canon únicamente cuando puede proyectar coherentement
 
 Antes de proponer o implementar cualquier cambio:
 
-Clasificarlo explícitamente como shell, familia, capability, runtime o transporte.
+Clasificarlo explícitamente como núcleo horizontal, shell, familia, capability, solution, runtime público o transporte.
 Detenerse si la responsabilidad no puede clasificarse claramente.
 No colocar código particular de una familia dentro del shell.
 No duplicar en cada familia una función que pertenece al shell.
 No convertir una diferencia de UI en capability sin considerar datos, backend, API y runtime.
+No convertir una solución que coordina varias piezas en una capability para reutilizar su configuración o presentación.
 No diseñar el canon alrededor de la única familia existente.
 No hacer que UI, runtime o API consulten directamente la base de datos.
 No sacrificar el contrato futuro de API y compartición para simplificar una implementación inmediata.
@@ -165,6 +174,7 @@ registrar su estructura;
 resolverse por `family_key` en el shell universal (sin `variant_key` en contratos, URLs ni persistencia `aa_canonical_*`);
 usar el shell sin copiarlo;
 añadir capabilities sin contaminarlo;
+aplicar solutions sin convertirlas en persistencia base ni en condiciones particulares del shell;
 proyectar sus datos al contrato canónico;
 ser representada en administración, runtime público y API mediante la misma identidad y organización.
 
