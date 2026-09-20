@@ -53,14 +53,6 @@ final class AA_Canonical_Capability_Registry_Bootstrap {
 
         $registry->register(
             new AA_Canonical_Capability_Definition(
-                'dossier',
-                AA_Canonical_Capability_Definition::SCOPE_RECORD,
-                true
-            )
-        );
-
-        $registry->register(
-            new AA_Canonical_Capability_Definition(
                 'images',
                 AA_Canonical_Capability_Definition::SCOPE_RECORD,
                 true

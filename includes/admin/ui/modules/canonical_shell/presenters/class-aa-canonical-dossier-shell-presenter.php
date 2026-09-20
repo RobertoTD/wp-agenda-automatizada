@@ -11,14 +11,14 @@ defined('ABSPATH') or die('No direct access');
 final class AA_Canonical_Dossier_Shell_Presenter {
 
     /**
-     * @param array<string,mixed>|null $cap_map
+     * @param array<string,mixed>|null $solution_map
      * @return array{kind:string,enabled?:bool,reason?:string}|null
      */
-    public static function card_action(?array $cap_map): ?array {
-        if (!is_array($cap_map) || !isset($cap_map['dossier']) || !is_array($cap_map['dossier'])) {
+    public static function card_action(?array $solution_map): ?array {
+        if (!is_array($solution_map) || !isset($solution_map['contact_dossier']) || !is_array($solution_map['contact_dossier'])) {
             return null;
         }
-        $state = $cap_map['dossier'];
+        $state = $solution_map['contact_dossier'];
         $status = isset($state['status']) ? (string) $state['status'] : '';
 
         if ($status === CanonicalCapabilityRecordReadState::STATUS_KNOWN_ABSENT) {

@@ -55,7 +55,7 @@ $canonical_src = file_get_contents($canonical_schema_file);
 
 ac_assert('Schema.php es legible', is_string($schema_src) && $schema_src !== '');
 ac_assert('CanonicalSchema.php es legible', is_string($canonical_src) && $canonical_src !== '');
-ac_assert("AA_Schema::DB_VERSION es '35'", strpos($schema_src, "DB_VERSION = '35'") !== false);
+ac_assert("AA_Schema::DB_VERSION es '37'", strpos($schema_src, "DB_VERSION = '37'") !== false);
 ac_assert('Schema.php delega en AA_Canonical_Schema::install()', strpos($schema_src, 'AA_Canonical_Schema::install()') !== false);
 ac_assert(
     'Sin AA_Finance_Schema::install()',
@@ -118,6 +118,7 @@ ac_assert('TABLE_RECORD_PHONE', strpos($canonical_src, "TABLE_RECORD_PHONE = 'aa
 ac_assert('TABLE_RECORD_WHATSAPP', strpos($canonical_src, "TABLE_RECORD_WHATSAPP = 'aa_canonical_record_whatsapp'") !== false);
 ac_assert('TABLE_RECORD_EMAIL', strpos($canonical_src, "TABLE_RECORD_EMAIL = 'aa_canonical_record_email'") !== false);
 ac_assert('TABLE_CONTACT_DOSSIER', strpos($canonical_src, "TABLE_CONTACT_DOSSIER = 'aa_canonical_contact_dossier'") !== false);
+ac_assert('TABLE_CONTACT_DOSSIER_APPLICATIONS', strpos($canonical_src, "TABLE_CONTACT_DOSSIER_APPLICATIONS = 'aa_canonical_contact_dossier_applications'") !== false);
 ac_assert('TABLE_RECORD_IMAGES', strpos($canonical_src, "TABLE_RECORD_IMAGES = 'aa_canonical_record_images'") !== false);
 ac_assert('TABLE_IMAGE_UPLOAD_OPERATIONS', strpos($canonical_src, "TABLE_IMAGE_UPLOAD_OPERATIONS = 'aa_canonical_image_upload_operations'") !== false);
 ac_assert('TABLE_PURGE_RUNS', strpos($canonical_src, "TABLE_PURGE_RUNS = 'aa_canonical_purge_runs'") !== false);
@@ -168,6 +169,8 @@ preg_match('/\$record_email_sql\s*=\s*"([^"]+)";/s', $canonical_src, $m_re);
 $record_email_sql = $m_re[1] ?? '';
 preg_match('/\$contact_dossier_sql\s*=\s*"([^"]+)";/s', $canonical_src, $m_cd);
 $contact_dossier_sql = $m_cd[1] ?? '';
+preg_match('/\$contact_dossier_applications_sql\s*=\s*"([^"]+)";/s', $canonical_src, $m_cda);
+$contact_dossier_applications_sql = $m_cda[1] ?? '';
 
 ac_assert('Families PRIMARY KEY  (id) con dos espacios', strpos($families_sql, 'PRIMARY KEY  (id)') !== false);
 ac_assert('Families family_key varchar(64) NOT NULL', strpos($families_sql, 'family_key varchar(64) NOT NULL') !== false);
@@ -219,6 +222,9 @@ ac_assert('Record email sin id surrogate', !preg_match('/\bid\b/', $record_email
 ac_assert('Contact dossier PK contact_record_id', strpos($contact_dossier_sql, 'PRIMARY KEY  (contact_record_id)') !== false);
 ac_assert('Contact dossier UNIQUE archive', strpos($contact_dossier_sql, 'uq_dossier_archive_container') !== false);
 ac_assert('Contact dossier sin id surrogate', !preg_match('/\bid\b/', $contact_dossier_sql));
+ac_assert('Contact dossier applications PK lista Contactos', strpos($contact_dossier_applications_sql, 'PRIMARY KEY  (contact_container_id)') !== false);
+ac_assert('Contact dossier applications is_active DEFAULT 0', strpos($contact_dossier_applications_sql, 'is_active tinyint(1) NOT NULL DEFAULT 0') !== false);
+ac_assert('Contact dossier applications sin clave polimórfica', strpos($contact_dossier_applications_sql, 'solution_key') === false && strpos($contact_dossier_applications_sql, 'context_type') === false);
 
 ac_assert('FK RESTRICT presente', strpos($canonical_src, "ON DELETE RESTRICT") !== false || strpos($canonical_src, "'RESTRICT'") !== false);
 ac_assert('FK CASCADE presente', strpos($canonical_src, "ON DELETE CASCADE") !== false || strpos($canonical_src, "'CASCADE'") !== false);
@@ -294,6 +300,8 @@ if ($has_real_wp) {
             $p . AA_Canonical_Schema::TABLE_RECORD_EMAIL,
             $p . AA_Canonical_Schema::TABLE_RECORD_PHONE,
             $p . AA_Canonical_Schema::TABLE_RECORD_AMOUNT,
+            $p . AA_Canonical_Schema::TABLE_CONTACT_DOSSIER,
+            $p . AA_Canonical_Schema::TABLE_CONTACT_DOSSIER_APPLICATIONS,
             $p . AA_Canonical_Schema::TABLE_CONTAINER_CAPABILITIES,
             $p . AA_Canonical_Schema::TABLE_FAMILY_CAPABILITIES,
             $p . 'aa_canonical_family_capability_defaults',
@@ -330,12 +338,14 @@ if ($has_real_wp) {
         $rp1 = AA_Canonical_Schema::record_phone_table_name();
         $rwa1 = AA_Canonical_Schema::record_whatsapp_table_name();
         $re1 = AA_Canonical_Schema::record_email_table_name();
+        $cd1 = AA_Canonical_Schema::contact_dossier_table_name();
+        $cda1 = AA_Canonical_Schema::contact_dossier_applications_table_name();
         $ri1 = AA_Canonical_Schema::record_images_table_name();
         $iuo1 = AA_Canonical_Schema::image_upload_operations_table_name();
         $pr1 = AA_Canonical_Schema::purge_runs_table_name();
         $piv1 = AA_Canonical_Schema::purge_inventory_items_table_name();
 
-        ac_assert('MySQL: trece tablas canónicas existen', $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $f1)) === $f1
+        ac_assert('MySQL: tablas canónicas existen', $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $f1)) === $f1
             && $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $c1)) === $c1
             && $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $r1)) === $r1
             && $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $fd1)) === $fd1
@@ -344,6 +354,8 @@ if ($has_real_wp) {
             && $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $rp1)) === $rp1
             && $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $rwa1)) === $rwa1
             && $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $re1)) === $re1
+            && $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $cd1)) === $cd1
+            && $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $cda1)) === $cda1
             && $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $ri1)) === $ri1
             && $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $iuo1)) === $iuo1
             && $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $pr1)) === $pr1
@@ -371,6 +383,8 @@ if ($has_real_wp) {
         $count_fd = (int) $wpdb->get_var("SELECT COUNT(*) FROM `{$fd1}`");
         $count_cc = (int) $wpdb->get_var("SELECT COUNT(*) FROM `{$cc1}`");
         $count_ra = (int) $wpdb->get_var("SELECT COUNT(*) FROM `{$ra1}`");
+        $count_cd = (int) $wpdb->get_var("SELECT COUNT(*) FROM `{$cd1}`");
+        $count_cda = (int) $wpdb->get_var("SELECT COUNT(*) FROM `{$cda1}`");
         $count_ri = (int) $wpdb->get_var("SELECT COUNT(*) FROM `{$ri1}`");
         $count_iuo = (int) $wpdb->get_var("SELECT COUNT(*) FROM `{$iuo1}`");
         $count_pr = (int) $wpdb->get_var("SELECT COUNT(*) FROM `{$pr1}`");
@@ -379,6 +393,7 @@ if ($has_real_wp) {
             'MySQL: tablas vacías tras install normal',
             $count_f === 0 && $count_c === 0 && $count_r === 0
             && $count_fd === 0 && $count_cc === 0 && $count_ra === 0
+            && $count_cd === 0 && $count_cda === 0
             && $count_ri === 0 && $count_iuo === 0 && $count_pr === 0 && $count_piv === 0
         );
 
@@ -1035,7 +1050,7 @@ if ($has_real_wp) {
             update_option('aa_db_version', '20');
             AA_Schema::install();
             $stored = (string) get_option('aa_db_version', '0');
-            ac_assert("MySQL: AA_Schema::install deja aa_db_version=35", $stored === '35');
+            ac_assert("MySQL: AA_Schema::install deja aa_db_version=37", $stored === '37');
             $uf = $wpdb->prefix . AA_Canonical_Schema::TABLE_FAMILIES;
             $uc = $wpdb->prefix . AA_Canonical_Schema::TABLE_CONTAINERS;
             $ur = $wpdb->prefix . AA_Canonical_Schema::TABLE_RECORDS;
@@ -1045,6 +1060,8 @@ if ($has_real_wp) {
             $urp = $wpdb->prefix . AA_Canonical_Schema::TABLE_RECORD_PHONE;
             $urwa = $wpdb->prefix . AA_Canonical_Schema::TABLE_RECORD_WHATSAPP;
             $ure = $wpdb->prefix . AA_Canonical_Schema::TABLE_RECORD_EMAIL;
+            $ucd = $wpdb->prefix . AA_Canonical_Schema::TABLE_CONTACT_DOSSIER;
+            $ucda = $wpdb->prefix . AA_Canonical_Schema::TABLE_CONTACT_DOSSIER_APPLICATIONS;
             $uri = $wpdb->prefix . AA_Canonical_Schema::TABLE_RECORD_IMAGES;
             $uio = $wpdb->prefix . AA_Canonical_Schema::TABLE_IMAGE_UPLOAD_OPERATIONS;
             $upr = $wpdb->prefix . AA_Canonical_Schema::TABLE_PURGE_RUNS;
@@ -1060,6 +1077,8 @@ if ($has_real_wp) {
                 && $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $urp)) === $urp
                 && $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $urwa)) === $urwa
                 && $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $ure)) === $ure
+                && $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $ucd)) === $ucd
+                && $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $ucda)) === $ucda
                 && $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $uri)) === $uri
                 && $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $uio)) === $uio
                 && $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $upr)) === $upr

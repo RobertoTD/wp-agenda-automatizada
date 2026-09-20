@@ -70,13 +70,17 @@ require_once plugin_dir_path(__FILE__) . 'includes/domain/canonical/class-aa-can
 require_once plugin_dir_path(__FILE__) . 'includes/domain/canonical/class-aa-canonical-registry.php';
 require_once plugin_dir_path(__FILE__) . 'includes/domain/canonical/class-aa-canonical-capability-definition.php';
 require_once plugin_dir_path(__FILE__) . 'includes/domain/canonical/class-aa-canonical-capability-registry.php';
+require_once plugin_dir_path(__FILE__) . 'includes/domain/canonical/class-aa-canonical-solution-definition.php';
+require_once plugin_dir_path(__FILE__) . 'includes/domain/canonical/class-aa-canonical-solution-registry.php';
 require_once plugin_dir_path(__FILE__) . 'includes/domain/canonical/class-aa-canonical-instant.php';
 require_once plugin_dir_path(__FILE__) . 'includes/domain/canonical/class-aa-canonical-container.php';
 require_once plugin_dir_path(__FILE__) . 'includes/domain/canonical/class-aa-canonical-record.php';
 require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/canonical/class-aa-canonical-core-bootstrap.php';
 require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/canonical/class-aa-canonical-capability-registry-bootstrap.php';
+require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/canonical/class-aa-canonical-solution-registry-bootstrap.php';
 AA_Canonical_Core_Bootstrap::bootstrap();
 AA_Canonical_Capability_Registry_Bootstrap::bootstrap();
+AA_Canonical_Solution_Registry_Bootstrap::bootstrap();
 require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/ResolveCanonicalRouteUseCase.php';
 require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/CanonicalReadIdentity.php';
 require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/CanonicalPagination.php';
@@ -103,6 +107,17 @@ require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/Canonic
 require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/SetCanonicalFamilyEnabledCommand.php';
 require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/SetCanonicalFamilyEnabledUseCase.php';
 require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/ReadCanonicalFamilyEnablementUseCase.php';
+require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/CanonicalContainerMutationEffect.php';
+require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/solutions/CanonicalSolutionSchemaNotReady.php';
+require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/solutions/CanonicalSolutionPersistenceFailed.php';
+require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/solutions/CanonicalSolutionApplicationRejected.php';
+require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/solutions/contact_dossier/CanonicalContactDossierApplicationSnapshot.php';
+require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/solutions/contact_dossier/CanonicalContactDossierApplicationPolicy.php';
+require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/solutions/contact_dossier/SetContactDossierApplicationCommand.php';
+require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/solutions/contact_dossier/ReadContactDossierApplicationUseCase.php';
+require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/solutions/contact_dossier/SetContactDossierApplicationUseCase.php';
+require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/solutions/CanonicalContainerSolutionSelection.php';
+require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/canonical/solutions/class-aa-contact-dossier-application-effect.php';
 require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/capabilities/CanonicalCapabilityUnknown.php';
 require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/capabilities/CanonicalCapabilityNotReady.php';
 require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/capabilities/CanonicalCapabilitySchemaNotReady.php';
@@ -142,6 +157,7 @@ require_once plugin_dir_path(__FILE__) . 'includes/repositories/CanonicalRecordP
 require_once plugin_dir_path(__FILE__) . 'includes/repositories/CanonicalRecordWhatsappRepository.php';
 require_once plugin_dir_path(__FILE__) . 'includes/repositories/CanonicalRecordEmailRepository.php';
 require_once plugin_dir_path(__FILE__) . 'includes/repositories/CanonicalContactDossierRepository.php';
+require_once plugin_dir_path(__FILE__) . 'includes/repositories/CanonicalContactDossierApplicationRepository.php';
 require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/canonical/class-aa-canonical-family-enablement-store.php';
 require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/canonical/class-aa-canonical-family-enablement-nav.php';
 require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/canonical/class-aa-canonical-read-binding-registry.php';
@@ -551,4 +567,3 @@ function wpaa_render_form() {
     return ob_get_clean();
 }
 add_shortcode('agenda_automatizada', 'wpaa_render_form');
-

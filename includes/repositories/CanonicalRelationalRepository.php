@@ -31,6 +31,9 @@ if (!interface_exists('CanonicalRecordCapabilityEffect')) {
 if (!class_exists('CanonicalContainerMutationContext')) {
     require_once dirname(__DIR__) . '/application/canonical/capabilities/CanonicalContainerMutationContext.php';
 }
+if (!interface_exists('CanonicalContainerMutationEffect')) {
+    require_once dirname(__DIR__) . '/application/canonical/CanonicalContainerMutationEffect.php';
+}
 if (!interface_exists('CanonicalContainerCapabilityEffect')) {
     require_once dirname(__DIR__) . '/application/canonical/capabilities/CanonicalContainerCapabilityEffect.php';
 }
@@ -502,7 +505,7 @@ final class CanonicalRelationalRepository {
     }
 
     /**
-     * @param list<CanonicalContainerCapabilityEffect> $effects
+     * @param list<CanonicalContainerMutationEffect> $effects
      * @return array{id:int,public_id:string,family_id:int,title:string,details:?string,created_at:string,updated_at:string}
      * @throws CanonicalRelationalQueryFailed
      * @throws CanonicalRelationalAmbiguousOutcome
@@ -588,7 +591,7 @@ final class CanonicalRelationalRepository {
     }
 
     /**
-     * @param list<CanonicalContainerCapabilityEffect> $effects
+     * @param list<CanonicalContainerMutationEffect> $effects
      * @return array{id:int,public_id:string,family_id:int,title:string,details:?string,created_at:string,updated_at:string}|null
      * @throws CanonicalRelationalQueryFailed
      * @throws CanonicalRelationalAmbiguousOutcome
@@ -1046,7 +1049,7 @@ final class CanonicalRelationalRepository {
     }
 
     /**
-     * @param list<CanonicalContainerCapabilityEffect> $effects
+     * @param list<CanonicalContainerMutationEffect> $effects
      * @throws CanonicalRelationalQueryFailed
      * @throws CanonicalRelationalAmbiguousOutcome
      */
@@ -1057,7 +1060,7 @@ final class CanonicalRelationalRepository {
         int $resource_id
     ): void {
         foreach ($effects as $effect) {
-            if (!($effect instanceof CanonicalContainerCapabilityEffect)) {
+            if (!($effect instanceof CanonicalContainerMutationEffect)) {
                 $this->rollback_after_possible_mutation($operation, 'container', $resource_id, null);
             }
             try {

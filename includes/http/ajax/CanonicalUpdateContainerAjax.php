@@ -98,6 +98,7 @@ final class CanonicalUpdateContainerAjax {
 
         try {
             $selection = CanonicalShellWriteAjaxSupport::parse_capability_selection_from_source($_POST);
+            $solution_selection = CanonicalShellWriteAjaxSupport::parse_solution_selection_from_source($_POST);
         } catch (CanonicalShellWriteAjaxRejection $e) {
             self::error($e->error_code(), $e->error_message(), $e->http_status());
         }
@@ -118,7 +119,11 @@ final class CanonicalUpdateContainerAjax {
         );
 
         try {
-            $result = $use_case->update($manifest, $command, $selection);
+            $solution_effects = CanonicalShellWriteAjaxSupport::contact_dossier_solution_effects(
+                $resolved_family_key,
+                $solution_selection
+            );
+            $result = $use_case->update($manifest, $command, $selection, $solution_effects);
         } catch (\InvalidArgumentException $e) {
             self::error('persistence_failed', 'No se pudo actualizar la lista.', 500);
         } catch (\Throwable $e) {

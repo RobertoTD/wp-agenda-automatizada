@@ -52,7 +52,7 @@ ac_assert(
     ) === 1
 );
 ac_assert('DEFAULTS_VERSION=7', strpos($life, 'public const DEFAULTS_VERSION = 7;') !== false);
-ac_assert('DB_VERSION actual 35', strpos($schema, "public const DB_VERSION = '35';") !== false);
+ac_assert('DB_VERSION actual 37', strpos($schema, "public const DB_VERSION = '37';") !== false);
 ac_assert('ensure usa insert_family_capability_if_missing', strpos($life, 'insert_family_capability_if_missing') !== false);
 ac_assert('ensure salta !is_ready', strpos($life, '!$definition->is_ready()') !== false);
 

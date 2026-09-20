@@ -102,8 +102,14 @@ Una futura interfaz puede mostrar «Opciones» con secciones separadas de «Capa
 - **Desactivación:** deja de ofrecer la acción, preserva asociaciones y listas Archivo; reactivar las recupera.
 - **Límites v0:** no vinculación manual, no múltiples expedientes, no relación universal, no agenda, no exportación/importación operativa y no integración con Expedientes legacy.
 
-La implementación histórica `dossier` sigue existiendo solo como compatibilidad de transición. El plan de migración es `docs/plans/contact-dossier-solution-v0.md`.
+### Estado técnico C3
+
+`contact_dossier` dispone de una definición v1 sellada y `ready`. Su application por lista se guarda en la tabla específica `aa_canonical_contact_dossier_applications`; `DB_VERSION=37` retira de forma directa las filas legacy `dossier` de repertorio y asignación de capabilities. La relación `aa_canonical_contact_dossier` permanece como recurso tipado de la solution.
+
+Application distingue explícitamente `applicable`, `ready`, `available`, `active` y `blockers`. El modal «Opciones» tiene wires y secciones distintos para Capacidades y Soluciones. Activar exige una lista de Contactos y Archivo provisionado y habilitado; desactivar continúa permitido si Archivo deja de estar disponible y preserva relaciones y listas Archivo. La acción por contacto, su lectura y apertura/creación ya consultan la application de solution, conservando locks, purge y creación diferida.
+
+La coordinación transaccional de mutaciones de contenedor usa el contrato neutral `CanonicalContainerMutationEffect`. `CanonicalContainerCapabilityEffect` lo extiende por compatibilidad, por lo que una relation de solution no necesita presentarse como capability.
 
 ## 7. Decisiones aplazadas
 
-Esta norma no fija todavía schema común de application de solutions, registry técnico, hooks, formatos de paquete, configuración compleja, permisos de terceros, marketplace, API, runtime público ni un motor universal de relaciones o workflows. Se extraerán solo ante una segunda necesidad concreta compatible con las mismas invariantes.
+Esta norma no fija todavía un schema **común o polimórfico** de application de solutions, hooks públicos, formatos de paquete, configuración compleja, permisos de terceros, marketplace, API, runtime público ni un motor universal de relaciones o workflows. El registry técnico mínimo y la persistencia específica de `contact_dossier` ya existen; cualquier generalización se extraerá solo ante una segunda necesidad concreta compatible con las mismas invariantes.

@@ -78,13 +78,15 @@ final class WriteCanonicalShellContainerUseCase {
 
     /**
      * @param CanonicalContainerCapabilitySelection|null $selection null = omisión
+     * @param list<CanonicalContainerMutationEffect> $solution_effects
      */
     public function create(
         CanonicalShellManifest $manifest,
         CanonicalCreateContainerCommand $command,
-        $selection = null
+        $selection = null,
+        array $solution_effects = []
     ): CanonicalShellMutationResult {
-        $effects = $this->resolve_create_effects($manifest->identity()->family_key(), $selection);
+        $effects = array_merge($this->resolve_create_effects($manifest->identity()->family_key(), $selection), $solution_effects);
 
         return $this->execute(
             $manifest,
@@ -96,17 +98,19 @@ final class WriteCanonicalShellContainerUseCase {
 
     /**
      * @param CanonicalContainerCapabilitySelection|null $selection null = omisión
+     * @param list<CanonicalContainerMutationEffect> $solution_effects
      */
     public function update(
         CanonicalShellManifest $manifest,
         CanonicalUpdateContainerCommand $command,
-        $selection = null
+        $selection = null,
+        array $solution_effects = []
     ): CanonicalShellMutationResult {
-        $effects = $this->resolve_update_effects(
+        $effects = array_merge($this->resolve_update_effects(
             $manifest->identity()->family_key(),
             $command->container_id(),
             $selection
-        );
+        ), $solution_effects);
 
         return $this->execute(
             $manifest,
@@ -179,7 +183,7 @@ final class WriteCanonicalShellContainerUseCase {
 
     /**
      * @param CanonicalContainerCapabilitySelection|null $selection
-     * @return list<CanonicalContainerCapabilityEffect>
+     * @return list<CanonicalContainerMutationEffect>
      */
     private function resolve_create_effects(string $family_key, $selection): array {
         if ($selection instanceof CanonicalContainerCapabilitySelection) {
@@ -201,7 +205,7 @@ final class WriteCanonicalShellContainerUseCase {
 
     /**
      * @param CanonicalContainerCapabilitySelection|null $selection
-     * @return list<CanonicalContainerCapabilityEffect>
+     * @return list<CanonicalContainerMutationEffect>
      */
     private function resolve_update_effects(string $family_key, int $container_id, $selection): array {
         if (!($selection instanceof CanonicalContainerCapabilitySelection)) {

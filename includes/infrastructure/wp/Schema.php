@@ -66,8 +66,8 @@ final class AA_Schema {
      * Independiente de la versión del plugin. Solo refleja el estado
      * de las tablas/columnas/índices.
      */
-    /** DB 35: capability dossier — aa_canonical_contact_dossier (contacto→lista Archivo 1:1). */
-    public const DB_VERSION = '35';
+    /** DB 37: retiro directo de la configuración legacy `dossier` como capability. */
+    public const DB_VERSION = '37';
 
     public const OPTION_INSTALLATION_INITIALIZED_AT = 'aa_installation_initialized_at';
 

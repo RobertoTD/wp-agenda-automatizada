@@ -33,6 +33,10 @@
     var editContainerCapabilities = (cfg.editContainerCapabilities && typeof cfg.editContainerCapabilities === 'object')
         ? cfg.editContainerCapabilities
         : null;
+    var familySolutionOptions = (cfg.familySolutionOptions && typeof cfg.familySolutionOptions === 'object')
+        ? cfg.familySolutionOptions : {};
+    var editContainerSolutions = (cfg.editContainerSolutions && typeof cfg.editContainerSolutions === 'object')
+        ? cfg.editContainerSolutions : null;
 
     if (!ajaxUrl || !createAction || !createNonce || !updateAction || !updateNonce
         || !deleteAction || !deleteNonce) {
@@ -60,6 +64,8 @@
     var familyError = document.getElementById('aa-shell-container-family-error');
     var capabilitiesMount = document.getElementById('aa-shell-container-capabilities');
     var capabilitiesStatus = document.getElementById('aa-shell-container-capabilities-status');
+    var solutionsMount = document.getElementById('aa-shell-container-solutions');
+    var solutionsStatus = document.getElementById('aa-shell-container-solutions-status');
 
     var deleteModal = document.getElementById('aa-shell-delete-container-modal');
     var deleteBackdrop = document.getElementById('aa-shell-delete-container-modal-backdrop');
@@ -281,6 +287,59 @@
         body.append('capability_selection', JSON.stringify(selected));
     }
 
+    function solutionOptionsForFamily(nextFamilyKey) {
+        return familySolutionOptions && Array.isArray(familySolutionOptions[nextFamilyKey])
+            ? familySolutionOptions[nextFamilyKey] : [];
+    }
+
+    function renderSolutionCheckboxes(nextFamilyKey, checkedKeys) {
+        if (!solutionsMount) { return; }
+        solutionsMount.innerHTML = '';
+        if (solutionsStatus) { solutionsStatus.classList.add('hidden'); solutionsStatus.textContent = ''; }
+        var opts = solutionOptionsForFamily(nextFamilyKey);
+        var checked = {};
+        if (Array.isArray(checkedKeys)) {
+            for (var c = 0; c < checkedKeys.length; c++) { checked[checkedKeys[c]] = true; }
+        }
+        for (var i = 0; i < opts.length; i++) {
+            var opt = opts[i] || {};
+            if (typeof opt.key !== 'string' || opt.key === '') { continue; }
+            var row = document.createElement('label');
+            row.className = 'flex items-center gap-2 text-sm text-gray-800';
+            var input = document.createElement('input');
+            input.type = 'checkbox'; input.value = opt.key;
+            input.setAttribute('data-aa-solution-key', opt.key);
+            input.className = 'rounded border-gray-300 text-indigo-600 focus:ring-indigo-500';
+            input.checked = Object.prototype.hasOwnProperty.call(checked, opt.key) ? true : opt.is_default === true;
+            input.disabled = inFlight;
+            var span = document.createElement('span'); span.textContent = opt.label || opt.key;
+            row.appendChild(input); row.appendChild(span); solutionsMount.appendChild(row);
+        }
+    }
+
+    function applyCreateSolutions(nextFamilyKey) { renderSolutionCheckboxes(nextFamilyKey, null); }
+    function applyUpdateSolutions(nextFamilyKey, state) {
+        var source = (state && typeof state === 'object') ? state : editContainerSolutions;
+        if (source && source.status === 'unavailable') {
+            if (solutionsStatus) { solutionsStatus.textContent = 'No se pudieron cargar las soluciones de esta lista.'; solutionsStatus.classList.remove('hidden'); }
+            if (solutionsMount) { solutionsMount.innerHTML = ''; }
+            return;
+        }
+        renderSolutionCheckboxes(nextFamilyKey, source && Array.isArray(source.active) ? source.active : []);
+    }
+
+    function collectSolutionSelectionFields(body) {
+        if (!solutionsMount || typeof solutionsMount.querySelectorAll !== 'function') { return; }
+        var scope = [], selected = [], inputs = solutionsMount.querySelectorAll('input[data-aa-solution-key]');
+        for (var i = 0; i < inputs.length; i++) {
+            var key = inputs[i].getAttribute('data-aa-solution-key');
+            if (!key) { continue; }
+            scope.push(key); if (inputs[i].checked) { selected.push(key); }
+        }
+        body.append('solution_selection_scope', JSON.stringify(scope));
+        body.append('solution_selection', JSON.stringify(selected));
+    }
+
     function setCapabilityInputsDisabled(disabled) {
         if (!capabilitiesMount || typeof capabilitiesMount.querySelectorAll !== 'function') {
             return;
@@ -405,6 +464,10 @@
             familySelect.disabled = busy;
         }
         setCapabilityInputsDisabled(busy);
+        if (solutionsMount) {
+            var solutionInputs = solutionsMount.querySelectorAll('input[data-aa-solution-key]');
+            for (var s = 0; s < solutionInputs.length; s++) { solutionInputs[s].disabled = busy; }
+        }
         if (cancelBtn) {
             cancelBtn.disabled = busy;
         }
@@ -467,8 +530,10 @@
         }
         if (mode === MODE_UPDATE) {
             applyUpdateCapabilities(currentFamilyKey, capabilitiesState || null);
+            applyUpdateSolutions(currentFamilyKey, null);
         } else {
             applyCreateCapabilities(currentFamilyKey);
+            applyCreateSolutions(currentFamilyKey);
         }
         modal.classList.remove('hidden');
         modal.setAttribute('aria-hidden', 'false');
@@ -620,6 +685,7 @@
         body.append('details', detailsInput ? detailsInput.value : '');
         appendReturnContext(body);
         collectCapabilitySelectionFields(body);
+        collectSolutionSelectionFields(body);
 
         fetch(ajaxUrl, {
             method: 'POST',
@@ -984,6 +1050,7 @@
             }
             currentFamilyKey = typeof familySelect.value === 'string' ? familySelect.value : '';
             applyCreateCapabilities(currentFamilyKey);
+            applyCreateSolutions(currentFamilyKey);
         });
     }
 

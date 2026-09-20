@@ -119,16 +119,20 @@ final class CanonicalOpenContactDossierAjax {
 
         $repository = new CanonicalRelationalRepository();
         $dossier_repo = new CanonicalContactDossierRepository($repository->connection());
-        $config_repo = new CanonicalCapabilityConfigRepository($repository->connection());
-        $capability_registry = AA_Canonical_Capability_Registry_Bootstrap::bootstrap();
+        $application_reader = new ReadContactDossierApplicationUseCase(
+            $repository,
+            new CanonicalContactDossierApplicationRepository($repository->connection()),
+            AA_Canonical_Solution_Registry_Bootstrap::bootstrap(),
+            AA_Canonical_Core_Bootstrap::bootstrap(),
+            new AA_Canonical_Family_Enablement_Store($repository->connection())
+        );
         $purge_runs = new CanonicalPurgeRunsRepository($repository->connection());
         $lock = AA_Expediente_Aggregate_Lock::create_default();
 
         $use_case = new OpenOrCreateCanonicalContactDossierUseCase(
             $repository,
             $dossier_repo,
-            $config_repo,
-            $capability_registry,
+            $application_reader,
             $composition['gateway'],
             $composition['materializer'],
             $purge_runs,
@@ -171,8 +175,8 @@ final class CanonicalOpenContactDossierAjax {
             OpenOrCreateCanonicalContactDossierResult::STATE_RECORD_NOT_FOUND => [
                 'record_not_found', 'El contacto no existe o no está disponible.', 404,
             ],
-            OpenOrCreateCanonicalContactDossierResult::STATE_CAPABILITY_INACTIVE => [
-                'capability_inactive', 'Expediente no está activo en esta lista.', 409,
+            OpenOrCreateCanonicalContactDossierResult::STATE_SOLUTION_INACTIVE => [
+                'solution_inactive', 'Expediente no está activo en esta lista.', 409,
             ],
             OpenOrCreateCanonicalContactDossierResult::STATE_ORIGIN_RETIRING => [
                 'origin_retiring', 'Este contacto se está eliminando. Inténtalo más tarde.', 409,
@@ -262,8 +266,16 @@ final class CanonicalOpenContactDossierAjax {
         if (!class_exists('CanonicalWriteBindingNotFound')) {
             require_once dirname(__DIR__, 2) . '/application/canonical/CanonicalWriteBindingNotFound.php';
         }
-        if (!class_exists('AA_Canonical_Capability_Registry_Bootstrap')) {
-            require_once dirname(__DIR__, 2) . '/infrastructure/canonical/class-aa-canonical-capability-registry-bootstrap.php';
+        if (!class_exists('ReadContactDossierApplicationUseCase')) {
+            require_once dirname(__DIR__, 2) . '/application/canonical/solutions/contact_dossier/CanonicalContactDossierApplicationSnapshot.php';
+            require_once dirname(__DIR__, 2) . '/application/canonical/solutions/contact_dossier/CanonicalContactDossierApplicationPolicy.php';
+            require_once dirname(__DIR__, 2) . '/application/canonical/solutions/contact_dossier/ReadContactDossierApplicationUseCase.php';
+        }
+        if (!class_exists('CanonicalContactDossierApplicationRepository')) {
+            require_once dirname(__DIR__, 2) . '/repositories/CanonicalContactDossierApplicationRepository.php';
+        }
+        if (!class_exists('AA_Canonical_Solution_Registry_Bootstrap')) {
+            require_once dirname(__DIR__, 2) . '/infrastructure/canonical/class-aa-canonical-solution-registry-bootstrap.php';
         }
     }
 }

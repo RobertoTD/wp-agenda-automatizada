@@ -36,7 +36,7 @@ if (!class_exists('CanonicalDeleteRecordCommand')) {
 interface CanonicalWriteAdapter {
 
     /**
-     * @param list<CanonicalContainerCapabilityEffect> $effects
+     * @param list<CanonicalContainerMutationEffect> $effects
      * @throws CanonicalMutationPersistenceFailed
      */
     public function create_container(
@@ -46,7 +46,7 @@ interface CanonicalWriteAdapter {
     ): CanonicalMutationReceipt;
 
     /**
-     * @param list<CanonicalContainerCapabilityEffect> $effects
+     * @param list<CanonicalContainerMutationEffect> $effects
      * @throws CanonicalContainerNotFound
      * @throws CanonicalMutationPersistenceFailed
      */

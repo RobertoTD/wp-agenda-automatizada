@@ -14,7 +14,9 @@
  * - aa_canonical_record_phone (valores E.164; DB 32)
  * - aa_canonical_record_whatsapp (valores E.164; DB 33)
  * - aa_canonical_record_email (correo ASCII; DB 34)
- * - aa_canonical_contact_dossier (contacto→lista Archivo 1:1; DB 35)
+ * - aa_canonical_contact_dossier (recurso de la solution: contacto→lista Archivo 1:1; DB 35)
+ * - aa_canonical_contact_dossier_applications (aplicación por lista; DB 36)
+ * - DB 37 retira filas legacy `dossier` de configuración de capabilities.
  *
  * Images Ciclo 1 (DB 26; sin semántica de producto todavía):
  * - aa_canonical_record_images
@@ -55,6 +57,7 @@ final class AA_Canonical_Schema {
     public const TABLE_RECORD_WHATSAPP = 'aa_canonical_record_whatsapp';
     public const TABLE_RECORD_EMAIL = 'aa_canonical_record_email';
     public const TABLE_CONTACT_DOSSIER = 'aa_canonical_contact_dossier';
+    public const TABLE_CONTACT_DOSSIER_APPLICATIONS = 'aa_canonical_contact_dossier_applications';
     public const TABLE_RECORD_IMAGES = 'aa_canonical_record_images';
     public const TABLE_IMAGE_UPLOAD_OPERATIONS = 'aa_canonical_image_upload_operations';
     public const TABLE_PURGE_RUNS = 'aa_canonical_purge_runs';
@@ -120,6 +123,11 @@ final class AA_Canonical_Schema {
     public static function contact_dossier_table_name(): string {
         global $wpdb;
         return $wpdb->prefix . self::TABLE_CONTACT_DOSSIER;
+    }
+
+    public static function contact_dossier_applications_table_name(): string {
+        global $wpdb;
+        return $wpdb->prefix . self::TABLE_CONTACT_DOSSIER_APPLICATIONS;
     }
 
     public static function record_images_table_name(): string {
@@ -273,6 +281,17 @@ final class AA_Canonical_Schema {
     }
 
     /**
+     * FK contact_dossier_applications.contact_container_id → containers.id (CASCADE).
+     */
+    public static function contact_dossier_applications_container_foreign_key_name(?string $prefix = null): string {
+        return self::build_foreign_key_name(
+            $prefix,
+            'aa_canonical_contact_dossier_applications:contact_container_id',
+            'aa_can_cda_'
+        );
+    }
+
+    /**
      * FK record_images.record_id → records.id (RESTRICT).
      */
     public static function record_images_foreign_key_name(?string $prefix = null): string {
@@ -342,6 +361,7 @@ final class AA_Canonical_Schema {
         $record_whatsapp_table = self::record_whatsapp_table_name();
         $record_email_table = self::record_email_table_name();
         $contact_dossier_table = self::contact_dossier_table_name();
+        $contact_dossier_applications_table = self::contact_dossier_applications_table_name();
         $record_images_table = self::record_images_table_name();
         $image_upload_operations_table = self::image_upload_operations_table_name();
         $purge_runs_table = self::purge_runs_table_name();
@@ -437,6 +457,14 @@ final class AA_Canonical_Schema {
             updated_at datetime NOT NULL,
             PRIMARY KEY  (contact_record_id),
             UNIQUE KEY uq_dossier_archive_container (archive_container_id)
+        ) ENGINE=InnoDB {$charset};";
+
+        $contact_dossier_applications_sql = "CREATE TABLE {$contact_dossier_applications_table} (
+            contact_container_id bigint(20) unsigned NOT NULL,
+            is_active tinyint(1) NOT NULL DEFAULT 0,
+            created_at datetime NOT NULL,
+            updated_at datetime NOT NULL,
+            PRIMARY KEY  (contact_container_id)
         ) ENGINE=InnoDB {$charset};";
 
         $record_images_sql = "CREATE TABLE {$record_images_table} (
@@ -547,6 +575,7 @@ final class AA_Canonical_Schema {
         dbDelta($record_whatsapp_sql);
         dbDelta($record_email_sql);
         dbDelta($contact_dossier_sql);
+        dbDelta($contact_dossier_applications_sql);
         dbDelta($record_images_sql);
         dbDelta($image_upload_operations_sql);
         dbDelta($purge_runs_sql);
@@ -558,6 +587,7 @@ final class AA_Canonical_Schema {
         self::ensure_purge_container_local_retire_v30();
         self::ensure_purge_image_retire_v31();
         self::ensure_family_capabilities_v25();
+        self::retire_legacy_dossier_capability_configuration_v37();
         self::ensure_containers_family_scope_v22();
         self::ensure_named_indexes();
         self::ensure_foreign_keys();
@@ -851,6 +881,42 @@ final class AA_Canonical_Schema {
             throw new \RuntimeException(
                 "[AA_Canonical_Schema] Columna is_enabled residual en {$new} tras ensure v25"
             );
+        }
+    }
+
+    /**
+     * DB 37: `dossier` dejó de ser capability. Elimina únicamente sus filas
+     * de repertorio/asignación, sin tocar el recurso relacional de la solution.
+     *
+     * @throws \RuntimeException
+     */
+    public static function retire_legacy_dossier_capability_configuration_v37(): void {
+        global $wpdb;
+
+        foreach ([
+            self::container_capabilities_table_name(),
+            self::family_capabilities_table_name(),
+        ] as $table) {
+            if (!self::physical_table_exists($table)) {
+                throw new \RuntimeException(
+                    "[AA_Canonical_Schema] Tabla ausente al retirar capability dossier: {$table}"
+                );
+            }
+            $wpdb->last_error = '';
+            $deleted = $wpdb->query(
+                $wpdb->prepare(
+                    'DELETE FROM `' . str_replace('`', '``', $table) . '` WHERE capability_key = %s',
+                    'dossier'
+                )
+            );
+            if ($deleted === false || $wpdb->last_error !== '') {
+                $error = is_string($wpdb->last_error) && $wpdb->last_error !== ''
+                    ? $wpdb->last_error
+                    : 'DELETE falló';
+                throw new \RuntimeException(
+                    "[AA_Canonical_Schema] No se pudo retirar capability dossier de {$table}: {$error}"
+                );
+            }
         }
     }
 
@@ -1293,6 +1359,13 @@ final class AA_Canonical_Schema {
             'CASCADE'
         );
         self::ensure_foreign_key(
+            self::contact_dossier_applications_table_name(),
+            self::contact_dossier_applications_container_foreign_key_name(),
+            'contact_container_id',
+            self::containers_table_name(),
+            'CASCADE'
+        );
+        self::ensure_foreign_key(
             self::contact_dossier_table_name(),
             self::contact_dossier_archive_container_foreign_key_name(),
             'archive_container_id',
@@ -1367,6 +1440,7 @@ final class AA_Canonical_Schema {
         $record_whatsapp = self::record_whatsapp_table_name();
         $record_email = self::record_email_table_name();
         $contact_dossier = self::contact_dossier_table_name();
+        $contact_dossier_applications = self::contact_dossier_applications_table_name();
         $record_images = self::record_images_table_name();
         $image_upload_operations = self::image_upload_operations_table_name();
         $purge_runs = self::purge_runs_table_name();
@@ -1382,6 +1456,7 @@ final class AA_Canonical_Schema {
         self::verify_table_existence_and_engine($record_whatsapp);
         self::verify_table_existence_and_engine($record_email);
         self::verify_table_existence_and_engine($contact_dossier);
+        self::verify_table_existence_and_engine($contact_dossier_applications);
         self::verify_table_existence_and_engine($record_images);
         self::verify_table_existence_and_engine($image_upload_operations);
         self::verify_table_existence_and_engine($purge_runs);
@@ -1397,6 +1472,7 @@ final class AA_Canonical_Schema {
         self::verify_record_whatsapp_structure($record_whatsapp);
         self::verify_record_email_structure($record_email);
         self::verify_contact_dossier_structure($contact_dossier);
+        self::verify_contact_dossier_applications_structure($contact_dossier_applications);
         self::verify_record_images_structure($record_images);
         self::verify_image_upload_operations_structure($image_upload_operations);
         self::verify_purge_runs_structure($purge_runs);
@@ -1463,6 +1539,13 @@ final class AA_Canonical_Schema {
             $records,
             self::contact_dossier_contact_record_foreign_key_name(),
             'contact_record_id',
+            'CASCADE'
+        );
+        self::verify_foreign_key(
+            $contact_dossier_applications,
+            $containers,
+            self::contact_dossier_applications_container_foreign_key_name(),
+            'contact_container_id',
             'CASCADE'
         );
         self::verify_foreign_key(
@@ -1801,6 +1884,27 @@ final class AA_Canonical_Schema {
 
         self::verify_index($table, 'PRIMARY', ['contact_record_id']);
         self::verify_index($table, 'uq_dossier_archive_container', ['archive_container_id']);
+    }
+
+    private static function verify_contact_dossier_applications_structure(string $table): void {
+        $cols = self::columns_by_name($table);
+
+        $expected = ['contact_container_id', 'is_active', 'created_at', 'updated_at'];
+        foreach ($expected as $field) {
+            if (!isset($cols[$field])) {
+                throw new \RuntimeException("[AA_Canonical_Schema] Columna requerida ausente en {$table}: {$field}");
+            }
+        }
+
+        self::assert_forbidden_columns($table, $cols, [
+            'id', 'solution_key', 'context_type', 'config_json', 'payload', 'family_key',
+        ]);
+
+        self::assert_bigint_unsigned_not_null($table, $cols['contact_container_id'], 'contact_container_id');
+        self::assert_tinyint_not_null_default_zero($table, $cols['is_active'], 'is_active');
+        self::assert_datetime_not_null_no_default($table, $cols['created_at'], 'created_at');
+        self::assert_datetime_not_null_no_default($table, $cols['updated_at'], 'updated_at');
+        self::verify_index($table, 'PRIMARY', ['contact_container_id']);
     }
 
     private static function verify_record_images_structure(string $table): void {

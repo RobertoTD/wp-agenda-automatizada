@@ -230,6 +230,69 @@ final class CanonicalShellWriteAjaxSupport {
         return CanonicalContainerCapabilitySelection::present($scope, $selection);
     }
 
+    /** @return CanonicalContainerSolutionSelection|null */
+    public static function parse_solution_selection_from_source(array $source): ?CanonicalContainerSolutionSelection {
+        if (!class_exists('CanonicalContainerSolutionSelection')) {
+            require_once dirname(__DIR__, 2) . '/application/canonical/solutions/CanonicalContainerSolutionSelection.php';
+        }
+        $has_scope = array_key_exists('solution_selection_scope', $source);
+        $has_selection = array_key_exists('solution_selection', $source);
+        if (!$has_scope && !$has_selection) {
+            return null;
+        }
+        if ($has_scope !== $has_selection) {
+            throw new CanonicalShellWriteAjaxRejection('invalid_payload', 'La solicitud contiene campos no válidos.', 400);
+        }
+        return CanonicalContainerSolutionSelection::present(
+            self::parse_capability_key_list_json($source['solution_selection_scope']),
+            self::parse_capability_key_list_json($source['solution_selection'])
+        );
+    }
+
+    /** @return list<CanonicalContainerMutationEffect> */
+    public static function contact_dossier_solution_effects(
+        string $family_key,
+        ?CanonicalContainerSolutionSelection $selection
+    ): array {
+        if ($selection === null) {
+            return [];
+        }
+        $key = AA_Canonical_Solution_Registry_Bootstrap::CONTACT_DOSSIER;
+        $scope = $selection->scope();
+        $selected = $selection->selection();
+        foreach (array_merge($scope, $selected) as $value) {
+            if (!is_string($value) || $value !== $key) {
+                throw new CanonicalShellWriteAjaxRejection('invalid_solution_selection', 'La selección de soluciones no es válida.', 400);
+            }
+        }
+        $in_scope = in_array($key, $scope, true);
+        $active = in_array($key, $selected, true);
+        if ($active && !$in_scope) {
+            throw new CanonicalShellWriteAjaxRejection('invalid_solution_selection', 'La selección de soluciones no es válida.', 400);
+        }
+        if (!$in_scope) {
+            return [];
+        }
+        if ($family_key !== 'contact') {
+            throw new CanonicalShellWriteAjaxRejection('solution_inapplicable', 'Expediente solo aplica a Contactos.', 409);
+        }
+        $definition = AA_Canonical_Solution_Registry_Bootstrap::bootstrap()->get($key);
+        if (!$definition->is_ready()) {
+            throw new CanonicalShellWriteAjaxRejection('solution_not_ready', 'Expediente aún no está disponible.', 409);
+        }
+        if ($active) {
+            try {
+                self::authorize_identity('archive');
+            } catch (CanonicalShellWriteAjaxRejection $e) {
+                throw new CanonicalShellWriteAjaxRejection('archive_disabled', 'Archivo debe estar habilitado para activar Expediente.', 409);
+            }
+        }
+        if (!class_exists('AA_Contact_Dossier_Application_Effect')) {
+            require_once dirname(__DIR__, 2) . '/infrastructure/canonical/solutions/class-aa-contact-dossier-application-effect.php';
+        }
+        return [new AA_Contact_Dossier_Application_Effect(new CanonicalContactDossierApplicationRepository(), $active)];
+    }
+
     /**
      * Normaliza un valor POST de WordPress (wp_unslash) y decodifica la lista JSON.
      *

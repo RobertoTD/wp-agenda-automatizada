@@ -8,10 +8,9 @@
 
 defined('ABSPATH') or die('No direct access');
 
-interface CanonicalContainerCapabilityEffect {
+if (!interface_exists('CanonicalContainerMutationEffect')) {
+    require_once dirname(__DIR__) . '/CanonicalContainerMutationEffect.php';
+}
 
-    /**
-     * @throws CanonicalMutationPersistenceFailed
-     */
-    public function apply(CanonicalContainerMutationContext $context): void;
+interface CanonicalContainerCapabilityEffect extends CanonicalContainerMutationEffect {
 }

@@ -39,7 +39,6 @@ final class CanonicalCapabilityConfigRepository {
             AA_Canonical_Schema::record_phone_table_name(),
             AA_Canonical_Schema::record_whatsapp_table_name(),
             AA_Canonical_Schema::record_email_table_name(),
-            AA_Canonical_Schema::contact_dossier_table_name(),
         ] as $table) {
             $this->assert_table_exists($table);
         }

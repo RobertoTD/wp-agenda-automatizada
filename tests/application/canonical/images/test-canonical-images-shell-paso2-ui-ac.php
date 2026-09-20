@@ -125,6 +125,7 @@ require_once $plugin_root . '/includes/admin/ui/modules/canonical_shell/presente
 require_once $plugin_root . '/includes/admin/ui/modules/canonical_shell/presenters/class-aa-canonical-whatsapp-shell-presenter.php';
 require_once $plugin_root . '/includes/admin/ui/modules/canonical_shell/presenters/class-aa-canonical-phone-shell-presenter.php';
 require_once $plugin_root . '/includes/admin/ui/modules/canonical_shell/presenters/class-aa-canonical-email-shell-presenter.php';
+require_once $plugin_root . '/includes/admin/ui/modules/canonical_shell/presenters/class-aa-canonical-dossier-shell-presenter.php';
 require_once $plugin_root . '/includes/application/canonical/capabilities/AA_Canonical_Email_Normalizer.php';
 require_once $plugin_root . '/includes/admin/ui/modules/canonical_shell/presenters/class-aa-canonical-images-shell-presenter.php';
 
@@ -211,7 +212,7 @@ ac_assert(
 $db_schema = (string) file_get_contents(
     $plugin_root . '/includes/infrastructure/wp/Schema.php'
 );
-ac_assert('DB_VERSION = 35', strpos($db_schema, "public const DB_VERSION = '35';") !== false);
+ac_assert('DB_VERSION = 37', strpos($db_schema, "public const DB_VERSION = '37';") !== false);
 
 echo "\n=== 5. Card compacta: summary cabecera + galería; sin lista textual ===\n";
 

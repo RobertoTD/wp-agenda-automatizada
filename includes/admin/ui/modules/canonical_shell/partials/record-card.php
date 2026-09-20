@@ -6,6 +6,7 @@
  * Optional actions: $show_edit_record (bool), $card_record_id (int).
  * Optional presentation: $shell_record_presentation ('card'|'compact').
  * Optional capabilities: $card_capabilities (array|null) — mapa por clave del item.
+ * Optional solutions: $card_solutions (array|null) — mapa por clave del item.
  * Optional images: $card_image_summary_url (?string), $show_image_actions (bool).
  *
  * @package WP_Agenda_Automatizada
@@ -22,6 +23,9 @@ $is_compact = ($shell_record_presentation === 'compact');
 $card_capabilities = isset($card_capabilities) && is_array($card_capabilities)
     ? $card_capabilities
     : null;
+$card_solutions = isset($card_solutions) && is_array($card_solutions)
+    ? $card_solutions
+    : null;
 $show_image_actions = !empty($show_image_actions);
 
 $amount_card = AA_Canonical_Amount_Shell_Presenter::card_view($card_capabilities);
@@ -32,7 +36,7 @@ $phone_card = AA_Canonical_Phone_Shell_Presenter::card_view($card_capabilities);
 $phone_edit = AA_Canonical_Phone_Shell_Presenter::edit_payload_fragment($card_capabilities);
 $email_card = AA_Canonical_Email_Shell_Presenter::card_view($card_capabilities);
 $email_edit = AA_Canonical_Email_Shell_Presenter::edit_payload_fragment($card_capabilities);
-$dossier_action = AA_Canonical_Dossier_Shell_Presenter::card_action($card_capabilities);
+$dossier_action = AA_Canonical_Dossier_Shell_Presenter::card_action($card_solutions);
 $images_card = AA_Canonical_Images_Shell_Presenter::card_view($card_capabilities);
 $images_edit = AA_Canonical_Images_Shell_Presenter::edit_payload_fragment($card_capabilities);
 $card_image_summary_url = isset($card_image_summary_url) && is_string($card_image_summary_url)

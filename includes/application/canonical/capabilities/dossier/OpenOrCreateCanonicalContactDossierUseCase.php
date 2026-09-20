@@ -3,14 +3,13 @@
  * Abrir o crear el expediente canónico (lista Archivo) vinculado a un contacto.
  *
  * @package WP_Agenda_Automatizada
- * @subpackage Application\Canonical\Capabilities\Dossier
+ * @subpackage Application\Canonical\Solutions\ContactDossier
  */
 
 defined('ABSPATH') or die('No direct access');
 
 final class OpenOrCreateCanonicalContactDossierUseCase {
 
-    public const CAPABILITY_KEY = 'dossier';
     public const CONTACT_FAMILY = 'contact';
     public const ARCHIVE_FAMILY = 'archive';
     public const TITLE_PREFIX = 'Exp — ';
@@ -21,11 +20,8 @@ final class OpenOrCreateCanonicalContactDossierUseCase {
     /** @var CanonicalContactDossierRepository */
     private $dossier;
 
-    /** @var CanonicalCapabilityConfigRepository */
-    private $config;
-
-    /** @var AA_Canonical_Capability_Registry */
-    private $capability_registry;
+    /** @var ReadContactDossierApplicationUseCase */
+    private $application_reader;
 
     /** @var CanonicalWriteGateway */
     private $gateway;
@@ -45,8 +41,7 @@ final class OpenOrCreateCanonicalContactDossierUseCase {
     public function __construct(
         CanonicalRelationalRepository $relational,
         CanonicalContactDossierRepository $dossier,
-        CanonicalCapabilityConfigRepository $config,
-        AA_Canonical_Capability_Registry $capability_registry,
+        ReadContactDossierApplicationUseCase $application_reader,
         CanonicalWriteGateway $gateway,
         AA_Canonical_Capability_Defaults_Materializer $materializer,
         CanonicalPurgeRunsRepository $purge_runs,
@@ -55,8 +50,7 @@ final class OpenOrCreateCanonicalContactDossierUseCase {
     ) {
         $this->relational = $relational;
         $this->dossier = $dossier;
-        $this->config = $config;
-        $this->capability_registry = $capability_registry;
+        $this->application_reader = $application_reader;
         $this->gateway = $gateway;
         $this->materializer = $materializer;
         $this->purge_runs = $purge_runs;
@@ -134,20 +128,12 @@ final class OpenOrCreateCanonicalContactDossierUseCase {
         }
 
         try {
-            $def = $this->capability_registry->get(self::CAPABILITY_KEY);
+            $application = $this->application_reader->execute($command->contact_container_id());
         } catch (\Throwable $e) {
-            return OpenOrCreateCanonicalContactDossierResult::capability_inactive();
+            return OpenOrCreateCanonicalContactDossierResult::persistence_failed();
         }
-        if (!$def->is_ready()) {
-            return OpenOrCreateCanonicalContactDossierResult::capability_inactive();
-        }
-
-        $assignment = $this->config->find_container_capability(
-            $command->contact_container_id(),
-            self::CAPABILITY_KEY
-        );
-        if ($assignment === null || empty($assignment['is_active'])) {
-            return OpenOrCreateCanonicalContactDossierResult::capability_inactive();
+        if (!$application->is_active() || !$application->is_available()) {
+            return OpenOrCreateCanonicalContactDossierResult::solution_inactive();
         }
 
         if ($this->purge_runs->has_blocking_purge(

@@ -49,7 +49,7 @@ final class CanonicalWriteGateway {
     }
 
     /**
-     * @param list<CanonicalContainerCapabilityEffect> $effects
+     * @param list<CanonicalContainerMutationEffect> $effects
      * @throws CanonicalWriteBindingNotFound
      * @throws CanonicalMutationPersistenceFailed
      */
@@ -67,7 +67,7 @@ final class CanonicalWriteGateway {
     }
 
     /**
-     * @param list<CanonicalContainerCapabilityEffect> $effects
+     * @param list<CanonicalContainerMutationEffect> $effects
      * @throws CanonicalWriteBindingNotFound
      * @throws CanonicalContainerNotFound
      * @throws CanonicalMutationPersistenceFailed

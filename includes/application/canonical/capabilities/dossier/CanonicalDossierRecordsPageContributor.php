@@ -10,7 +10,7 @@ defined('ABSPATH') or die('No direct access');
 
 final class CanonicalDossierRecordsPageContributor implements CanonicalCapabilityRecordPageContributor {
 
-    public const KEY = 'dossier';
+    public const KEY = 'contact_dossier';
 
     /** Valor known_value: botón habilitado (abrir o crear en el servidor). */
     public const VALUE_READY = 'ready';
@@ -21,14 +21,11 @@ final class CanonicalDossierRecordsPageContributor implements CanonicalCapabilit
     /** Valor known_value: expediente destino en retiro. */
     public const VALUE_DOSSIER_RETIRING = 'dossier_retiring';
 
-    /** @var CanonicalCapabilityConfigRepository */
-    private $config_repo;
-
     /** @var CanonicalContactDossierRepository */
     private $dossier_repo;
 
-    /** @var AA_Canonical_Capability_Registry */
-    private $capability_registry;
+    /** @var ReadContactDossierApplicationUseCase */
+    private $application_reader;
 
     /** @var CanonicalPurgeRunsRepository|null */
     private $purge_runs;
@@ -37,15 +34,13 @@ final class CanonicalDossierRecordsPageContributor implements CanonicalCapabilit
     private $archive_enabled_resolver;
 
     public function __construct(
-        CanonicalCapabilityConfigRepository $config_repo,
         CanonicalContactDossierRepository $dossier_repo,
-        AA_Canonical_Capability_Registry $capability_registry,
+        ReadContactDossierApplicationUseCase $application_reader,
         ?CanonicalPurgeRunsRepository $purge_runs = null,
         ?callable $archive_enabled_resolver = null
     ) {
-        $this->config_repo = $config_repo;
         $this->dossier_repo = $dossier_repo;
-        $this->capability_registry = $capability_registry;
+        $this->application_reader = $application_reader;
         $this->purge_runs = $purge_runs;
         $this->archive_enabled_resolver = $archive_enabled_resolver;
     }
@@ -67,24 +62,11 @@ final class CanonicalDossierRecordsPageContributor implements CanonicalCapabilit
         }
 
         try {
-            $def = $this->capability_registry->get(self::KEY);
-        } catch (\Throwable $e) {
-            return $this->not_offered();
-        }
-
-        if (!$def->is_ready() || $def->scope() !== AA_Canonical_Capability_Definition::SCOPE_RECORD) {
-            return $this->not_offered();
-        }
-
-        try {
-            $assignment = $this->config_repo->find_container_capability($container_id, self::KEY);
-        } catch (CanonicalCapabilitySchemaNotReady | CanonicalCapabilityPersistenceFailed $e) {
-            return $this->offered_with_failed_reads($record_ids);
+            $application = $this->application_reader->execute($container_id);
         } catch (\Throwable $e) {
             return $this->offered_with_failed_reads($record_ids);
         }
-
-        if ($assignment === null || empty($assignment['is_active'])) {
+        if (!$application->is_active()) {
             return $this->not_offered();
         }
 
@@ -97,7 +79,7 @@ final class CanonicalDossierRecordsPageContributor implements CanonicalCapabilit
             }
         }
 
-        if (!$archive_enabled) {
+        if (!$archive_enabled || !$application->is_available()) {
             $records = [];
             foreach ($record_ids as $id) {
                 $id = (int) $id;

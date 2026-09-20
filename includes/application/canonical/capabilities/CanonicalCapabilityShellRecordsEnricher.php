@@ -35,6 +35,7 @@ final class CanonicalCapabilityShellRecordsEnricher {
 
         $page_contributions = [];
         $per_record = [];
+        $per_record_solutions = [];
 
         foreach ($this->registry->all() as $contributor) {
             $contribution = $contributor->contribute_for_records_page($family_key, $container_id, $ids);
@@ -44,10 +45,13 @@ final class CanonicalCapabilityShellRecordsEnricher {
                 continue;
             }
             foreach ($contribution->records() as $record_id => $state) {
-                if (!isset($per_record[$record_id])) {
-                    $per_record[$record_id] = [];
+                if ($key === 'contact_dossier') {
+                    if (!isset($per_record_solutions[$record_id])) { $per_record_solutions[$record_id] = []; }
+                    $per_record_solutions[$record_id][$key] = $state->to_array();
+                } else {
+                    if (!isset($per_record[$record_id])) { $per_record[$record_id] = []; }
+                    $per_record[$record_id][$key] = $state->to_array();
                 }
-                $per_record[$record_id][$key] = $state->to_array();
             }
         }
 
@@ -56,6 +60,9 @@ final class CanonicalCapabilityShellRecordsEnricher {
             $id = isset($item['id']) ? (int) $item['id'] : 0;
             if ($id >= 1 && isset($per_record[$id]) && $per_record[$id] !== []) {
                 $item['capabilities'] = $per_record[$id];
+            }
+            if ($id >= 1 && isset($per_record_solutions[$id]) && $per_record_solutions[$id] !== []) {
+                $item['solutions'] = $per_record_solutions[$id];
             }
             $enriched[] = $item;
         }

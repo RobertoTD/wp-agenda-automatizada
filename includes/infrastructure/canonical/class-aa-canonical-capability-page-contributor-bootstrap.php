@@ -94,11 +94,17 @@ final class AA_Canonical_Capability_Page_Contributor_Bootstrap {
             )
         );
 
+        $application_reader = new ReadContactDossierApplicationUseCase(
+            new CanonicalRelationalRepository($wpdb),
+            new CanonicalContactDossierApplicationRepository($wpdb),
+            AA_Canonical_Solution_Registry_Bootstrap::bootstrap(),
+            AA_Canonical_Core_Bootstrap::bootstrap(),
+            new AA_Canonical_Family_Enablement_Store($wpdb)
+        );
         $registry->register(
             new CanonicalDossierRecordsPageContributor(
-                new CanonicalCapabilityConfigRepository($wpdb),
                 new CanonicalContactDossierRepository($wpdb),
-                $capability_registry,
+                $application_reader,
                 new CanonicalPurgeRunsRepository($wpdb),
                 static function (): bool {
                     try {

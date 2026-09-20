@@ -3,7 +3,7 @@
  * Resultado tipado de abrir o crear el expediente canónico de un contacto.
  *
  * @package WP_Agenda_Automatizada
- * @subpackage Application\Canonical\Capabilities\Dossier
+ * @subpackage Application\Canonical\Solutions\ContactDossier
  */
 
 defined('ABSPATH') or die('No direct access');
@@ -14,7 +14,7 @@ final class OpenOrCreateCanonicalContactDossierResult {
     public const STATE_CREATED = 'created';
     public const STATE_CONTAINER_NOT_FOUND = 'container_not_found';
     public const STATE_RECORD_NOT_FOUND = 'record_not_found';
-    public const STATE_CAPABILITY_INACTIVE = 'capability_inactive';
+    public const STATE_SOLUTION_INACTIVE = 'solution_inactive';
     public const STATE_ORIGIN_RETIRING = 'origin_retiring';
     public const STATE_DOSSIER_RETIRING = 'dossier_retiring';
     public const STATE_TARGET_INVALID = 'dossier_target_invalid';
@@ -55,8 +55,8 @@ final class OpenOrCreateCanonicalContactDossierResult {
         return new self(self::STATE_RECORD_NOT_FOUND);
     }
 
-    public static function capability_inactive(): self {
-        return new self(self::STATE_CAPABILITY_INACTIVE);
+    public static function solution_inactive(): self {
+        return new self(self::STATE_SOLUTION_INACTIVE);
     }
 
     public static function origin_retiring(): self {

@@ -616,6 +616,9 @@ $is_records_fill = $show_read_ui
                                         $card_capabilities = isset($item['capabilities']) && is_array($item['capabilities'])
                                             ? $item['capabilities']
                                             : null;
+                                        $card_solutions = isset($item['solutions']) && is_array($item['solutions'])
+                                            ? $item['solutions']
+                                            : null;
                                         $show_edit_record = $show_record_fab;
                                         $shell_record_presentation = 'compact';
                                         $show_image_actions = $show_create_record_ui && !$list_retire_in_progress;
@@ -810,6 +813,9 @@ $is_records_fill = $show_read_ui
                                 $card_record_id = isset($item['id']) ? (int) $item['id'] : 0;
                                 $card_capabilities = isset($item['capabilities']) && is_array($item['capabilities'])
                                     ? $item['capabilities']
+                                    : null;
+                                $card_solutions = isset($item['solutions']) && is_array($item['solutions'])
+                                    ? $item['solutions']
                                     : null;
                                 $show_edit_record = $show_record_fab;
                                 $shell_record_presentation = 'card';
@@ -1198,8 +1204,6 @@ $is_records_fill = $show_read_ui
                     $cap_label = 'Teléfono';
                 } elseif ($cap_key === 'email') {
                     $cap_label = 'Email';
-                } elseif ($cap_key === 'dossier') {
-                    $cap_label = 'Expediente';
                 } elseif ($cap_key === 'images') {
                     $cap_label = 'Imágenes';
                 } else {
@@ -1276,6 +1280,32 @@ $is_records_fill = $show_read_ui
             } catch (Throwable $e) {
                 $edit_container_capabilities_boot = ['status' => 'unavailable'];
             }
+        }
+    }
+    $family_solution_options = [];
+    foreach ($families_for_capability_options as $family_option_row) {
+        $solution_family_key = (string) ($family_option_row['family_key'] ?? '');
+        $family_solution_options[$solution_family_key] = [];
+        if ($solution_family_key === 'contact' && class_exists('AA_Canonical_Solution_Registry_Bootstrap')) {
+            try {
+                $dossier_solution = AA_Canonical_Solution_Registry_Bootstrap::bootstrap()->get('contact_dossier');
+                if ($dossier_solution->is_ready()) {
+                    $family_solution_options[$solution_family_key][] = [
+                        'key' => 'contact_dossier', 'label' => $dossier_solution->label(), 'is_default' => false,
+                    ];
+                }
+            } catch (Throwable $e) {
+                $family_solution_options[$solution_family_key] = [];
+            }
+        }
+    }
+    $edit_container_solutions_boot = null;
+    if ($show_edit_container_on_records && $create_family_key === 'contact') {
+        try {
+            $application = (new CanonicalContactDossierApplicationRepository())->find($create_container_id);
+            $edit_container_solutions_boot = ['status' => 'ok', 'active' => ($application !== null && !empty($application['is_active'])) ? ['contact_dossier'] : []];
+        } catch (Throwable $e) {
+            $edit_container_solutions_boot = ['status' => 'unavailable'];
         }
     }
     ?>
@@ -1364,7 +1394,7 @@ $is_records_fill = $show_read_ui
                     </div>
                     <details class="rounded-lg border border-gray-200 bg-gray-50/60 open:bg-white">
                         <summary class="cursor-pointer select-none px-3 py-2 text-xs font-semibold text-gray-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded-lg">
-                            Campos y funciones
+                            Opciones
                         </summary>
                         <div class="px-3 pb-3 pt-1 space-y-2">
                             <p
@@ -1377,6 +1407,11 @@ $is_records_fill = $show_read_ui
                                 id="aa-shell-container-capabilities"
                                 class="space-y-2"
                             ></div>
+                            <div class="pt-2">
+                                <p class="text-xs font-semibold text-gray-700 mb-2">Soluciones</p>
+                                <p id="aa-shell-container-solutions-status" class="hidden text-xs font-medium text-amber-900" role="status" aria-live="polite"></p>
+                                <div id="aa-shell-container-solutions" class="space-y-2"></div>
+                            </div>
                         </div>
                     </details>
                 </div>
@@ -1485,7 +1520,9 @@ $is_records_fill = $show_read_ui
         requireFamilySelect: <?php echo $show_family_select_on_create ? 'true' : 'false'; ?>,
         maxTitleLength: <?php echo (int) CanonicalCreateContainerCommand::MAX_TITLE_LENGTH; ?>,
         familyCapabilityOptions: <?php echo wp_json_encode($family_capability_options); ?>,
-        editContainerCapabilities: <?php echo wp_json_encode($edit_container_capabilities_boot); ?>
+        editContainerCapabilities: <?php echo wp_json_encode($edit_container_capabilities_boot); ?>,
+        familySolutionOptions: <?php echo wp_json_encode($family_solution_options); ?>,
+        editContainerSolutions: <?php echo wp_json_encode($edit_container_solutions_boot); ?>
     };
     </script>
     <script src="<?php echo function_exists('aa_asset_url')
