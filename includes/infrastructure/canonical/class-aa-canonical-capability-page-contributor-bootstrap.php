@@ -50,6 +50,12 @@ if (!class_exists('CanonicalRecordImagesRepository')) {
 if (!class_exists('CanonicalRecordImagePublicDto')) {
     require_once dirname(__DIR__, 2) . '/application/canonical/images/CanonicalRecordImagePublicDto.php';
 }
+if (!class_exists('CanonicalCompletedRecordsPageContributor')) {
+    require_once dirname(__DIR__, 2) . '/application/canonical/capabilities/completed/CanonicalCompletedRecordsPageContributor.php';
+}
+if (!class_exists('CanonicalRecordCompletionRepository')) {
+    require_once dirname(__DIR__, 2) . '/repositories/CanonicalRecordCompletionRepository.php';
+}
 
 final class AA_Canonical_Capability_Page_Contributor_Bootstrap {
 
@@ -125,6 +131,13 @@ final class AA_Canonical_Capability_Page_Contributor_Bootstrap {
             new CanonicalImagesRecordsPageContributor(
                 new CanonicalCapabilityConfigRepository($wpdb),
                 new CanonicalRecordImagesRepository($wpdb),
+                $capability_registry
+            )
+        );
+        $registry->register(
+            new CanonicalCompletedRecordsPageContributor(
+                new CanonicalCapabilityConfigRepository($wpdb),
+                new CanonicalRecordCompletionRepository($wpdb),
                 $capability_registry
             )
         );

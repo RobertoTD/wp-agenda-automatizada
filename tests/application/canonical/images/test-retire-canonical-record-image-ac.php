@@ -64,7 +64,7 @@ $runs_src = (string) file_get_contents($runs_file);
 
 ac_assert('archivos del incremento 5 existen', is_file($uc_file) && is_file($cmd_file) && is_file($result_file)
     && is_file($cap_file) && is_file($ajax_file));
-ac_assert('DB_VERSION=37', strpos($schema_src, "DB_VERSION = '37'") !== false);
+ac_assert('DB_VERSION=38', strpos($schema_src, "DB_VERSION = '38'") !== false);
 ac_assert('ensure_purge_image_retire_v31', strpos($cschema_src, 'ensure_purge_image_retire_v31') !== false
     && strpos($cschema_src, 'record_id bigint(20) unsigned DEFAULT NULL') !== false);
 ac_assert('SCOPE_IMAGE + blocking por record_id', strpos($runs_src, "SCOPE_IMAGE = 'image'") !== false

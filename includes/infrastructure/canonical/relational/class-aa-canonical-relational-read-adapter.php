@@ -55,12 +55,17 @@ final class AA_Canonical_Relational_Read_Adapter implements CanonicalReadAdapter
     /** @var CanonicalReadIdentity */
     private $bound_identity;
 
+    /** @var bool|null */
+    private $completion_state;
+
     public function __construct(
         CanonicalRelationalRepository $repository,
-        CanonicalReadIdentity $bound_identity
+        CanonicalReadIdentity $bound_identity,
+        ?bool $completion_state = null
     ) {
         $this->repository = $repository;
         $this->bound_identity = $bound_identity;
+        $this->completion_state = $completion_state;
     }
 
     public function list_containers(int $page, int $per_page): CanonicalPage {
@@ -133,7 +138,9 @@ final class AA_Canonical_Relational_Read_Adapter implements CanonicalReadAdapter
         $this->get_container($container_id);
 
         try {
-            $total = $this->repository->count_records($container_id);
+            $total = $this->completion_state === null
+                ? $this->repository->count_records($container_id)
+                : $this->repository->count_records_by_completion($container_id, $this->completion_state);
         } catch (CanonicalRelationalQueryFailed $e) {
             throw $this->map_query_failed($e);
         }
@@ -148,7 +155,9 @@ final class AA_Canonical_Relational_Read_Adapter implements CanonicalReadAdapter
         }
 
         try {
-            $rows = $this->repository->list_records($container_id, $page, $per_page);
+            $rows = $this->completion_state === null
+                ? $this->repository->list_records($container_id, $page, $per_page)
+                : $this->repository->list_records_by_completion($container_id, $page, $per_page, $this->completion_state);
         } catch (CanonicalRelationalQueryFailed $e) {
             throw $this->map_query_failed($e);
         }

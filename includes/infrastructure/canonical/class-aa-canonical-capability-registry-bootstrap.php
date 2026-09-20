@@ -58,6 +58,13 @@ final class AA_Canonical_Capability_Registry_Bootstrap {
                 true
             )
         );
+        $registry->register(
+            new AA_Canonical_Capability_Definition(
+                'completed',
+                AA_Canonical_Capability_Definition::SCOPE_RECORD,
+                true
+            )
+        );
 
         $registry->freeze();
 

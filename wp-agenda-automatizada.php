@@ -150,12 +150,14 @@ require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/capabil
 require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/capabilities/dossier/CanonicalDossierRecordsPageContributor.php';
 require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/images/CanonicalRecordImagePublicDto.php';
 require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/capabilities/images/CanonicalImagesRecordsPageContributor.php';
+require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/capabilities/completed/CanonicalCompletedRecordsPageContributor.php';
 require_once plugin_dir_path(__FILE__) . 'includes/repositories/CanonicalRecordImagesRepository.php';
 require_once plugin_dir_path(__FILE__) . 'includes/repositories/CanonicalCapabilityConfigRepository.php';
 require_once plugin_dir_path(__FILE__) . 'includes/repositories/CanonicalRecordAmountRepository.php';
 require_once plugin_dir_path(__FILE__) . 'includes/repositories/CanonicalRecordPhoneRepository.php';
 require_once plugin_dir_path(__FILE__) . 'includes/repositories/CanonicalRecordWhatsappRepository.php';
 require_once plugin_dir_path(__FILE__) . 'includes/repositories/CanonicalRecordEmailRepository.php';
+require_once plugin_dir_path(__FILE__) . 'includes/repositories/CanonicalRecordCompletionRepository.php';
 require_once plugin_dir_path(__FILE__) . 'includes/repositories/CanonicalContactDossierRepository.php';
 require_once plugin_dir_path(__FILE__) . 'includes/repositories/CanonicalContactDossierApplicationRepository.php';
 require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/canonical/class-aa-canonical-family-enablement-store.php';
@@ -439,6 +441,8 @@ CanonicalOpenContactDossierAjax::register();
 
 require_once __DIR__ . '/includes/http/ajax/CanonicalUpdateRecordAjax.php';
 CanonicalUpdateRecordAjax::register();
+require_once __DIR__ . '/includes/http/ajax/CanonicalSetRecordCompletionAjax.php';
+CanonicalSetRecordCompletionAjax::register();
 
 require_once __DIR__ . '/includes/http/ajax/CanonicalDeleteRecordAjax.php';
 CanonicalDeleteRecordAjax::register();

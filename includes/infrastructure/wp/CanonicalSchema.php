@@ -56,6 +56,7 @@ final class AA_Canonical_Schema {
     public const TABLE_RECORD_PHONE = 'aa_canonical_record_phone';
     public const TABLE_RECORD_WHATSAPP = 'aa_canonical_record_whatsapp';
     public const TABLE_RECORD_EMAIL = 'aa_canonical_record_email';
+    public const TABLE_RECORD_COMPLETION = 'aa_canonical_record_completion';
     public const TABLE_CONTACT_DOSSIER = 'aa_canonical_contact_dossier';
     public const TABLE_CONTACT_DOSSIER_APPLICATIONS = 'aa_canonical_contact_dossier_applications';
     public const TABLE_RECORD_IMAGES = 'aa_canonical_record_images';
@@ -118,6 +119,11 @@ final class AA_Canonical_Schema {
     public static function record_email_table_name(): string {
         global $wpdb;
         return $wpdb->prefix . self::TABLE_RECORD_EMAIL;
+    }
+
+    public static function record_completion_table_name(): string {
+        global $wpdb;
+        return $wpdb->prefix . self::TABLE_RECORD_COMPLETION;
     }
 
     public static function contact_dossier_table_name(): string {
@@ -258,6 +264,10 @@ final class AA_Canonical_Schema {
         );
     }
 
+    public static function record_completion_foreign_key_name(?string $prefix = null): string {
+        return self::build_foreign_key_name($prefix, 'aa_canonical_record_completion:record_id', 'aa_can_cmp_');
+    }
+
     /**
      * FK contact_dossier.contact_record_id → records.id (CASCADE).
      */
@@ -360,6 +370,7 @@ final class AA_Canonical_Schema {
         $record_phone_table = self::record_phone_table_name();
         $record_whatsapp_table = self::record_whatsapp_table_name();
         $record_email_table = self::record_email_table_name();
+        $record_completion_table = self::record_completion_table_name();
         $contact_dossier_table = self::contact_dossier_table_name();
         $contact_dossier_applications_table = self::contact_dossier_applications_table_name();
         $record_images_table = self::record_images_table_name();
@@ -448,6 +459,13 @@ final class AA_Canonical_Schema {
             created_at datetime NOT NULL,
             updated_at datetime NOT NULL,
             PRIMARY KEY  (record_id)
+        ) ENGINE=InnoDB {$charset};";
+
+        $record_completion_sql = "CREATE TABLE {$record_completion_table} (
+            record_id bigint(20) unsigned NOT NULL,
+            completed_at datetime NOT NULL,
+            PRIMARY KEY  (record_id),
+            KEY idx_completed_at (completed_at, record_id)
         ) ENGINE=InnoDB {$charset};";
 
         $contact_dossier_sql = "CREATE TABLE {$contact_dossier_table} (
@@ -574,6 +592,7 @@ final class AA_Canonical_Schema {
         dbDelta($record_phone_sql);
         dbDelta($record_whatsapp_sql);
         dbDelta($record_email_sql);
+        dbDelta($record_completion_sql);
         dbDelta($contact_dossier_sql);
         dbDelta($contact_dossier_applications_sql);
         dbDelta($record_images_sql);
@@ -1352,6 +1371,13 @@ final class AA_Canonical_Schema {
             'CASCADE'
         );
         self::ensure_foreign_key(
+            self::record_completion_table_name(),
+            self::record_completion_foreign_key_name(),
+            'record_id',
+            self::records_table_name(),
+            'CASCADE'
+        );
+        self::ensure_foreign_key(
             self::contact_dossier_table_name(),
             self::contact_dossier_contact_record_foreign_key_name(),
             'contact_record_id',
@@ -1439,6 +1465,7 @@ final class AA_Canonical_Schema {
         $record_phone = self::record_phone_table_name();
         $record_whatsapp = self::record_whatsapp_table_name();
         $record_email = self::record_email_table_name();
+        $record_completion = self::record_completion_table_name();
         $contact_dossier = self::contact_dossier_table_name();
         $contact_dossier_applications = self::contact_dossier_applications_table_name();
         $record_images = self::record_images_table_name();
@@ -1455,6 +1482,7 @@ final class AA_Canonical_Schema {
         self::verify_table_existence_and_engine($record_phone);
         self::verify_table_existence_and_engine($record_whatsapp);
         self::verify_table_existence_and_engine($record_email);
+        self::verify_table_existence_and_engine($record_completion);
         self::verify_table_existence_and_engine($contact_dossier);
         self::verify_table_existence_and_engine($contact_dossier_applications);
         self::verify_table_existence_and_engine($record_images);
@@ -1531,6 +1559,13 @@ final class AA_Canonical_Schema {
             $record_email,
             $records,
             self::record_email_foreign_key_name(),
+            'record_id',
+            'CASCADE'
+        );
+        self::verify_foreign_key(
+            $record_completion,
+            $records,
+            self::record_completion_foreign_key_name(),
             'record_id',
             'CASCADE'
         );

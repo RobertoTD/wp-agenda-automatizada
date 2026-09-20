@@ -63,6 +63,12 @@ $containers_page_num = is_array($view) && isset($view['containers_page'])
 $family_icon_key = is_array($view) && isset($view['family_icon_key']) && is_string($view['family_icon_key'])
     ? $view['family_icon_key']
     : '';
+$records_view = is_array($view) && isset($view['records_view']) && $view['records_view'] === 'completed'
+    ? 'completed'
+    : 'pending';
+$is_completed_records_view = ($records_view === 'completed');
+$pending_view_url = is_array($view) ? (string) ($view['pending_view_url'] ?? '') : '';
+$completed_view_url = is_array($view) ? (string) ($view['completed_view_url'] ?? '') : '';
 if (
     $family_icon_key === ''
     && isset($aa_canonical_family)
@@ -162,7 +168,8 @@ $show_create_record_ui = $show_read_ui
     && $route_state === 'resolved'
     && in_array($read_state, ['empty', 'resolved_page'], true)
     && $create_family_key !== ''
-    && $create_container_id >= 1;
+    && $create_container_id >= 1
+    && !$is_completed_records_view;
 
 // Editar lista desde records: misma puerta de escritura que crear registro (familia + contenedor padre).
 $show_edit_container_on_records = $show_create_record_ui;
@@ -483,6 +490,11 @@ $is_records_fill = $show_read_ui
                                             >
                                                 Editar
                                             </button>
+                                            <?php if ($completed_view_url !== '') : ?>
+                                                <a href="<?php echo esc_url($is_completed_records_view ? $pending_view_url : $completed_view_url); ?>" class="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 focus:outline-none focus:bg-gray-50 focus:ring-2 focus:ring-inset focus:ring-indigo-500/30">
+                                                    <?php echo $is_completed_records_view ? 'Ver pendientes' : 'Ver completadas'; ?>
+                                                </a>
+                                            <?php endif; ?>
                                             <button
                                                 type="button"
                                                 class="aa-shell-delete-container-btn flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-red-600 hover:bg-gray-50 focus:outline-none focus:bg-gray-50 focus:ring-2 focus:ring-inset focus:ring-red-500/30"
@@ -514,6 +526,9 @@ $is_records_fill = $show_read_ui
                                             aria-controls="aa-shell-list-details"
                                         >Detalles</button>
                                     </div>
+                                <?php endif; ?>
+                                <?php if ($completed_view_url !== '') : ?>
+                                    <span class="rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600"><?php echo $is_completed_records_view ? 'Completadas' : 'Pendientes'; ?></span>
                                 <?php endif; ?>
                             </div>
                         </header>
@@ -1206,6 +1221,8 @@ $is_records_fill = $show_read_ui
                     $cap_label = 'Email';
                 } elseif ($cap_key === 'images') {
                     $cap_label = 'Imágenes';
+                } elseif ($cap_key === 'completed') {
+                    $cap_label = 'Completar';
                 } else {
                     $cap_label = $cap_key;
                 }
@@ -1533,7 +1550,7 @@ $is_records_fill = $show_read_ui
         : esc_url((defined('AA_PLUGIN_URL') ? AA_PLUGIN_URL : '') . 'includes/admin/ui/modules/canonical_shell/canonical-shell-container-options.js'); ?>"></script>
 <?php endif; ?>
 
-<?php if ($show_record_fab) : ?>
+<?php if ($show_record_fab || ($is_records && $create_family_key === 'action')) : ?>
     <?php
     if (!class_exists('CanonicalCreateRecordAjax')) {
         require_once dirname(__DIR__, 4) . '/http/ajax/CanonicalCreateRecordAjax.php';
@@ -2074,6 +2091,18 @@ $is_records_fill = $show_read_ui
         containersPage: <?php echo wp_json_encode($containers_page_num !== null && $containers_page_num > 1 ? $containers_page_num : null); ?>
     };
     </script>
+    <script>
+    window.AA_CANONICAL_SHELL_COMPLETED = {
+        ajaxUrl: <?php echo wp_json_encode(admin_url('admin-ajax.php')); ?>,
+        action: <?php echo wp_json_encode(CanonicalSetRecordCompletionAjax::ACTION); ?>,
+        nonce: <?php echo wp_json_encode(wp_create_nonce(CanonicalSetRecordCompletionAjax::NONCE_ACTION)); ?>,
+        familyKey: <?php echo wp_json_encode($create_family_key); ?>,
+        containerId: <?php echo (int) $create_container_id; ?>
+    };
+    </script>
+    <script src="<?php echo function_exists('aa_asset_url')
+        ? aa_asset_url('includes/admin/ui/modules/canonical_shell/capabilities/canonical-shell-completed-action.js')
+        : esc_url((defined('AA_PLUGIN_URL') ? AA_PLUGIN_URL : '') . 'includes/admin/ui/modules/canonical_shell/capabilities/canonical-shell-completed-action.js'); ?>"></script>
     <script src="<?php echo function_exists('aa_asset_url')
         ? aa_asset_url('includes/admin/ui/modules/canonical_shell/capabilities/canonical-shell-dossier-action.js')
         : esc_url((defined('AA_PLUGIN_URL') ? AA_PLUGIN_URL : '') . 'includes/admin/ui/modules/canonical_shell/capabilities/canonical-shell-dossier-action.js'); ?>"></script>

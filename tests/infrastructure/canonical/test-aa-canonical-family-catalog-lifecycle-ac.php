@@ -37,7 +37,7 @@ $main_src = (string) file_get_contents($main_file);
 $schema_src = (string) file_get_contents($schema_file);
 $bind_src = (string) file_get_contents($binding_boot);
 
-ac_assert('CATALOG_VERSION = 2', strpos($lc_src, 'CATALOG_VERSION = 2') !== false);
+ac_assert('CATALOG_VERSION = 3', strpos($lc_src, 'CATALOG_VERSION = 3') !== false);
 ac_assert('OPTION_VERSION correcta', strpos($lc_src, "OPTION_VERSION = 'aa_canonical_family_catalog_version'") !== false);
 ac_assert('Prioridad admin_init 25', strpos($lc_src, 'ADMIN_INIT_PRIORITY = 25') !== false);
 ac_assert('MIN_DB_VERSION 21', strpos($lc_src, "MIN_DB_VERSION = '21'") !== false);
@@ -45,7 +45,7 @@ ac_assert('Plugin registra lifecycle', strpos($main_src, 'AA_Canonical_Family_Ca
 ac_assert('Plugin require lifecycle', strpos($main_src, 'class-aa-canonical-family-catalog-lifecycle.php') !== false);
 ac_assert('Schema no invoca provisioner', strpos($schema_src, 'Family_Provisioner') === false
     && strpos($schema_src, 'Family_Catalog_Lifecycle') === false);
-ac_assert('DB_VERSION es 37', strpos($schema_src, "DB_VERSION = '37'") !== false);
+ac_assert('DB_VERSION es 38', strpos($schema_src, "DB_VERSION = '38'") !== false);
 ac_assert('Binding productivo es Relational (PCU-5B)', strpos($bind_src, 'AA_Canonical_Relational_Read_Adapter') !== false
     && strpos($bind_src, 'AA_Finance_Canonical_Read_Adapter') === false);
 ac_assert('Lifecycle no carga adapters PCU-3', strpos($lc_src, 'Relational_Read_Adapter') === false

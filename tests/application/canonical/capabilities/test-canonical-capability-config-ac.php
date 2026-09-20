@@ -46,7 +46,7 @@ ac_assert('Ops no menciona FinanceSchema/aa_finance', stripos($ops_src, 'aa_fina
 ac_assert('Repo config no menciona finance', stripos($repo_src, 'finance') === false);
 ac_assert('Bootstrap registra amount is_ready true', strpos($boot_src, "'amount'") !== false && preg_match("/new AA_Canonical_Capability_Definition\(\s*'amount'\s*,\s*AA_Canonical_Capability_Definition::SCOPE_RECORD\s*,\s*true\s*\)/", $boot_src) === 1);
 ac_assert('Bootstrap registra images is_ready true', preg_match("/new AA_Canonical_Capability_Definition\(\s*'images'\s*,\s*AA_Canonical_Capability_Definition::SCOPE_RECORD\s*,\s*true\s*\)/", $boot_src) === 1);
-ac_assert('Lifecycle DEFAULTS_VERSION=7', strpos($life_src, 'DEFAULTS_VERSION = 7') !== false);
+ac_assert('Lifecycle DEFAULTS_VERSION=8', strpos($life_src, 'DEFAULTS_VERSION = 8') !== false);
 ac_assert('Lifecycle usa insert_family_capability_if_missing', strpos($life_src, 'insert_family_capability_if_missing') !== false);
 ac_assert('Lifecycle filtra !is_ready', strpos($life_src, 'is_ready()') !== false);
 ac_assert('Ops sin AJAX/Settings', stripos($ops_src, 'wp_ajax') === false && stripos($ops_src, 'options.php') === false);

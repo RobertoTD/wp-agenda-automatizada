@@ -55,7 +55,7 @@ $canonical_src = file_get_contents($canonical_schema_file);
 
 ac_assert('Schema.php es legible', is_string($schema_src) && $schema_src !== '');
 ac_assert('CanonicalSchema.php es legible', is_string($canonical_src) && $canonical_src !== '');
-ac_assert("AA_Schema::DB_VERSION es '37'", strpos($schema_src, "DB_VERSION = '37'") !== false);
+ac_assert("AA_Schema::DB_VERSION es '37'", strpos($schema_src, "DB_VERSION = '38'") !== false);
 ac_assert('Schema.php delega en AA_Canonical_Schema::install()', strpos($schema_src, 'AA_Canonical_Schema::install()') !== false);
 ac_assert(
     'Sin AA_Finance_Schema::install()',

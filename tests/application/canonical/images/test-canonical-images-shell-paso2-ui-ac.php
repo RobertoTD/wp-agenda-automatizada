@@ -81,7 +81,7 @@ ac_assert('Partial galería principal display', strpos($gallery_partial, 'data-a
 ac_assert('Partial galería mini gallery', strpos($gallery_partial, 'data-aa-read-version="gallery"') !== false);
 ac_assert('Partial sin lista textual Imagen #', strpos($gallery_partial, 'Imagen #') === false);
 ac_assert('Presenter images registrado', strpos($bootstrap, 'class-aa-canonical-images-shell-presenter.php') !== false);
-ac_assert('DEFAULTS_VERSION = 7', strpos($defaults, 'public const DEFAULTS_VERSION = 7;') !== false);
+ac_assert('DEFAULTS_VERSION = 8', strpos($defaults, 'public const DEFAULTS_VERSION = 8;') !== false);
 
 $resolve_pos = strpos($index, '$aa_shell_resolve_card_image_summary_url');
 $uc_require_pos = strpos(
@@ -212,7 +212,7 @@ ac_assert(
 $db_schema = (string) file_get_contents(
     $plugin_root . '/includes/infrastructure/wp/Schema.php'
 );
-ac_assert('DB_VERSION = 37', strpos($db_schema, "public const DB_VERSION = '37';") !== false);
+ac_assert('DB_VERSION = 38', strpos($db_schema, "public const DB_VERSION = '38';") !== false);
 
 echo "\n=== 5. Card compacta: summary cabecera + galería; sin lista textual ===\n";
 

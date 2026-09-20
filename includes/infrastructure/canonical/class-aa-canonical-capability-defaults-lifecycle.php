@@ -9,7 +9,7 @@
  * Phone: DEFAULTS_VERSION=4 → contact/phone default off (insert-if-missing).
  * WhatsApp: DEFAULTS_VERSION=5 → contact/whatsapp default on (insert-if-missing; solo listas nuevas).
  * Email: DEFAULTS_VERSION=6 → contact/email default off (insert-if-missing).
- * Dossier: DEFAULTS_VERSION=7 → contact/dossier default off (insert-if-missing).
+ * Completed: DEFAULTS_VERSION=8 → action/completed default on; images default off.
  *
  * @package WP_Agenda_Automatizada
  * @subpackage Infrastructure\Canonical
@@ -19,7 +19,7 @@ defined('ABSPATH') or die('No direct access');
 
 final class AA_Canonical_Capability_Defaults_Lifecycle {
 
-    public const DEFAULTS_VERSION = 7;
+    public const DEFAULTS_VERSION = 8;
 
     public const OPTION_VERSION = 'aa_canonical_capability_defaults_version';
 
@@ -177,6 +177,16 @@ final class AA_Canonical_Capability_Defaults_Lifecycle {
                 'family_key' => 'contact',
                 'capability_key' => 'email',
                 'is_default' => false,
+            ],
+            [
+                'family_key' => 'action',
+                'capability_key' => 'images',
+                'is_default' => false,
+            ],
+            [
+                'family_key' => 'action',
+                'capability_key' => 'completed',
+                'is_default' => true,
             ],
         ];
     }

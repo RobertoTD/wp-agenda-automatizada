@@ -12,7 +12,7 @@
 - **Estado implementado** — lo que existe hoy en el repositorio.
 - **Mecanismo técnico pendiente** — diseño o código aún no aprobado o no construido.
 
-Hoy: schema `DB_VERSION=37`; repertorio familiar y selección explícita de capabilities por lista; `amount`, `images`, `phone`, `whatsapp` y `email` ready. `dossier` ya no es capability ni clave admisible en su repertorio o selección: `contact_dossier` es una solution independiente, documentada en `docs/06-canonical-solutions.md`. Observaciones residuales Continuar/Cerrar/banner conservadas sin PASS. Plan §§10–12. Worker ops antes de producción. El módulo Finance legacy (`module=canonical`, `aa_finance_*`) está **retirado**.
+Hoy: schema `DB_VERSION=38`; repertorio familiar y selección explícita de capabilities por lista; `amount`, `images`, `phone`, `whatsapp`, `email` y `completed` ready. `completed` está disponible sólo para Acciones y nace activa en listas nuevas; su estado es un recurso tipado, no un criterio de orden. `dossier` ya no es capability ni clave admisible en su repertorio o selección: `contact_dossier` es una solution independiente, documentada en `docs/06-canonical-solutions.md`. Observaciones residuales Continuar/Cerrar/banner conservadas sin PASS. Plan §§10–12. Worker ops antes de producción. El módulo Finance legacy (`module=canonical`, `aa_finance_*`) está **retirado**.
 
 ---
 
@@ -318,6 +318,16 @@ El detalle físico (nombres de tablas, estados de operación, fingerprints, path
 
 La decisión anterior clasificaba `dossier` como capability exclusiva de Contactos y lo almacenaba en el repertorio y la selección de capabilities. Esa clasificación queda **supersedida**: Expediente es la solution `contact_dossier`, definida normativamente en `docs/06-canonical-solutions.md`.
 
-La implementación de código vigente todavía contiene la capability histórica `dossier`, su configuración por lista, contributor, presenter, acción y la relación `aa_canonical_contact_dossier`. Es una compatibilidad de transición, no un precedente para nuevas capabilities ni la fuente de verdad del contrato futuro. La migración deberá preservar asociaciones y listas Archivo, retirar gradualmente `dossier` del modelo de capabilities y evitar dos fuentes de verdad permanentes. La propuesta de transición vive en `docs/plans/contact-dossier-solution-v0.md`.
+La transición directa quedó completada en C3 (`DB_VERSION=37`): `dossier` fue retirado del registry, repertorio, defaults, selección, contributors y autoridad de lectura/escritura de capabilities. La relación `aa_canonical_contact_dossier` se conserva como recurso tipado de la solution `contact_dossier`, junto con su application específica por lista. No hay fallback ni doble fuente de verdad. El detalle histórico de la transición vive en `docs/plans/contact-dossier-solution-v0.md`.
 
-El comportamiento histórico preservado para la migración es: una relación 1:1 contacto→lista Archivo; creación diferida al abrir; título inicial `Exp — {nombre del contacto}`; Archivo como prerrequisito no autoactivable; desactivación que conserva datos; y ausencia de creación durante lectura/SSR. No se autoriza aquí ampliar a múltiples expedientes, relaciones genéricas, agenda, exportación/importación ni integración con legacy.
+La solution conserva una relación 1:1 contacto→lista Archivo, creación diferida al abrir, título inicial `Exp — {nombre del contacto}`, Archivo como prerrequisito no autoactivable, desactivación que conserva datos y ausencia de creación durante lectura/SSR. No se autoriza aquí ampliar a múltiples expedientes, relaciones genéricas, agenda, exportación/importación ni integración con legacy.
+
+---
+
+## 14. `completed` — Acciones (C5)
+
+`completed` es una capability de registro exclusiva de la familia `action`. Su default se materializa activo para listas nuevas de Acciones; la lista conserva después su decisión explícita de activación.
+
+Su recurso es `aa_canonical_record_completion`: una fila con `completed_at` significa completado; la ausencia de fila significa pendiente. No es historial, prioridad ni criterio de orden. Completar o devolver a pendiente toca el registro y su lista en la misma transacción para conservar el orden canónico ordinario.
+
+La vista base de Acciones contiene pendientes; `records_view=completed` selecciona completadas y se filtra antes de contar y paginar. Sólo la capability aporta esa semántica: el shell aporta el transporte de URL, la navegación y la presentación contextual. La UI ofrece `Completar` y la acción reversible `Marcar como pendiente`; en Completadas no se ofrece crear registros.

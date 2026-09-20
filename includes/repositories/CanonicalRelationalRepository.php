@@ -345,6 +345,21 @@ final class CanonicalRelationalRepository {
         return (int) $count;
     }
 
+    public function count_records_by_completion(int $container_id, bool $completed): int {
+        $records = $this->records_table();
+        $completion = AA_Canonical_Schema::record_completion_table_name();
+        $join = $completed ? 'INNER JOIN' : 'LEFT JOIN';
+        $where = $completed ? 'c.record_id IS NOT NULL' : 'c.record_id IS NULL';
+        $count = $this->wpdb->get_var($this->wpdb->prepare(
+            "SELECT COUNT(*) FROM `{$records}` r {$join} `{$completion}` c ON c.record_id = r.id WHERE r.container_id = %d AND {$where}",
+            $container_id
+        ));
+        if ($count === false || $count === null || $this->wpdb->last_error !== '') {
+            throw new CanonicalRelationalQueryFailed('count_records_by_completion query failed.');
+        }
+        return (int) $count;
+    }
+
     /**
      * @return list<array{id:int,public_id:string,container_id:int,title:string,details:?string,created_at:string,updated_at:string}>
      * @throws CanonicalRelationalQueryFailed
@@ -381,6 +396,26 @@ final class CanonicalRelationalRepository {
         }
 
         return $mapped;
+    }
+
+    public function list_records_by_completion(int $container_id, int $page, int $per_page, bool $completed): array {
+        $this->assert_pagination($page, $per_page);
+        $offset = ($page - 1) * $per_page;
+        $records = $this->records_table();
+        $completion = AA_Canonical_Schema::record_completion_table_name();
+        $join = $completed ? 'INNER JOIN' : 'LEFT JOIN';
+        $where = $completed ? 'c.record_id IS NOT NULL' : 'c.record_id IS NULL';
+        $rows = $this->wpdb->get_results($this->wpdb->prepare(
+            "SELECT r.id, r.public_id, r.container_id, r.title, r.details, r.created_at, r.updated_at
+             FROM `{$records}` r {$join} `{$completion}` c ON c.record_id = r.id
+             WHERE r.container_id = %d AND {$where}
+             ORDER BY r.updated_at DESC, r.id DESC LIMIT %d OFFSET %d",
+            $container_id, $per_page, $offset
+        ), ARRAY_A);
+        if ($rows === false || $this->wpdb->last_error !== '') {
+            throw new CanonicalRelationalQueryFailed('list_records_by_completion query failed.');
+        }
+        return array_values(array_filter(array_map(function ($row) { return $this->map_record_row(is_array($row) ? $row : null); }, (array) $rows)));
     }
 
     /**

@@ -22,7 +22,7 @@ if (!class_exists('CanonicalFamilyProvisioningFailed')) {
 
 final class AA_Canonical_Family_Catalog_Lifecycle {
 
-    public const CATALOG_VERSION = 2;
+    public const CATALOG_VERSION = 3;
 
     public const OPTION_VERSION = 'aa_canonical_family_catalog_version';
 

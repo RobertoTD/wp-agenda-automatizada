@@ -20,6 +20,7 @@ final class AA_Canonical_Shell_Base_Url_Policy {
     public const ACTION_IFRAME_CONTENT = 'aa_iframe_content';
     public const SHELL_MODE_PREVIEW = 'preview';
     public const VIEW_RECORDS = 'records';
+    public const RECORDS_VIEW_COMPLETED = 'completed';
     public const LISTS_SCOPE_ALL = 'all';
 
     private const ALLOWED_QUERY_KEYS = [
@@ -32,6 +33,7 @@ final class AA_Canonical_Shell_Base_Url_Policy {
         'container_id',
         'containers_page',
         'lists_scope',
+        'records_view',
     ];
 
     /**
@@ -87,7 +89,8 @@ final class AA_Canonical_Shell_Base_Url_Policy {
         int $container_id,
         ?int $page = null,
         ?int $containers_page = null,
-        ?string $lists_scope = null
+        ?string $lists_scope = null,
+        ?string $records_view = null
     ): string {
         if (!AA_Canonical_Key::is_valid($family_key)) {
             throw new InvalidArgumentException('Clave de familia no válida para shell base.');
@@ -111,6 +114,9 @@ final class AA_Canonical_Shell_Base_Url_Policy {
         }
         if ($lists_scope === self::LISTS_SCOPE_ALL) {
             $args['lists_scope'] = self::LISTS_SCOPE_ALL;
+        }
+        if ($records_view === self::RECORDS_VIEW_COMPLETED) {
+            $args['records_view'] = self::RECORDS_VIEW_COMPLETED;
         }
 
         return add_query_arg($args, admin_url('admin-post.php'));

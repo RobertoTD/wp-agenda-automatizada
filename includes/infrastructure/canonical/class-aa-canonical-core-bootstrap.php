@@ -38,6 +38,9 @@ final class AA_Canonical_Core_Bootstrap {
         $registry->register_family(
             new AA_Canonical_Family_Definition('contact', 'Contactos', 'contact_card')
         );
+        $registry->register_family(
+            new AA_Canonical_Family_Definition('action', 'Acciones', 'checklist')
+        );
 
         $registry->freeze();
 
