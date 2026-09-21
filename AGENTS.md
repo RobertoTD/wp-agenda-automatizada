@@ -18,5 +18,7 @@ Si el trabajo pertenece al ámbito canónico —canon, familia, capability, solu
 4. Mientras se construya Shell Base v1, lee también `docs/plans/shell-canonical-base-v1.md`, que es un plan temporal y no una constitución.
 5. No copies, resumas, reescribas ni dupliques esos documentos.
 6. Si existe un conflicto con el cheatsheet, README o código vigente, repórtalo y detente. No lo resuelvas reinterpretando la constitución ni el documento de capacidades o solutions. No uses el módulo Finance legacy retirado como referencia operativa.
+7. Antes de cerrar un cambio de capability, aplica el cierre de proyección de `docs/05-canonical-capabilities.md` §5.1: prueba activa → inactiva → reactivada. La desactivación debe retirar toda proyección y escritura de la capability, conservar sus datos y dejar la lectura canónica base sin filtros, navegación ni UI de esa capability. No uses una condición de familia como sustituto de la activación efectiva de la lista.
+8. Si el cambio toca presentación de capabilities en el Shell Canónico (cards, acciones, formularios, labels, assets o módulos cliente), lee también `docs/plans/capability-presentation-contract-v0.md`. No añadas comportamiento nuevo al Legacy Presentation Bridge: registra una contribución del contrato v0. El bridge solo admite correcciones de bug, seguridad o compatibilidad.
 
 Fuera de ese ámbito, no cargues esos documentos.

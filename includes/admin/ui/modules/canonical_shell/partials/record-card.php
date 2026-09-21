@@ -12,6 +12,11 @@
  * @package WP_Agenda_Automatizada
  */
 
+/*
+ * Legacy Presentation Bridge: no agregar capabilities nuevas aquí.
+ * Usar Capability Presentation Contract v0; claves legacy permitidas en el plan.
+ */
+
 defined('ABSPATH') or die('¡Sin acceso directo!');
 
 $show_edit_record = !empty($show_edit_record);

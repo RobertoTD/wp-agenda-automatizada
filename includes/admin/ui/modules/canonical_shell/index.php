@@ -8,6 +8,11 @@
  * @subpackage Admin\UI\Modules\CanonicalShell
  */
 
+/*
+ * Legacy Presentation Bridge: los bloques heredados de capabilities en este archivo
+ * no admiten capacidades ni comportamiento nuevos. Usar Presentation Contract v0.
+ */
+
 defined('ABSPATH') or die('¡Sin acceso directo!');
 
 $route_state = isset($aa_shell_route_state) && is_string($aa_shell_route_state)
@@ -1157,6 +1162,15 @@ $is_records_fill = $show_read_ui
     if (!class_exists('AA_Canonical_Capability_Registry_Bootstrap')) {
         require_once dirname(__DIR__, 4) . '/infrastructure/canonical/class-aa-canonical-capability-registry-bootstrap.php';
     }
+    if (!class_exists('CanonicalCapabilityPresentationDefinition')) {
+        require_once dirname(__DIR__, 4) . '/application/canonical/capabilities/presentation/CanonicalCapabilityPresentationDefinition.php';
+    }
+    if (!class_exists('CanonicalCapabilityPresentationRegistry')) {
+        require_once dirname(__DIR__, 4) . '/application/canonical/capabilities/presentation/CanonicalCapabilityPresentationRegistry.php';
+    }
+    if (!class_exists('AA_Canonical_Capability_Presentation_Registry_Bootstrap')) {
+        require_once dirname(__DIR__, 4) . '/infrastructure/canonical/class-aa-canonical-capability-presentation-registry-bootstrap.php';
+    }
     if (!class_exists('CanonicalFamilyUnknown')) {
         require_once dirname(__DIR__, 4) . '/application/canonical/CanonicalFamilyUnknown.php';
     }
@@ -1187,16 +1201,21 @@ $is_records_fill = $show_read_ui
 
     $family_capability_options = [];
     $capability_registry_for_shell = null;
+    $capability_presentation_registry_for_shell = null;
     $capability_config_repo_for_shell = null;
     try {
         if (class_exists('AA_Canonical_Capability_Registry_Bootstrap')) {
             $capability_registry_for_shell = AA_Canonical_Capability_Registry_Bootstrap::bootstrap();
+        }
+        if (class_exists('AA_Canonical_Capability_Presentation_Registry_Bootstrap')) {
+            $capability_presentation_registry_for_shell = AA_Canonical_Capability_Presentation_Registry_Bootstrap::bootstrap();
         }
         if (class_exists('CanonicalCapabilityConfigRepository')) {
             $capability_config_repo_for_shell = new CanonicalCapabilityConfigRepository();
         }
     } catch (Throwable $e) {
         $capability_registry_for_shell = null;
+        $capability_presentation_registry_for_shell = null;
         $capability_config_repo_for_shell = null;
     }
 
@@ -1206,7 +1225,7 @@ $is_records_fill = $show_read_ui
             continue;
         }
         $family_capability_options[$option_family_key] = [];
-        if ($capability_config_repo_for_shell === null || $capability_registry_for_shell === null) {
+        if ($capability_config_repo_for_shell === null || $capability_registry_for_shell === null || $capability_presentation_registry_for_shell === null) {
             continue;
         }
         try {
@@ -1230,20 +1249,10 @@ $is_records_fill = $show_read_ui
                 if (!$cap_def->is_ready()) {
                     continue;
                 }
-                if ($cap_key === 'amount') {
-                    $cap_label = 'Importe';
-                } elseif ($cap_key === 'whatsapp') {
-                    $cap_label = 'WhatsApp';
-                } elseif ($cap_key === 'phone') {
-                    $cap_label = 'Teléfono';
-                } elseif ($cap_key === 'email') {
-                    $cap_label = 'Email';
-                } elseif ($cap_key === 'images') {
-                    $cap_label = 'Imágenes';
-                } elseif ($cap_key === 'completed') {
-                    $cap_label = 'Completar';
-                } else {
-                    $cap_label = $cap_key;
+                try {
+                    $cap_label = $capability_presentation_registry_for_shell->get($cap_key)->label();
+                } catch (OutOfBoundsException $e) {
+                    continue;
                 }
                 $family_capability_options[$option_family_key][] = [
                     'key' => $cap_key,

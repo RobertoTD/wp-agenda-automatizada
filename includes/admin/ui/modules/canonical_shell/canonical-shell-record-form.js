@@ -1,5 +1,7 @@
 /**
  * Canonical Shell — create/update/delete de registro universal (SB1-5B2…SB1-5B4).
+ * Legacy Presentation Bridge: no registrar capabilities nuevas en este archivo;
+ * usar Capability Presentation Contract v0.
  */
 (function () {
     'use strict';

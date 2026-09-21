@@ -92,6 +92,30 @@ La solicitud no es un snapshot del setup completo; el snapshot es la capa 3.
 
 Las capacidades declaran su alcance y, cuando corresponda, dependencias e incompatibilidades. Se valida la configuración resultante antes de guardarla. No se construye por anticipado un motor complejo de reglas.
 
+### 5.1 Cierre de proyección al desactivar (decisión aceptada)
+
+La desactivación es el retiro total y reversible de la **proyección** de una capability en esa lista; no es sólo ocultar uno de sus controles. Mientras permanezca inactiva, deben cumplirse conjuntamente estas condiciones:
+
+- no admite escrituras nuevas de la capability;
+- no aporta campos, valores, acciones de tarjeta, controles, scripts ni representación de sus recursos;
+- no aporta filtros, vistas, etiquetas, enlaces ni navegación propios; la lectura base conserva exclusivamente el contrato canónico ordinario;
+- una URL que nombre una vista de capability reconocida pero inactiva debe volver de forma segura a la vista base de la lista; una clave de vista desconocida continúa siendo una solicitud inválida;
+- los valores y recursos tipados permanecen conservados, y al reactivar recuperan su misma proyección conforme al contrato de la capability.
+
+El shell puede transportar una clave de vista canónica y presentar contribuciones declaradas, pero no puede inferir que una familia posee una capability ni codificar una de sus claves, tablas o semánticas para cumplir estas condiciones. La compatibilidad de una family con una capability es una condición de la capability o de su repertorio; nunca una sustitución de su activación efectiva por lista.
+
+Todo ciclo que introduzca o amplíe una capability debe probar, como mínimo, el recorrido **activa → inactiva → reactivada** sobre una misma lista y verificar estas fronteras antes de considerarse cerrado.
+
+### 5.2 Presentation Contract v0 y puente legacy (decisión aceptada)
+
+El **Capability Presentation Contract v0** es el contrato de proyección para el **Shell administrativo**. El shell ofrece slots comunes; una capability registrada aporta contribuciones declaradas y el shell no bifurca por su clave, tabla, familia ni semántica. El runtime público tendrá un contrato distinto cuando exista.
+
+v0 inicia solo con acciones de tarjeta, assets/configuración cliente y las vistas de registros ya registradas. No define todavía campos ni un generador universal de formularios; ese contrato se explora antes de `event_date`. Las contribuciones viven en código registrado: nunca callbacks, paths o HTML ejecutable persistidos.
+
+Mientras se migra, existe un **Legacy Presentation Bridge** administrativo y de lista cerrada: `amount`, `phone`, `whatsapp`, `email` e `images`. `completed` es objetivo de migración inmediata, no una extensión del bridge. El bridge solo puede recibir correcciones de bug, seguridad o compatibilidad; está prohibido añadirle una capability, campo, acción, script, label, configuración o comportamiento de producto nuevos. La prueba de frontera protege esta regla.
+
+`contact_dossier` no pertenece a este bridge: es una deuda de presentación de la solution `contact_dossier`, regulada por `docs/06-canonical-solutions.md` y fuera de v0 inicial. El detalle operativo y la secuencia de migración viven en `docs/plans/capability-presentation-contract-v0.md`.
+
 ---
 
 ## 6. Datos tipados y formas de persistencia (decisión aceptada)
