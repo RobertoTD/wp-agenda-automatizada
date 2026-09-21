@@ -62,6 +62,9 @@ if (!class_exists('AA_Canonical_Family_Definition')) {
 if (!class_exists('AA_Canonical_Read_Binding_Bootstrap')) {
     require_once __DIR__ . '/class-aa-canonical-read-binding-bootstrap.php';
 }
+if (!class_exists('AA_Canonical_Capability_Records_View_Bootstrap')) {
+    require_once __DIR__ . '/class-aa-canonical-capability-records-view-bootstrap.php';
+}
 
 final class AA_Canonical_Shell_View_Composer {
 
@@ -129,17 +132,17 @@ final class AA_Canonical_Shell_View_Composer {
         int $page,
         int $containers_page,
         ?string $lists_scope = null,
-        string $records_view = 'pending'
+        ?string $records_view = null
     ): array {
         $identity = new CanonicalReadIdentity($family->key());
         $manifest = new CanonicalShellManifest($identity, $family);
 
+        $views = AA_Canonical_Capability_Records_View_Bootstrap::bootstrap();
+        $resolved_view = $records_view !== null ? $views->resolve($family->key(), $container_id, $records_view) : null;
+        $filter = $resolved_view !== null ? $resolved_view['filter'] : $views->default_filter($family->key(), $container_id);
+        $available_views = $views->available_views($family->key(), $container_id);
         $binding = new AA_Canonical_Read_Binding_Registry();
-        $completion_state = null;
-        if ($family->key() === 'action') {
-            $completion_state = ($records_view === 'completed');
-        }
-        AA_Canonical_Read_Binding_Bootstrap::register_productive($binding, $completion_state);
+        AA_Canonical_Read_Binding_Bootstrap::register_productive($binding, $filter);
         $gateway = new CanonicalReadGateway($binding);
         $result = (new ReadCanonicalShellRecordsUseCase($gateway))->execute(
             $manifest,
@@ -153,7 +156,9 @@ final class AA_Canonical_Shell_View_Composer {
             $container_id,
             $containers_page,
             $lists_scope,
-            $records_view
+            $records_view,
+            $available_views,
+            $resolved_view !== null ? $resolved_view['view'] : null
         );
     }
 
@@ -404,7 +409,9 @@ final class AA_Canonical_Shell_View_Composer {
         int $container_id,
         int $containers_page,
         ?string $lists_scope,
-        string $records_view = 'pending'
+        ?string $records_view = null,
+        array $available_views = [],
+        ?array $current_capability_view = null
     ): array {
         $manifest = $result->manifest();
         $state = $result->state();
@@ -531,12 +538,9 @@ final class AA_Canonical_Shell_View_Composer {
             'items_view' => $items_view,
             'capability_contributions' => $capability_contributions,
             'records_view' => $records_view,
-            'pending_view_url' => !$is_preview
-                ? AA_Canonical_Shell_Base_Url_Policy::build_records_url($manifest->identity()->family_key(), $container_id, null, $containers_page > 1 ? $containers_page : null, $lists_scope, null)
-                : '',
-            'completed_view_url' => !$is_preview && $manifest->identity()->family_key() === 'action'
-                ? AA_Canonical_Shell_Base_Url_Policy::build_records_url($manifest->identity()->family_key(), $container_id, null, $containers_page > 1 ? $containers_page : null, $lists_scope, 'completed')
-                : '',
+            'available_record_views' => self::build_record_views($manifest, $is_preview, $container_id, $containers_page, $lists_scope, $available_views),
+            'current_record_view' => $current_capability_view,
+            'default_records_url' => !$is_preview ? AA_Canonical_Shell_Base_Url_Policy::build_records_url($manifest->identity()->family_key(), $container_id, null, $containers_page > 1 ? $containers_page : null, $lists_scope) : '',
             'page' => $page_num,
             'per_page' => $per_page,
             'total' => $total,
@@ -607,7 +611,7 @@ final class AA_Canonical_Shell_View_Composer {
         ?int $page,
         int $containers_page,
         ?string $lists_scope = null,
-        string $records_view = 'pending'
+        ?string $records_view = null
     ): string {
         $page_arg = ($page !== null && $page > 1) ? $page : null;
         $containers_arg = $containers_page > 1 ? $containers_page : null;
@@ -629,8 +633,19 @@ final class AA_Canonical_Shell_View_Composer {
             $page_arg,
             $containers_arg,
             $scope_arg
-            , $records_view === 'completed' ? 'completed' : null
+            , $records_view
         );
+    }
+
+    /** @return list<array{key:string,label:string,url:string}> */
+    private static function build_record_views(CanonicalShellManifest $manifest, bool $is_preview, int $container_id, int $containers_page, ?string $lists_scope, array $views): array {
+        if ($is_preview) { return []; }
+        $out = [];
+        foreach ($views as $view) {
+            if (!is_array($view) || empty($view['key']) || empty($view['label'])) { continue; }
+            $out[] = ['key' => (string) $view['key'], 'label' => (string) $view['label'], 'url' => AA_Canonical_Shell_Base_Url_Policy::build_records_url($manifest->identity()->family_key(), $container_id, null, $containers_page > 1 ? $containers_page : null, $lists_scope, (string) $view['key'])];
+        }
+        return $out;
     }
 
     private static function resolve_display_timezone(): \DateTimeZone {

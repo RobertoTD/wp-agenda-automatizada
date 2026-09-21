@@ -87,6 +87,7 @@ require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/Canonic
 require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/CanonicalPage.php';
 require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/CanonicalRecordsPage.php';
 require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/CanonicalReadAdapter.php';
+require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/CanonicalRecordsFilter.php';
 require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/CanonicalReadAdapterResolver.php';
 require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/CanonicalReadBindingNotFound.php';
 require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/CanonicalContainerNotFound.php';
@@ -142,6 +143,8 @@ require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/capabil
 require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/capabilities/CanonicalCapabilityRecordsPageContribution.php';
 require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/capabilities/CanonicalCapabilityRecordPageContributor.php';
 require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/capabilities/CanonicalCapabilityRecordPageContributorRegistry.php';
+require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/capabilities/CanonicalCapabilityRecordsViewProvider.php';
+require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/capabilities/CanonicalCapabilityRecordsViewRegistry.php';
 require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/capabilities/CanonicalCapabilityShellRecordsEnricher.php';
 require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/capabilities/amount/CanonicalAmountRecordsPageContributor.php';
 require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/capabilities/phone/CanonicalPhoneRecordsPageContributor.php';
@@ -151,6 +154,8 @@ require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/capabil
 require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/images/CanonicalRecordImagePublicDto.php';
 require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/capabilities/images/CanonicalImagesRecordsPageContributor.php';
 require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/capabilities/completed/CanonicalCompletedRecordsPageContributor.php';
+require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/capabilities/completed/CanonicalCompletedRecordsFilter.php';
+require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/capabilities/completed/CanonicalCompletedRecordsViewProvider.php';
 require_once plugin_dir_path(__FILE__) . 'includes/repositories/CanonicalRecordImagesRepository.php';
 require_once plugin_dir_path(__FILE__) . 'includes/repositories/CanonicalCapabilityConfigRepository.php';
 require_once plugin_dir_path(__FILE__) . 'includes/repositories/CanonicalRecordAmountRepository.php';
@@ -164,6 +169,7 @@ require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/canonical/clas
 require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/canonical/class-aa-canonical-family-enablement-nav.php';
 require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/canonical/class-aa-canonical-read-binding-registry.php';
 require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/canonical/class-aa-canonical-capability-page-contributor-bootstrap.php';
+require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/canonical/class-aa-canonical-capability-records-view-bootstrap.php';
 require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/canonical/class-aa-canonical-shell-view-composer.php';
 require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/canonical/capabilities/class-aa-canonical-capability-ops.php';
 require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/canonical/capabilities/class-aa-canonical-capability-write-bootstrap.php';

@@ -25,7 +25,7 @@ final class AA_Canonical_Read_Binding_Bootstrap {
      * @throws CanonicalFamilyEnablementPersistenceFailed
      * @throws \LogicException
      */
-    public static function register_productive(AA_Canonical_Read_Binding_Registry $registry, ?bool $completion_state = null): void {
+    public static function register_productive(AA_Canonical_Read_Binding_Registry $registry, ?CanonicalRecordsFilter $records_filter = null): void {
         self::require_dependencies();
 
         $canonical = AA_Canonical_Core_Bootstrap::instance();
@@ -44,7 +44,7 @@ final class AA_Canonical_Read_Binding_Bootstrap {
             $identity = new CanonicalReadIdentity($family_key);
             $registry->register(
                 $identity,
-                new AA_Canonical_Relational_Read_Adapter($repository, $identity, $completion_state)
+                new AA_Canonical_Relational_Read_Adapter($repository, $identity, $records_filter)
             );
         }
     }

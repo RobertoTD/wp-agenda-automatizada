@@ -90,7 +90,7 @@ if ($active_module === 'canonical_shell') {
     $shell_container_id = null;
     $shell_containers_page = 1;
     $shell_lists_scope = null;
-    $shell_records_view = 'pending';
+    $shell_records_view = null;
     $records_transport_invalid = false;
     $records_transport_message = '';
 
@@ -145,11 +145,11 @@ if ($active_module === 'canonical_shell') {
     }
     if (!$records_transport_invalid && $records_view_present) {
         $raw_records_view = wp_unslash($_GET['records_view']);
-        if (!is_string($raw_records_view) || $raw_records_view !== AA_Canonical_Shell_Base_Url_Policy::RECORDS_VIEW_COMPLETED || $view !== AA_Canonical_Shell_Base_Url_Policy::VIEW_RECORDS) {
+        if (!is_string($raw_records_view) || !AA_Canonical_Key::is_valid($raw_records_view) || $view !== AA_Canonical_Shell_Base_Url_Policy::VIEW_RECORDS) {
             $records_transport_invalid = true;
             $records_transport_message = 'El parámetro records_view no es válido.';
         } else {
-            $shell_records_view = AA_Canonical_Shell_Base_Url_Policy::RECORDS_VIEW_COMPLETED;
+            $shell_records_view = $raw_records_view;
         }
     }
 
@@ -362,11 +362,24 @@ if ($active_module === 'canonical_shell') {
                 if (function_exists('status_header')) {
                     status_header(200);
                 }
-            } elseif ($is_records_view && $shell_records_view === 'completed' && $aa_canonical_family->key() !== 'action') {
-                $aa_shell_route_state = 'invalid_request';
-                $aa_shell_route_message = 'La vista de completadas solo está disponible para Acciones.';
-                if (function_exists('status_header')) {
-                    status_header(400);
+            } elseif ($is_records_view && $shell_records_view !== null) {
+                $views = AA_Canonical_Capability_Records_View_Bootstrap::bootstrap();
+                $resolution = $views->resolve($aa_canonical_family->key(), $shell_container_id, $shell_records_view);
+                if (!$resolution['recognized']) {
+                    $aa_shell_route_state = 'invalid_request';
+                    $aa_shell_route_message = 'La vista solicitada no existe.';
+                    if (function_exists('status_header')) { status_header(400); }
+                } elseif ($resolution['filter'] === null) {
+                    wp_safe_redirect(AA_Canonical_Shell_Base_Url_Policy::build_records_url(
+                        $aa_canonical_family->key(), $shell_container_id, null,
+                        $shell_containers_page > 1 ? $shell_containers_page : null, $shell_lists_scope
+                    ));
+                    exit;
+                } else {
+                    $aa_shell_route_state = 'resolved';
+                    $aa_shell_route_message = 'Ruta canónica resuelta.';
+                    $aa_canonical_url = AA_Canonical_Shell_Base_Url_Policy::build_records_url($aa_canonical_family->key(), $shell_container_id, $shell_page > 1 ? $shell_page : null, $shell_containers_page > 1 ? $shell_containers_page : null, $shell_lists_scope, $shell_records_view);
+                    $aa_shell_view = AA_Canonical_Shell_View_Composer::compose_family_records($aa_canonical_family, $shell_container_id, $shell_page, $shell_containers_page, $shell_lists_scope, $shell_records_view);
                 }
             } elseif ($is_records_view) {
                 $aa_shell_route_state = 'resolved';
@@ -377,7 +390,7 @@ if ($active_module === 'canonical_shell') {
                     $shell_page > 1 ? $shell_page : null,
                     $shell_containers_page > 1 ? $shell_containers_page : null,
                     $shell_lists_scope,
-                    $shell_records_view === 'completed' ? $shell_records_view : null
+                    $shell_records_view
                 );
                 $aa_shell_view = AA_Canonical_Shell_View_Composer::compose_family_records(
                     $aa_canonical_family,

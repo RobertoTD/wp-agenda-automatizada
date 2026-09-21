@@ -55,17 +55,17 @@ final class AA_Canonical_Relational_Read_Adapter implements CanonicalReadAdapter
     /** @var CanonicalReadIdentity */
     private $bound_identity;
 
-    /** @var bool|null */
-    private $completion_state;
+    /** @var CanonicalRecordsFilter|null */
+    private $records_filter;
 
     public function __construct(
         CanonicalRelationalRepository $repository,
         CanonicalReadIdentity $bound_identity,
-        ?bool $completion_state = null
+        ?CanonicalRecordsFilter $records_filter = null
     ) {
         $this->repository = $repository;
         $this->bound_identity = $bound_identity;
-        $this->completion_state = $completion_state;
+        $this->records_filter = $records_filter;
     }
 
     public function list_containers(int $page, int $per_page): CanonicalPage {
@@ -138,9 +138,9 @@ final class AA_Canonical_Relational_Read_Adapter implements CanonicalReadAdapter
         $this->get_container($container_id);
 
         try {
-            $total = $this->completion_state === null
+            $total = $this->records_filter === null
                 ? $this->repository->count_records($container_id)
-                : $this->repository->count_records_by_completion($container_id, $this->completion_state);
+                : $this->records_filter->count($this->repository, $container_id);
         } catch (CanonicalRelationalQueryFailed $e) {
             throw $this->map_query_failed($e);
         }
@@ -155,9 +155,9 @@ final class AA_Canonical_Relational_Read_Adapter implements CanonicalReadAdapter
         }
 
         try {
-            $rows = $this->completion_state === null
+            $rows = $this->records_filter === null
                 ? $this->repository->list_records($container_id, $page, $per_page)
-                : $this->repository->list_records_by_completion($container_id, $page, $per_page, $this->completion_state);
+                : $this->records_filter->list($this->repository, $container_id, $page, $per_page);
         } catch (CanonicalRelationalQueryFailed $e) {
             throw $this->map_query_failed($e);
         }
