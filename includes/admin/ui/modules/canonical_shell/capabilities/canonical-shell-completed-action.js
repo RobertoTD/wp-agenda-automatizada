@@ -1,12 +1,16 @@
 (function () {
     'use strict';
-    var config = window.AA_CANONICAL_SHELL_COMPLETED;
+    var modules = window.AA_CANONICAL_SHELL_CAPABILITY_ACTION_MODULES;
+    var config = modules && typeof modules === 'object' ? modules.completed : null;
     if (!config) { return; }
     document.addEventListener('click', function (event) {
-        var button = event.target.closest ? event.target.closest('[data-aa-completion-record]') : null;
+        var button = event.target.closest ? event.target.closest('[data-aa-capability-action="completed"]') : null;
         if (!button || button.disabled) { return; }
         event.preventDefault();
-        var recordId = parseInt(button.getAttribute('data-aa-completion-record'), 10);
+        var rawPayload = button.getAttribute('data-aa-capability-action-payload') || '';
+        var payload;
+        try { payload = JSON.parse(rawPayload); } catch (error) { return; }
+        var recordId = parseInt(payload.record_id, 10);
         if (!recordId || !config.containerId || config.familyKey !== 'action') { return; }
         button.disabled = true;
         var data = new FormData();
@@ -15,7 +19,7 @@
         data.append('family_key', config.familyKey);
         data.append('container_id', String(config.containerId));
         data.append('record_id', String(recordId));
-        data.append('completed', button.getAttribute('data-aa-completed') === '1' ? '0' : '1');
+        data.append('completed', String(payload.completed === 1 || payload.completed === '1' ? 1 : 0));
         fetch(config.ajaxUrl, { method: 'POST', credentials: 'same-origin', body: data })
             .then(function (response) { return response.json(); })
             .then(function (payload) {

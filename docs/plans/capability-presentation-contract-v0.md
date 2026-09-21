@@ -34,7 +34,7 @@ Los archivos del puente llevan un marcador explícito y una prueba estática imp
 
 1. **CP-0:** esta frontera documental, marcadores y prueba. **Completado.**
 2. **CP-1:** registry de presentación y metadata mínima, incluido `label`; sin migrar legacy. **Completado.**
-3. **CP-2:** migrar exclusivamente `completed` para acción, asset/configuración cliente y slot de acción; conservar su registry de vistas C5.1.
+3. **CP-2:** migrar exclusivamente `completed` para acción, asset/configuración cliente y slot de acción; conservar su registry de vistas C5.1. **Completado.**
 4. **CP-3:** explorar `postpone` como segundo consumidor de acciones; implementarlo solo si valida el modelo.
 5. Antes de `event_date`, explorar el contrato v0 de campos/formulario.
 

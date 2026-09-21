@@ -31,6 +31,9 @@ $card_capabilities = isset($card_capabilities) && is_array($card_capabilities)
 $card_solutions = isset($card_solutions) && is_array($card_solutions)
     ? $card_solutions
     : null;
+$card_capability_actions = isset($card_capability_actions) && is_array($card_capability_actions)
+    ? $card_capability_actions
+    : [];
 $show_image_actions = !empty($show_image_actions);
 
 $amount_card = AA_Canonical_Amount_Shell_Presenter::card_view($card_capabilities);
@@ -42,10 +45,6 @@ $phone_edit = AA_Canonical_Phone_Shell_Presenter::edit_payload_fragment($card_ca
 $email_card = AA_Canonical_Email_Shell_Presenter::card_view($card_capabilities);
 $email_edit = AA_Canonical_Email_Shell_Presenter::edit_payload_fragment($card_capabilities);
 $dossier_action = AA_Canonical_Dossier_Shell_Presenter::card_action($card_solutions);
-$completed_state = isset($card_capabilities['completed']) && is_array($card_capabilities['completed'])
-    && ($card_capabilities['completed']['status'] ?? '') === 'known_value'
-    ? (($card_capabilities['completed']['value'] ?? '') === '1')
-    : null;
 $images_card = AA_Canonical_Images_Shell_Presenter::card_view($card_capabilities);
 $images_edit = AA_Canonical_Images_Shell_Presenter::edit_payload_fragment($card_capabilities);
 $card_image_summary_url = isset($card_image_summary_url) && is_string($card_image_summary_url)
@@ -313,13 +312,7 @@ $contact_block_shown = $whatsapp_has_value || $whatsapp_has_error || $phone_has_
                     <?php endif; ?>
                 </div>
             <?php endif; ?>
-            <?php if ($completed_state !== null && $card_record_id >= 1) : ?>
-                <div class="aa-shell-record-capability-actions mt-3 pt-2 border-t border-gray-100">
-                    <button type="button" class="aa-shell-completed-btn inline-flex items-center px-3 py-1.5 text-xs font-semibold rounded-lg text-indigo-700 bg-indigo-50 hover:bg-indigo-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500" data-aa-completion-record="<?php echo esc_attr((string) $card_record_id); ?>" data-aa-completed="<?php echo $completed_state ? '1' : '0'; ?>">
-                        <?php echo $completed_state ? 'Marcar como pendiente' : 'Completar'; ?>
-                    </button>
-                </div>
-            <?php endif; ?>
+            <?php $card_action_slot_classes = 'aa-shell-record-capability-actions mt-3 pt-2 border-t border-gray-100'; require __DIR__ . '/record-card-capability-actions.php'; ?>
         </div>
     </div>
 </li>
@@ -445,13 +438,7 @@ $contact_block_shown = $whatsapp_has_value || $whatsapp_has_error || $phone_has_
                 <?php endif; ?>
             </div>
         <?php endif; ?>
-        <?php if ($completed_state !== null && $card_record_id >= 1) : ?>
-            <div class="aa-shell-record-capability-actions mt-4 pt-3 border-t border-gray-100 flex flex-wrap items-center gap-2">
-                <button type="button" class="aa-shell-completed-btn inline-flex items-center px-3 py-1.5 text-xs font-semibold rounded-lg text-indigo-700 bg-indigo-50 hover:bg-indigo-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-2 focus:ring-indigo-500" data-aa-completion-record="<?php echo esc_attr((string) $card_record_id); ?>" data-aa-completed="<?php echo $completed_state ? '1' : '0'; ?>">
-                    <?php echo $completed_state ? 'Marcar como pendiente' : 'Completar'; ?>
-                </button>
-            </div>
-        <?php endif; ?>
+        <?php $card_action_slot_classes = 'aa-shell-record-capability-actions mt-4 pt-3 border-t border-gray-100 flex flex-wrap items-center gap-2'; require __DIR__ . '/record-card-capability-actions.php'; ?>
         <?php if ($edit_payload_attr !== '') : ?>
             <div class="mt-4 pt-3 border-t border-gray-100 flex flex-wrap items-center gap-2">
                 <button

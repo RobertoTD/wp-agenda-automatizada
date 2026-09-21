@@ -112,7 +112,7 @@ El **Capability Presentation Contract v0** es el contrato de proyección para el
 
 v0 inicia solo con acciones de tarjeta, assets/configuración cliente y las vistas de registros ya registradas. No define todavía campos ni un generador universal de formularios; ese contrato se explora antes de `event_date`. Las contribuciones viven en código registrado: nunca callbacks, paths o HTML ejecutable persistidos.
 
-Mientras se migra, existe un **Legacy Presentation Bridge** administrativo y de lista cerrada: `amount`, `phone`, `whatsapp`, `email` e `images`. `completed` es objetivo de migración inmediata, no una extensión del bridge. El bridge solo puede recibir correcciones de bug, seguridad o compatibilidad; está prohibido añadirle una capability, campo, acción, script, label, configuración o comportamiento de producto nuevos. La prueba de frontera protege esta regla.
+Existe un **Legacy Presentation Bridge** administrativo y de lista cerrada: `amount`, `phone`, `whatsapp`, `email` e `images`. `completed` ya usa el slot v0 de acciones y su módulo cliente registrado; sus vistas continúan en el registry C5.1. El bridge solo puede recibir correcciones de bug, seguridad o compatibilidad; está prohibido añadirle una capability, campo, acción, script, label, configuración o comportamiento de producto nuevos. La prueba de frontera protege esta regla.
 
 `contact_dossier` no pertenece a este bridge: es una deuda de presentación de la solution `contact_dossier`, regulada por `docs/06-canonical-solutions.md` y fuera de v0 inicial. El detalle operativo y la secuencia de migración viven en `docs/plans/capability-presentation-contract-v0.md`.
 

@@ -565,7 +565,8 @@ final class AA_Canonical_Shell_View_Composer {
         array $items_view
     ): array {
         $registry = AA_Canonical_Capability_Page_Contributor_Bootstrap::bootstrap();
-        $enricher = new CanonicalCapabilityShellRecordsEnricher($registry);
+        $action_registry = AA_Canonical_Capability_Card_Action_Registry_Bootstrap::bootstrap();
+        $enricher = new CanonicalCapabilityShellRecordsEnricher($registry, $action_registry);
 
         return $enricher->enrich($family_key, $container_id, $items_view);
     }

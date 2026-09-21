@@ -46,8 +46,7 @@ foreach ($bridge_files as $file) {
 }
 
 $legacy_keys = ['amount', 'phone', 'whatsapp', 'email', 'images'];
-$pending_migration_keys = ['completed'];
-$allowed_direct_keys = array_merge($legacy_keys, $pending_migration_keys);
+$allowed_direct_keys = $legacy_keys;
 $registry = AA_Canonical_Capability_Registry_Bootstrap::build_registry();
 $unexpected_direct_keys = [];
 
@@ -64,7 +63,7 @@ presentation_boundary_assert('La lista legacy permanece cerrada', $unexpected_di
 foreach ($legacy_keys as $key) {
     presentation_boundary_assert('La capability legacy ' . $key . ' permanece identificada en el bridge', preg_match('/[\'\"]' . preg_quote($key, '/') . '[\'\"]/', $bridge_source) === 1);
 }
-presentation_boundary_assert('Completed solo es objetivo transitorio de migración', preg_match('/[\'\"]completed[\'\"]/', $bridge_source) === 1);
+presentation_boundary_assert('Completed ya no forma parte del bridge', preg_match('/[\'\"]completed[\'\"]/', $bridge_source) !== 1);
 presentation_boundary_assert('Postpone no entra al bridge', strpos($bridge_source, "'postpone'") === false && strpos($bridge_source, '"postpone"') === false);
 presentation_boundary_assert('Event date no entra al bridge', strpos($bridge_source, "'event_date'") === false && strpos($bridge_source, '"event_date"') === false);
 

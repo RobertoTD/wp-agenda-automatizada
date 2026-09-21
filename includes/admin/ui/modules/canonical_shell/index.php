@@ -62,9 +62,6 @@ $parent_container = is_array($view) && isset($view['container']) && is_array($vi
 $capability_contributions = is_array($view) && isset($view['capability_contributions']) && is_array($view['capability_contributions'])
     ? $view['capability_contributions']
     : [];
-$completed_capability_active = isset($capability_contributions['completed'])
-    && is_array($capability_contributions['completed'])
-    && !empty($capability_contributions['completed']['offered']);
 $containers_page_num = is_array($view) && isset($view['containers_page'])
     ? (int) $view['containers_page']
     : null;
@@ -658,6 +655,9 @@ $is_records_fill = $show_read_ui
                                         $card_solutions = isset($item['solutions']) && is_array($item['solutions'])
                                             ? $item['solutions']
                                             : null;
+                                        $card_capability_actions = isset($item['capability_card_actions']) && is_array($item['capability_card_actions'])
+                                            ? $item['capability_card_actions']
+                                            : [];
                                         $show_edit_record = $show_record_fab;
                                         $shell_record_presentation = 'compact';
                                         $show_image_actions = $show_create_record_ui && !$list_retire_in_progress;
@@ -856,6 +856,9 @@ $is_records_fill = $show_read_ui
                                 $card_solutions = isset($item['solutions']) && is_array($item['solutions'])
                                     ? $item['solutions']
                                     : null;
+                                $card_capability_actions = isset($item['capability_card_actions']) && is_array($item['capability_card_actions'])
+                                    ? $item['capability_card_actions']
+                                    : [];
                                 $show_edit_record = $show_record_fab;
                                 $shell_record_presentation = 'card';
                                 $show_image_actions = $show_create_record_ui && !$list_retire_in_progress;
@@ -1584,7 +1587,31 @@ $is_records_fill = $show_read_ui
     : esc_url((defined('AA_PLUGIN_URL') ? AA_PLUGIN_URL : '') . 'includes/admin/ui/modules/canonical_shell/canonical-shell-container-options.js'); ?>"></script>
 <?php endif; ?>
 
-<?php if ($show_record_fab || ($is_records && $completed_capability_active)) : ?>
+<?php
+$capability_client_modules = [];
+if ($is_records) {
+    if (!class_exists('CanonicalCapabilityClientModule')) {
+        require_once dirname(__DIR__, 4) . '/application/canonical/capabilities/presentation/CanonicalCapabilityClientModule.php';
+    }
+    if (!class_exists('CanonicalCapabilityClientModuleRegistry')) {
+        require_once dirname(__DIR__, 4) . '/application/canonical/capabilities/presentation/CanonicalCapabilityClientModuleRegistry.php';
+    }
+    if (!class_exists('CanonicalSetRecordCompletionAjax')) {
+        require_once dirname(__DIR__, 4) . '/http/ajax/CanonicalSetRecordCompletionAjax.php';
+    }
+    if (!class_exists('AA_Canonical_Capability_Client_Module_Registry_Bootstrap')) {
+        require_once dirname(__DIR__, 4) . '/infrastructure/canonical/class-aa-canonical-capability-client-module-registry-bootstrap.php';
+    }
+    try {
+        $capability_client_modules = AA_Canonical_Capability_Client_Module_Registry_Bootstrap::bootstrap()
+            ->offered($capability_contributions);
+    } catch (Throwable $e) {
+        $capability_client_modules = [];
+    }
+}
+?>
+
+<?php if ($show_record_fab || $capability_client_modules !== []) : ?>
     <?php
     if (!class_exists('CanonicalCreateRecordAjax')) {
         require_once dirname(__DIR__, 4) . '/http/ajax/CanonicalCreateRecordAjax.php';
@@ -2125,19 +2152,24 @@ $is_records_fill = $show_read_ui
         containersPage: <?php echo wp_json_encode($containers_page_num !== null && $containers_page_num > 1 ? $containers_page_num : null); ?>
     };
     </script>
-    <?php if ($completed_capability_active) : ?>
+    <?php if ($capability_client_modules !== []) : ?>
     <script>
-    window.AA_CANONICAL_SHELL_COMPLETED = {
+    window.AA_CANONICAL_SHELL_CAPABILITY_ACTION_MODULES = window.AA_CANONICAL_SHELL_CAPABILITY_ACTION_MODULES || {};
+    <?php foreach ($capability_client_modules as $client_module) : ?>
+    window.AA_CANONICAL_SHELL_CAPABILITY_ACTION_MODULES[<?php echo wp_json_encode($client_module->capability_key()); ?>] = {
         ajaxUrl: <?php echo wp_json_encode(admin_url('admin-ajax.php')); ?>,
-        action: <?php echo wp_json_encode(CanonicalSetRecordCompletionAjax::ACTION); ?>,
-        nonce: <?php echo wp_json_encode(wp_create_nonce(CanonicalSetRecordCompletionAjax::NONCE_ACTION)); ?>,
+        action: <?php echo wp_json_encode($client_module->ajax_action()); ?>,
+        nonce: <?php echo wp_json_encode(wp_create_nonce($client_module->nonce_action())); ?>,
         familyKey: <?php echo wp_json_encode($create_family_key); ?>,
         containerId: <?php echo (int) $create_container_id; ?>
     };
+    <?php endforeach; ?>
     </script>
+    <?php foreach ($capability_client_modules as $client_module) : ?>
     <script src="<?php echo function_exists('aa_asset_url')
-        ? aa_asset_url('includes/admin/ui/modules/canonical_shell/capabilities/canonical-shell-completed-action.js')
-        : esc_url((defined('AA_PLUGIN_URL') ? AA_PLUGIN_URL : '') . 'includes/admin/ui/modules/canonical_shell/capabilities/canonical-shell-completed-action.js'); ?>"></script>
+        ? aa_asset_url($client_module->asset_path())
+        : esc_url((defined('AA_PLUGIN_URL') ? AA_PLUGIN_URL : '') . $client_module->asset_path()); ?>"></script>
+    <?php endforeach; ?>
     <?php endif; ?>
     <script src="<?php echo function_exists('aa_asset_url')
         ? aa_asset_url('includes/admin/ui/modules/canonical_shell/capabilities/canonical-shell-dossier-action.js')

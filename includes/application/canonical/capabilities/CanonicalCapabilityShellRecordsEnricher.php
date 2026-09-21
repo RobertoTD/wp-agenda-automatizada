@@ -13,8 +13,15 @@ final class CanonicalCapabilityShellRecordsEnricher {
     /** @var CanonicalCapabilityRecordPageContributorRegistry */
     private $registry;
 
-    public function __construct(CanonicalCapabilityRecordPageContributorRegistry $registry) {
+    /** @var CanonicalCapabilityCardActionRegistry|null */
+    private $card_action_registry;
+
+    public function __construct(
+        CanonicalCapabilityRecordPageContributorRegistry $registry,
+        ?CanonicalCapabilityCardActionRegistry $card_action_registry = null
+    ) {
         $this->registry = $registry;
+        $this->card_action_registry = $card_action_registry;
     }
 
     /**
@@ -60,6 +67,20 @@ final class CanonicalCapabilityShellRecordsEnricher {
             $id = isset($item['id']) ? (int) $item['id'] : 0;
             if ($id >= 1 && isset($per_record[$id]) && $per_record[$id] !== []) {
                 $item['capabilities'] = $per_record[$id];
+            }
+            if ($id >= 1 && $this->card_action_registry !== null) {
+                $record_capabilities = isset($item['capabilities']) && is_array($item['capabilities'])
+                    ? $item['capabilities']
+                    : [];
+                $card_actions = [];
+                foreach ($this->card_action_registry->all() as $provider) {
+                    foreach ($provider->actions_for_record($id, $record_capabilities) as $action) {
+                        $card_actions[] = $action->to_array();
+                    }
+                }
+                if ($card_actions !== []) {
+                    $item['capability_card_actions'] = $card_actions;
+                }
             }
             if ($id >= 1 && isset($per_record_solutions[$id]) && $per_record_solutions[$id] !== []) {
                 $item['solutions'] = $per_record_solutions[$id];
