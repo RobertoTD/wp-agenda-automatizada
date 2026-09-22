@@ -6,6 +6,7 @@
  * Optional actions: $show_edit_record (bool), $card_record_id (int).
  * Optional presentation: $shell_record_presentation ('card'|'compact').
  * Optional capabilities: $card_capabilities (array|null) — mapa por clave del item.
+ * Optional metadata: $card_capability_metadata (array) — descriptores tipados del item.
  * Optional solutions: $card_solutions (array|null) — mapa por clave del item.
  * Optional images: $card_image_summary_url (?string), $show_image_actions (bool).
  *
@@ -33,6 +34,9 @@ $card_solutions = isset($card_solutions) && is_array($card_solutions)
     : null;
 $card_capability_actions = isset($card_capability_actions) && is_array($card_capability_actions)
     ? $card_capability_actions
+    : [];
+$card_capability_metadata = isset($card_capability_metadata) && is_array($card_capability_metadata)
+    ? $card_capability_metadata
     : [];
 $show_image_actions = !empty($show_image_actions);
 
@@ -277,6 +281,7 @@ $contact_block_shown = $whatsapp_has_value || $whatsapp_has_error || $phone_has_
                     No se pudieron cargar las imágenes.
                 </p>
             <?php endif; ?>
+            <?php require __DIR__ . '/record-card-capability-metadata.php'; ?>
             <?php if ($has_updated) : ?>
                 <p class="aa-shell-record-updated text-xs text-gray-500 <?php echo ($has_details_text || $contact_block_shown || is_array($amount_card) || $has_gallery) ? 'mt-2' : ''; ?> m-0">
                     <time datetime="<?php echo esc_attr($card_iso); ?>"><?php echo esc_html($card_display); ?></time>
@@ -403,6 +408,7 @@ $contact_block_shown = $whatsapp_has_value || $whatsapp_has_error || $phone_has_
                 No se pudieron cargar las imágenes.
             </p>
         <?php endif; ?>
+        <?php require __DIR__ . '/record-card-capability-metadata.php'; ?>
         <?php if ($has_updated) : ?>
             <p class="mt-3 text-xs text-gray-500">
                 <time datetime="<?php echo esc_attr($card_iso); ?>"><?php echo esc_html($card_display); ?></time>

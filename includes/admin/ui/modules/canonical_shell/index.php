@@ -717,6 +717,9 @@ $is_records_fill = $show_read_ui
                                         $card_capability_actions = isset($item['capability_card_actions']) && is_array($item['capability_card_actions'])
                                             ? $item['capability_card_actions']
                                             : [];
+                                        $card_capability_metadata = isset($item['capability_card_metadata']) && is_array($item['capability_card_metadata'])
+                                            ? $item['capability_card_metadata']
+                                            : [];
                                         $show_edit_record = $show_record_write_ui;
                                         $shell_record_presentation = 'compact';
                                         $show_image_actions = $show_record_write_ui;
@@ -917,6 +920,9 @@ $is_records_fill = $show_read_ui
                                     : null;
                                 $card_capability_actions = isset($item['capability_card_actions']) && is_array($item['capability_card_actions'])
                                     ? $item['capability_card_actions']
+                                    : [];
+                                $card_capability_metadata = isset($item['capability_card_metadata']) && is_array($item['capability_card_metadata'])
+                                    ? $item['capability_card_metadata']
                                     : [];
                                 $show_edit_record = $show_record_write_ui;
                                 $shell_record_presentation = 'card';

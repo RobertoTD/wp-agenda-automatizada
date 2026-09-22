@@ -24,6 +24,7 @@ require_once $root . '/includes/application/canonical/capabilities/completed/Can
 require_once $root . '/includes/repositories/CanonicalRecordsQueryCompiler.php';
 require_once $root . '/includes/repositories/capabilities/CanonicalCompletedCriterionCompiler.php';
 require_once $root . '/includes/repositories/CanonicalRelationalRepository.php';
+require_once $root . '/includes/repositories/CanonicalRecordCompletionRepository.php';
 require_once $root . '/includes/infrastructure/wp/class-aa-canonical-shell-base-url-policy.php';
 if (!function_exists('admin_url')) { function admin_url($path) { return 'https://example.test/wp-admin/' . $path; } }
 if (!function_exists('add_query_arg')) { function add_query_arg($args, $url) { return $url . '?' . http_build_query($args); } }
@@ -178,6 +179,16 @@ if ($wp_root) {
                 $wpdb->insert($flags, ['record_id'=>$id,'value'=>'yes']);
             }
         }
+        $completion_repo = new CanonicalRecordCompletionRepository($wpdb);
+        $wpdb->insert($completion, ['record_id' => 101, 'completed_at' => '2026-01-03 04:05:06']);
+        $completion_repo->set_completed(101, true);
+        check(
+            ($completion_repo->completed_at_by_record_ids([101])[101] ?? null) === '2026-01-03 04:05:06',
+            'Duplicate completion preserves completed_at'
+        );
+        $completion_repo->set_completed(101, false);
+        $completion_repo->set_completed(101, true);
+        check(isset($completion_repo->completed_at_by_record_ids([101])[101]), 'New effective completion writes completed_at');
         $repository = new CanonicalRelationalRepository($wpdb, $compiler);
         foreach ([[], ['completed'=>'completed'], ['test_flag'=>'flagged'], ['completed'=>'completed','test_flag'=>'flagged']] as $selection) {
             $resolution = $registry->resolve_query('action', 41, $selection);
@@ -196,7 +207,7 @@ if ($wp_root) {
         $config->active = false;
         $off = $registry->resolve_query('action', 41, ['completed'=>'completed']);
         check($repository->count_records_matching($repository->compile_records_query($off['spec'])) === 32, 'SQL inactive completion no longer excludes rows');
-        check((int)$wpdb->get_var("SELECT COUNT(*) FROM `{$completion}`") === 32, 'Completion data conserved');
+        check((int)$wpdb->get_var("SELECT COUNT(*) FROM `{$completion}`") === 33, 'Completion data conserved');
         $config->active = true;
         check($repository->count_records_matching($repository->compile_records_query($registry->resolve_query('action', 41, ['completed'=>'completed'])['spec'])) === 16, 'SQL reactivation restores results');
         $flag->active = false;

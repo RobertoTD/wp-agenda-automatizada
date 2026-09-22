@@ -110,7 +110,7 @@ Todo ciclo que introduzca o amplíe una capability debe probar, como mínimo, el
 
 El **Capability Presentation Contract v0** es el contrato de proyección para el **Shell administrativo**. El shell ofrece slots comunes; una capability registrada aporta contribuciones declaradas y el shell no bifurca por su clave, tabla, familia ni semántica. El runtime público tendrá un contrato distinto cuando exista.
 
-v0 inicia solo con acciones de tarjeta, assets/configuración cliente y las vistas de registros ya registradas. No define todavía campos ni un generador universal de formularios; ese contrato se explora antes de `event_date`. Las contribuciones viven en código registrado: nunca callbacks, paths o HTML ejecutable persistidos.
+v0 inicia con acciones de tarjeta, metadata temporal tipada de tarjeta, assets/configuración cliente y las vistas de registros ya registradas. El shell formatea la metadata UTC y solo itera descriptores genéricos: ninguna capability aporta HTML ejecutable. No define todavía campos ni un generador universal de formularios; ese contrato se explora antes de `event_date`. Las contribuciones viven en código registrado: nunca callbacks, paths o HTML ejecutable persistidos.
 
 Existe un **Legacy Presentation Bridge** administrativo y de lista cerrada: `amount`, `phone`, `whatsapp`, `email` e `images`. `completed` usa el slot v0 de acciones, su módulo cliente registrado y el contrato de composición de vistas RVC-1. El bridge solo puede recibir correcciones de bug, seguridad o compatibilidad; está prohibido añadirle una capability, campo, acción, script, label, configuración o comportamiento de producto nuevos. La prueba de frontera protege esta regla.
 
@@ -366,6 +366,6 @@ La solution conserva una relación 1:1 contacto→lista Archivo, creación difer
 
 `completed` es una capability de registro exclusiva de la familia `action`. Su default se materializa activo para listas nuevas de Acciones; la lista conserva después su decisión explícita de activación.
 
-Su recurso es `aa_canonical_record_completion`: una fila con `completed_at` significa completado; la ausencia de fila significa pendiente. No es historial, prioridad ni criterio de orden. Completar o devolver a pendiente toca el registro y su lista en la misma transacción para conservar el orden canónico ordinario.
+Su recurso es `aa_canonical_record_completion`: una fila con `completed_at` significa completado; la ausencia de fila significa pendiente. `completed_at` conserva la última transición efectiva a completado: repetir “Completar” no la reescribe y volver a completar después de marcar pendiente sí crea una nueva fecha. No es historial, prioridad ni criterio de orden. Completar o devolver a pendiente toca el registro y su lista en la misma transacción para conservar el orden canónico ordinario.
 
 La vista Simple contiene pendientes porque `completed` activa aporta su criterio natural. `capability_views[completed]=completed` sustituye únicamente ese criterio y selecciona completadas antes de contar y paginar; la entrada legacy `records_view=completed` solo se acepta para normalizarla por redirección. Sólo la capability aporta esa semántica: el shell transporta selecciones registradas, navega y presenta el contexto. La UI ofrece `Completar` y la acción reversible `Marcar como pendiente`; en Completadas no se ofrece crear registros.

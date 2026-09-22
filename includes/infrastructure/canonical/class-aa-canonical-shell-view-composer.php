@@ -523,6 +523,7 @@ final class AA_Canonical_Shell_View_Composer {
             );
             $items_view = $enriched['items_view'];
             $capability_contributions = $enriched['capability_contributions'];
+            $items_view = self::format_capability_card_metadata($items_view, $tz);
         }
 
         $default_records_url = !$is_preview
@@ -597,9 +598,56 @@ final class AA_Canonical_Shell_View_Composer {
     ): array {
         $registry = AA_Canonical_Capability_Page_Contributor_Bootstrap::bootstrap();
         $action_registry = AA_Canonical_Capability_Card_Action_Registry_Bootstrap::bootstrap();
-        $enricher = new CanonicalCapabilityShellRecordsEnricher($registry, $action_registry);
+        $metadata_registry = AA_Canonical_Capability_Card_Metadata_Registry_Bootstrap::bootstrap();
+        $enricher = new CanonicalCapabilityShellRecordsEnricher($registry, $action_registry, $metadata_registry);
 
         return $enricher->enrich($family_key, $container_id, $items_view);
+    }
+
+    /**
+     * Proyecta descriptores tipados de metadata al formato visible del shell.
+     *
+     * @param list<array<string,mixed>> $items_view
+     * @return list<array<string,mixed>>
+     */
+    private static function format_capability_card_metadata(array $items_view, \DateTimeZone $timezone): array {
+        foreach ($items_view as &$item) {
+            $raw_metadata = isset($item['capability_card_metadata']) && is_array($item['capability_card_metadata'])
+                ? $item['capability_card_metadata']
+                : [];
+            $formatted = [];
+            foreach ($raw_metadata as $metadata) {
+                if (!is_array($metadata)
+                    || ($metadata['kind'] ?? '') !== 'datetime'
+                    || !isset($metadata['label'], $metadata['datetime_utc'])
+                    || !is_string($metadata['label'])
+                    || !is_string($metadata['datetime_utc'])
+                ) {
+                    continue;
+                }
+                $datetime = \DateTimeImmutable::createFromFormat(
+                    '!Y-m-d\\TH:i:s\\Z',
+                    $metadata['datetime_utc'],
+                    new \DateTimeZone('UTC')
+                );
+                $errors = \DateTimeImmutable::getLastErrors();
+                if ($datetime === false || (is_array($errors) && ($errors['warning_count'] > 0 || $errors['error_count'] > 0))) {
+                    continue;
+                }
+                $metadata['datetime_iso'] = $datetime->format('Y-m-d\\TH:i:s\\Z');
+                $metadata['datetime_display'] = self::format_display_datetime($datetime, $timezone);
+                unset($metadata['datetime_utc']);
+                $formatted[] = $metadata;
+            }
+            if ($formatted === []) {
+                unset($item['capability_card_metadata']);
+            } else {
+                $item['capability_card_metadata'] = $formatted;
+            }
+        }
+        unset($item);
+
+        return $items_view;
     }
 
     private static function build_containers_nav_url(

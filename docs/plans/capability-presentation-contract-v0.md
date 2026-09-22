@@ -21,6 +21,8 @@ El Shell itera contribuciones ofrecidas para la lista efectiva. La activación d
 
 Fuera de v0 inicial: campos/formularios, renderers de valores, labels de selector, orden entre acciones, runtime público y un generador universal de UI. Los campos se exploran antes de `event_date`.
 
+El slot de metadata de card acepta solo descriptores tipados (v0: `datetime` con label y UTC). El composer los localiza y la card los itera; providers no aportan HTML ni nombres verticales al shell.
+
 ## Legacy Presentation Bridge
 
 Los puntos heredados de cards, formulario y carga directa de assets son un puente temporal. Solo cubren `amount`, `phone`, `whatsapp`, `email` e `images`.

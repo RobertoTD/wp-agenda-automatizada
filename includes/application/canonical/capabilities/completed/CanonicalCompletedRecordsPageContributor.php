@@ -17,12 +17,20 @@ final class CanonicalCompletedRecordsPageContributor implements CanonicalCapabil
             if (!$this->registry->get(self::KEY)->is_ready()) { return new CanonicalCapabilityRecordsPageContribution(self::KEY, false, []); }
             $assignment = $this->config_repo->find_container_capability($container_id, self::KEY);
             if ($assignment === null || empty($assignment['is_active'])) { return new CanonicalCapabilityRecordsPageContribution(self::KEY, false, []); }
-            $states = $this->completion_repo->states_for_record_ids($record_ids);
+            $completed_at_by_record_id = $this->completion_repo->completed_at_by_record_ids($record_ids);
         } catch (\Throwable $e) { return new CanonicalCapabilityRecordsPageContribution(self::KEY, false, []); }
         $records = [];
         foreach ($record_ids as $id) {
             $id = (int) $id;
-            if ($id > 0) { $records[$id] = CanonicalCapabilityRecordReadState::known_value(isset($states[$id]) ? '1' : '0'); }
+            if ($id < 1) { continue; }
+            if (isset($completed_at_by_record_id[$id])) {
+                $records[$id] = CanonicalCapabilityRecordReadState::known_fields([
+                    'completed' => '1',
+                    'completed_at' => (string) $completed_at_by_record_id[$id],
+                ]);
+                continue;
+            }
+            $records[$id] = CanonicalCapabilityRecordReadState::known_fields(['completed' => '0']);
         }
         return new CanonicalCapabilityRecordsPageContribution(self::KEY, true, $records);
     }

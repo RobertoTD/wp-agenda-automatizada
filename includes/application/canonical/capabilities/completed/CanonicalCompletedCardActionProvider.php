@@ -12,10 +12,15 @@ final class CanonicalCompletedCardActionProvider implements CanonicalCapabilityC
             return [];
         }
         $state = $record_capabilities[self::KEY];
-        if (($state['status'] ?? '') !== 'known_value') {
+        $status = isset($state['status']) ? (string) $state['status'] : '';
+        $value = '';
+        if ($status === 'known_value') {
+            $value = isset($state['value']) ? (string) $state['value'] : '';
+        } elseif ($status === 'known_fields' && isset($state['fields']) && is_array($state['fields'])) {
+            $value = isset($state['fields']['completed']) ? (string) $state['fields']['completed'] : '';
+        } else {
             return [];
         }
-        $value = isset($state['value']) ? (string) $state['value'] : '';
         if ($value !== '0' && $value !== '1') {
             return [];
         }

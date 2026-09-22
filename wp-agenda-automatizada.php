@@ -148,6 +148,9 @@ require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/capabil
 require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/capabilities/presentation/CanonicalCapabilityCardAction.php';
 require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/capabilities/presentation/CanonicalCapabilityCardActionProvider.php';
 require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/capabilities/presentation/CanonicalCapabilityCardActionRegistry.php';
+require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/capabilities/presentation/CanonicalCapabilityCardMetadata.php';
+require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/capabilities/presentation/CanonicalCapabilityCardMetadataProvider.php';
+require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/capabilities/presentation/CanonicalCapabilityCardMetadataRegistry.php';
 require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/capabilities/presentation/CanonicalCapabilityClientModule.php';
 require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/capabilities/presentation/CanonicalCapabilityClientModuleRegistry.php';
 require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/capabilities/CanonicalCapabilityRecordsViewProvider.php';
@@ -162,6 +165,7 @@ require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/images/
 require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/capabilities/images/CanonicalImagesRecordsPageContributor.php';
 require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/capabilities/completed/CanonicalCompletedRecordsPageContributor.php';
 require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/capabilities/completed/CanonicalCompletedCardActionProvider.php';
+require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/capabilities/completed/CanonicalCompletedCardMetadataProvider.php';
 require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/capabilities/completed/CanonicalCompletedCriterion.php';
 require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/capabilities/completed/CanonicalCompletedRecordsViewProvider.php';
 require_once plugin_dir_path(__FILE__) . 'includes/repositories/CanonicalRecordImagesRepository.php';
@@ -179,6 +183,7 @@ require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/canonical/clas
 require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/canonical/class-aa-canonical-capability-page-contributor-bootstrap.php';
 require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/canonical/class-aa-canonical-capability-presentation-registry-bootstrap.php';
 require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/canonical/class-aa-canonical-capability-card-action-registry-bootstrap.php';
+require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/canonical/class-aa-canonical-capability-card-metadata-registry-bootstrap.php';
 require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/canonical/class-aa-canonical-capability-client-module-registry-bootstrap.php';
 require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/canonical/class-aa-canonical-capability-records-view-bootstrap.php';
 require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/canonical/class-aa-canonical-shell-view-composer.php';

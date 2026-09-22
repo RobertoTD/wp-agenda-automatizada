@@ -31,12 +31,38 @@ final class CanonicalRecordCompletionRepository {
         return array_fill_keys(array_map('intval', (array) $rows), true);
     }
 
+    /** @return array<int,string> record_id => completed_at UTC MySQL */
+    public function completed_at_by_record_ids(array $record_ids): array {
+        $ids = array_values(array_unique(array_filter(array_map('intval', $record_ids), static function ($id): bool { return $id > 0; })));
+        if ($ids === []) { return []; }
+        $placeholders = implode(',', array_fill(0, count($ids), '%d'));
+        $sql = $this->wpdb->prepare(
+            'SELECT record_id, completed_at FROM `' . AA_Canonical_Schema::record_completion_table_name() . '` WHERE record_id IN (' . $placeholders . ')',
+            ...$ids
+        );
+        $rows = $this->wpdb->get_results($sql, ARRAY_A);
+        if ($rows === false || $this->wpdb->last_error !== '') {
+            throw new \RuntimeException('completion_states_failed');
+        }
+        $out = [];
+        foreach ((array) $rows as $row) {
+            if (!is_array($row)) { continue; }
+            $id = isset($row['record_id']) ? (int) $row['record_id'] : 0;
+            $completed_at = isset($row['completed_at']) ? (string) $row['completed_at'] : '';
+            if ($id < 1 || $completed_at === '') {
+                throw new \RuntimeException('completion_states_invalid');
+            }
+            $out[$id] = $completed_at;
+        }
+        return $out;
+    }
+
     /** @throws \RuntimeException */
     public function set_completed(int $record_id, bool $completed): void {
         $table = AA_Canonical_Schema::record_completion_table_name();
         if ($completed) {
             $result = $this->wpdb->query($this->wpdb->prepare(
-                "INSERT INTO `{$table}` (record_id, completed_at) VALUES (%d, UTC_TIMESTAMP()) ON DUPLICATE KEY UPDATE completed_at = VALUES(completed_at)",
+                "INSERT INTO `{$table}` (record_id, completed_at) VALUES (%d, UTC_TIMESTAMP()) ON DUPLICATE KEY UPDATE completed_at = completed_at",
                 $record_id
             ));
         } else {

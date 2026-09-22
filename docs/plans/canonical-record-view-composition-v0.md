@@ -1,6 +1,6 @@
 # Canonical Record View Composition v0
 
-**Estado:** RVC-0, RVC-1, RVC-2A y RVC-2B completados; RVC-2C pendiente.
+**Estado:** RVC-0, RVC-1, RVC-2A, RVC-2B y RVC-2C completados.
 
 **Ámbito:** consulta y navegación de registros del Shell Canónico administrativo.
 
@@ -106,7 +106,7 @@ La metadata de `completed` podrá mostrar `Completada el: …`; `postpone`, `Pos
 2. **RVC-1:** especificación y composición de consulta; migrar `completed` sin cambiar producto. **Completado.**
 3. **RVC-2A:** definiciones tipadas, toggles aditivos y política de creación. **Completado.**
 4. **RVC-2B:** menú accesible `Vista` y `Simple`; aplicar la política de creación. **Completado.**
-5. **RVC-2C:** slot de metadata de card; `completed_at` como primer consumidor.
+5. **RVC-2C:** slot de metadata de card; `completed_at` como primer consumidor. **Completado:** provider tipado, registry sellado, localización neutral del composer y slot antes de `updated_at`; repetir completar conserva su fecha.
 6. **RVC-2D:** slot tipado de detalles/agregados sin migrar capabilities legacy.
 7. **PKG-0:** manifiesto, registry y validador del Package Contract v0.
 8. **POST-1:** schema, persistencia, lectura y escritura de `postpone`.

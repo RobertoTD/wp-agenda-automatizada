@@ -50,8 +50,8 @@ final class ActivationLifecycleConfigStub {
 }
 
 final class ActivationLifecycleCompletionStub {
-    public function states_for_record_ids(array $record_ids): array {
-        return in_array(7, $record_ids, true) ? [7 => true] : [];
+    public function completed_at_by_record_ids(array $record_ids): array {
+        return in_array(7, $record_ids, true) ? [7 => '2026-09-21 16:12:40'] : [];
     }
 }
 
@@ -70,6 +70,7 @@ $active_contribution = $contributor->contribute_for_records_page('action', 41, [
 ac_assert('Activa: filtro base de pendientes', !$views->resolve_query('action', 41)['spec']->criteria()['completed']->completed());
 ac_assert('Activa: vista completadas resoluble', $active_resolution['spec']->criteria()['completed']->completed() && ($active_resolution['current']['label'] ?? '') === 'Completadas');
 ac_assert('Activa: contribución y estado de tarjeta ofrecidos', $active_contribution->offered() && $active_contribution->state_for(7) !== null);
+ac_assert('Activa: estado conserva la fecha tipada de completado', ($active_contribution->state_for(7)->to_array()['fields']['completed_at'] ?? null) === '2026-09-21 16:12:40');
 
 // Inactiva: no queda ninguna proyección, pero la vista sigue reconocida para que el router pueda volver a base.
 $config->active = false;

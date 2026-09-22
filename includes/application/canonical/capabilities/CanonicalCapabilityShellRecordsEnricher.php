@@ -16,12 +16,17 @@ final class CanonicalCapabilityShellRecordsEnricher {
     /** @var CanonicalCapabilityCardActionRegistry|null */
     private $card_action_registry;
 
+    /** @var CanonicalCapabilityCardMetadataRegistry|null */
+    private $card_metadata_registry;
+
     public function __construct(
         CanonicalCapabilityRecordPageContributorRegistry $registry,
-        ?CanonicalCapabilityCardActionRegistry $card_action_registry = null
+        ?CanonicalCapabilityCardActionRegistry $card_action_registry = null,
+        ?CanonicalCapabilityCardMetadataRegistry $card_metadata_registry = null
     ) {
         $this->registry = $registry;
         $this->card_action_registry = $card_action_registry;
+        $this->card_metadata_registry = $card_metadata_registry;
     }
 
     /**
@@ -80,6 +85,20 @@ final class CanonicalCapabilityShellRecordsEnricher {
                 }
                 if ($card_actions !== []) {
                     $item['capability_card_actions'] = $card_actions;
+                }
+                if ($this->card_metadata_registry !== null) {
+                    $card_metadata = [];
+                    foreach ($this->card_metadata_registry->all() as $provider) {
+                        foreach ($provider->metadata_for_record($id, $record_capabilities) as $metadata) {
+                            $card_metadata[] = $metadata->to_array();
+                        }
+                    }
+                    usort($card_metadata, static function (array $left, array $right): int {
+                        return [$left['capability_key'], $left['metadata_key']] <=> [$right['capability_key'], $right['metadata_key']];
+                    });
+                    if ($card_metadata !== []) {
+                        $item['capability_card_metadata'] = $card_metadata;
+                    }
                 }
             }
             if ($id >= 1 && isset($per_record_solutions[$id]) && $per_record_solutions[$id] !== []) {
