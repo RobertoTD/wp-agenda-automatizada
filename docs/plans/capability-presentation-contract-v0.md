@@ -15,6 +15,8 @@ Una capability registrada podrá declarar en código contribuciones para slots c
 - asset y configuración de cliente;
 - vista de registros mediante el contrato de composición RVC-1.
 
+Desde RVC-2A, cada vista registrada usa una definición tipada y declara su política de creación. El registry resuelve toggles aditivos y el shell recibe la composición; la UI del menú corresponde a RVC-2B.
+
 El Shell itera contribuciones ofrecidas para la lista efectiva. La activación de la lista gobierna toda contribución conforme a `docs/05-canonical-capabilities.md` §5.1. No se guarda código, HTML, callbacks ni paths en base de datos.
 
 Fuera de v0 inicial: campos/formularios, renderers de valores, labels de selector, orden entre acciones, runtime público y un generador universal de UI. Los campos se exploran antes de `event_date`.

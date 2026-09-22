@@ -1,6 +1,7 @@
 # Canonical Record View Composition v0
 
-**Estado:** RVC-0 y RVC-1 completados; RVC-2 pendiente.  
+**Estado:** RVC-0, RVC-1 y RVC-2A completados; RVC-2B pendiente.
+
 **Ámbito:** consulta y navegación de registros del Shell Canónico administrativo.
 
 ## Propósito
@@ -103,11 +104,14 @@ La metadata de `completed` podrá mostrar `Completada el: …`; `postpone`, `Pos
 
 1. **RVC-0:** este contrato documental. **Completado.**
 2. **RVC-1:** especificación y composición de consulta; migrar `completed` sin cambiar producto. **Completado.**
-3. **RVC-2:** menú `Vista`, `Simple` y slots de metadata/agregados.
-4. **PKG-0:** manifiesto, registry y validador del Package Contract v0.
-5. **POST-1:** schema, persistencia, lectura y escritura de `postpone`.
-6. **POST-2:** acción, módulo cliente, vistas y contribuciones visuales.
-7. **POST-3:** combinaciones, lifecycle, expiración y validación integrada.
+3. **RVC-2A:** definiciones tipadas, toggles aditivos y política de creación. **Completado.**
+4. **RVC-2B:** menú accesible `Vista` y `Simple`; aplicar la política de creación.
+5. **RVC-2C:** slot de metadata de card; `completed_at` como primer consumidor.
+6. **RVC-2D:** slot tipado de detalles/agregados sin migrar capabilities legacy.
+7. **PKG-0:** manifiesto, registry y validador del Package Contract v0.
+8. **POST-1:** schema, persistencia, lectura y escritura de `postpone`.
+9. **POST-2:** acción, módulo cliente, vistas y contribuciones visuales.
+10. **POST-3:** combinaciones, lifecycle, expiración y validación integrada.
 
 ## Implementación de RVC-1
 
@@ -116,6 +120,12 @@ Application resuelve una especificación inmutable de consulta por criterios pro
 El transporte canónico usa `records_view=simple` y `capability_views[owner]=view`. La entrada legacy `records_view=completed` se normaliza por redirección. Las mutaciones conservan el contexto compuesto; crear un registro reinicia únicamente la página de registros.
 
 RVC-1 no cambia schema ni versión de base de datos y no implementa `postpone`, el menú `Vista` ni metadata de card/lista.
+
+## Implementación de RVC-2A
+
+Cada vista es una definición tipada con clave, label, criterio y política `allows_record_creation`. La resolución entrega `Simple`, estado activo, target de toggle por propietario y política combinada; activar conserva las demás selecciones, desactivar retira solo la propia y `Simple` limpia todas. Si varias vistas están seleccionadas, la prohibición de crear prevalece. `completed` declara que Completadas no permite crear.
+
+El compositor ya expone URLs toggle, `simple_record_view` y `records_view_policy`, pero la UI no los aplica todavía: menú, FAB y presentación visible corresponden a RVC-2B. RVC-2A no cambia schema, datos ni `DB_VERSION`.
 
 ## Aceptación de RVC-1 y posteriores
 

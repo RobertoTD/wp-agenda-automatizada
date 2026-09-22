@@ -161,7 +161,8 @@ final class AA_Canonical_Shell_View_Composer {
         return self::build_records_view_data(
             $result, false, $container_id, $containers_page, $lists_scope,
             'simple', $resolution['available'] ?? [], $resolution['current'] ?? null,
-            $resolution['selections'] ?? []
+            $resolution['selections'] ?? [], $resolution['simple'] ?? [],
+            $resolution['policy'] ?? ['allows_record_creation' => true]
         );
     }
 
@@ -415,7 +416,9 @@ final class AA_Canonical_Shell_View_Composer {
         ?string $records_view = null,
         array $available_views = [],
         ?array $current_capability_view = null,
-        array $capability_views = []
+        array $capability_views = [],
+        array $simple_record_view = [],
+        array $records_view_policy = ['allows_record_creation' => true]
     ): array {
         $manifest = $result->manifest();
         $state = $result->state();
@@ -522,6 +525,25 @@ final class AA_Canonical_Shell_View_Composer {
             $capability_contributions = $enriched['capability_contributions'];
         }
 
+        $default_records_url = !$is_preview
+            ? AA_Canonical_Shell_Base_Url_Policy::build_records_url(
+                $manifest->identity()->family_key(),
+                $container_id,
+                null,
+                $containers_page > 1 ? $containers_page : null,
+                $lists_scope
+            )
+            : '';
+        $simple_record_view_output = [];
+        if (!$is_preview && $default_records_url !== '') {
+            $simple_record_view_output = [
+                'key' => 'simple',
+                'label' => 'Simple',
+                'active' => !empty($simple_record_view['active']),
+                'url' => $default_records_url,
+            ];
+        }
+
         return [
             'shell_view' => self::SHELL_VIEW_RECORDS,
             'lists_scope' => $lists_scope === AA_Canonical_Shell_Base_Url_Policy::LISTS_SCOPE_ALL
@@ -545,9 +567,11 @@ final class AA_Canonical_Shell_View_Composer {
             'capability_contributions' => $capability_contributions,
             'records_view' => $records_view,
             'capability_views' => $capability_views,
-            'available_record_views' => self::build_record_views($manifest, $is_preview, $container_id, $containers_page, $lists_scope, $available_views, $capability_views),
+            'available_record_views' => self::build_record_views($manifest, $is_preview, $container_id, $containers_page, $lists_scope, $available_views),
+            'simple_record_view' => $simple_record_view_output,
+            'records_view_policy' => $records_view_policy,
             'current_record_view' => $current_capability_view,
-            'default_records_url' => !$is_preview ? AA_Canonical_Shell_Base_Url_Policy::build_records_url($manifest->identity()->family_key(), $container_id, null, $containers_page > 1 ? $containers_page : null, $lists_scope) : '',
+            'default_records_url' => $default_records_url,
             'page' => $page_num,
             'per_page' => $per_page,
             'total' => $total,
@@ -646,15 +670,27 @@ final class AA_Canonical_Shell_View_Composer {
         );
     }
 
-    /** @return list<array{key:string,label:string,url:string}> */
-    private static function build_record_views(CanonicalShellManifest $manifest, bool $is_preview, int $container_id, int $containers_page, ?string $lists_scope, array $views, array $selections = []): array {
+    /** @return list<array{owner:string,key:string,label:string,active:bool,url:string}> */
+    private static function build_record_views(CanonicalShellManifest $manifest, bool $is_preview, int $container_id, int $containers_page, ?string $lists_scope, array $views): array {
         if ($is_preview) { return []; }
         $out = [];
         foreach ($views as $view) {
-            if (!is_array($view) || empty($view['key']) || empty($view['label'])) { continue; }
-            $target = $selections;
-            $target[$view['owner']] = $view['key'];
-            $out[] = ['key' => (string) $view['key'], 'label' => (string) $view['label'], 'url' => AA_Canonical_Shell_Base_Url_Policy::build_records_url($manifest->identity()->family_key(), $container_id, null, $containers_page > 1 ? $containers_page : null, $lists_scope, 'simple', $target)];
+            if (!is_array($view) || empty($view['owner']) || empty($view['key']) || empty($view['label']) || !isset($view['target_selections']) || !is_array($view['target_selections'])) { continue; }
+            $out[] = [
+                'owner' => (string) $view['owner'],
+                'key' => (string) $view['key'],
+                'label' => (string) $view['label'],
+                'active' => !empty($view['active']),
+                'url' => AA_Canonical_Shell_Base_Url_Policy::build_records_url(
+                    $manifest->identity()->family_key(),
+                    $container_id,
+                    null,
+                    $containers_page > 1 ? $containers_page : null,
+                    $lists_scope,
+                    'simple',
+                    $view['target_selections']
+                ),
+            ];
         }
         return $out;
     }

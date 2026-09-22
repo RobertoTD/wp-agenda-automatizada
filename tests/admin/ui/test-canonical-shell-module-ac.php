@@ -600,8 +600,9 @@ ac_assert(
     && strpos($shell_html, 'shellView') !== false
 );
 ac_assert(
-    'Shell container modal includes Campos y funciones',
-    strpos($shell_html, 'Campos y funciones') !== false
+    'Shell container modal includes Opciones separadas',
+    strpos($shell_html, 'Opciones') !== false
+    && strpos($shell_html, 'Soluciones') !== false
     && strpos($shell_html, 'id="aa-shell-container-capabilities"') !== false
     && strpos($shell_html, 'id="aa-shell-container-capabilities-status"') !== false
 );

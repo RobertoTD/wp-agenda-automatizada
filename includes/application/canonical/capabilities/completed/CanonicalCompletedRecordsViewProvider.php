@@ -21,7 +21,12 @@ final class CanonicalCompletedRecordsViewProvider implements CanonicalCapability
         if ($row === null || empty($row['is_active'])) { return null; }
         return [
             'natural' => new CanonicalCompletedCriterion(false),
-            'views' => [self::KEY => ['label' => 'Completadas', 'criterion' => new CanonicalCompletedCriterion(true)]],
+            'views' => [self::KEY => new CanonicalCapabilityRecordsViewDefinition(
+                self::KEY,
+                'Completadas',
+                new CanonicalCompletedCriterion(true),
+                false
+            )],
         ];
     }
 }

@@ -58,7 +58,15 @@ final class RvcFlagProvider implements CanonicalCapabilityRecordsViewProvider {
     public function capability_key(): string { return 'test_flag'; }
     public function legacy_aliases(): array { return []; }
     public function contributions(string $family_key, int $container_id): ?array {
-        return $this->active ? ['natural' => new RvcFlag(false), 'views' => ['flagged' => ['label' => 'Test flag', 'criterion' => new RvcFlag(true)]]] : null;
+        return $this->active ? [
+            'natural' => new RvcFlag(false),
+            'views' => ['flagged' => new CanonicalCapabilityRecordsViewDefinition(
+                'flagged',
+                'Test flag',
+                new RvcFlag(true),
+                true
+            )],
+        ] : null;
     }
 }
 final class RvcFlagCompiler implements CanonicalRecordCriterionCompiler {
@@ -77,14 +85,46 @@ $flag = new RvcFlagProvider();
 $registry = (new CanonicalCapabilityRecordsViewRegistry())->register($completed)->register($flag)->freeze();
 $base = $registry->resolve_query('action', 41);
 check(count($base['spec']->criteria()) === 2 && !$base['spec']->criteria()['completed']->completed() && !$base['spec']->criteria()['test_flag']->value(), 'Both natural criteria');
+check($base['simple']['active'] && $base['policy']['allows_record_creation'], 'Simple is active and permits record creation');
+check(!$base['available'][0]['active'] && $base['available'][0]['target_selections'] === ['completed' => 'completed'], 'Inactive view target adds only its owner');
 $done = $registry->resolve_query('action', 41, ['completed' => 'completed']);
 check($done['spec']->criteria()['completed']->completed() && !$done['spec']->criteria()['test_flag']->value(), 'View replaces only its owner');
+check(!$done['simple']['active'] && !$done['policy']['allows_record_creation'], 'Completed view disallows record creation');
+$done_views = array_column($done['available'], null, 'owner');
+check($done_views['completed']['active'] && $done_views['completed']['target_selections'] === [], 'Active view target removes only its owner');
+check(!$done_views['test_flag']['active'] && $done_views['test_flag']['target_selections'] === ['completed' => 'completed', 'test_flag' => 'flagged'], 'Inactive second view target preserves existing owners');
+$flag_only = $registry->resolve_query('action', 41, ['test_flag' => 'flagged']);
+check($flag_only['policy']['allows_record_creation'], 'Permissive capability view keeps record creation available');
 $both = $registry->resolve_query('action', 41, ['test_flag' => 'flagged', 'completed' => 'completed']);
 check($both['spec']->criteria()['completed']->completed() && $both['spec']->criteria()['test_flag']->value(), 'Explicit combination');
+check(!$both['policy']['allows_record_creation'], 'Combined policy uses the most restrictive selected view');
+$both_views = array_column($both['available'], null, 'owner');
+check($both_views['completed']['target_selections'] === ['test_flag' => 'flagged'] && $both_views['test_flag']['target_selections'] === ['completed' => 'completed'], 'Each active toggle removes only its owner');
+foreach ($both_views as $owner => $view) {
+    $toggle_url = AA_Canonical_Shell_Base_Url_Policy::build_records_url(
+        'action',
+        41,
+        null,
+        3,
+        'all',
+        'simple',
+        $view['target_selections']
+    );
+    parse_str(parse_url($toggle_url, PHP_URL_QUERY), $toggle_query);
+    check(
+        ($toggle_query['capability_views'] ?? []) === $view['target_selections']
+        && !isset($toggle_query['page'])
+        && ($toggle_query['containers_page'] ?? '') === '3'
+        && ($toggle_query['lists_scope'] ?? '') === 'all',
+        'Toggle URL resets record page and preserves origin for ' . $owner
+    );
+}
 $reverse = (new CanonicalCapabilityRecordsViewRegistry())->register($flag)->register($completed)->freeze();
 check($reverse->resolve_query('action', 41, $both['selections'])['selections'] === $both['selections'], 'Stable registration order');
 rejects(function () use ($registry, $flag) { $registry->register($flag); }, LogicException::class, 'Frozen registry');
 rejects(function () use ($flag) { (new CanonicalCapabilityRecordsViewRegistry())->register($flag)->register($flag); }, LogicException::class, 'Duplicate owner rejected');
+rejects(function () { new CanonicalCapabilityRecordsViewDefinition('bad key', 'Bad', null, true); }, InvalidArgumentException::class, 'Typed view rejects invalid key');
+rejects(function () { new CanonicalCapabilityRecordsViewDefinition('valid', ' ', null, true); }, InvalidArgumentException::class, 'Typed view rejects blank label');
 $config->active = false;
 $off = $registry->resolve_query('action', 41, $both['selections']);
 check($off['redirect'] && $off['criteria_changed'] && $off['selections'] === ['test_flag' => 'flagged'] && count($off['spec']->criteria()) === 1, 'Deactivation removes only own selection and criterion');

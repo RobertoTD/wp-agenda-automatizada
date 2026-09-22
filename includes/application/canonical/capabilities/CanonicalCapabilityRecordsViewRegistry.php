@@ -40,7 +40,7 @@ final class CanonicalCapabilityRecordsViewRegistry {
 
     /**
      * Resolve once per request. A provider read failure must propagate.
-     * @return array{spec:CanonicalRecordsQuerySpec,selections:array,available:array,current:?array,redirect:bool,criteria_changed:bool}
+     * @return array{spec:CanonicalRecordsQuerySpec,selections:array,simple:array,available:array,current:?array,policy:array,redirect:bool,criteria_changed:bool}
      */
     public function resolve_query(string $family_key, int $container_id, array $selections = [], ?string $legacy_view = null): array {
         $selections = self::validate_selections($selections);
@@ -54,8 +54,9 @@ final class CanonicalCapabilityRecordsViewRegistry {
         }
         $requested = $selections;
         $criteria = [];
-        $available = [];
+        $available_definitions = [];
         $current = [];
+        $allows_record_creation = true;
         foreach ($this->providers as $owner => $provider) {
             $contributions = $provider->contributions($family_key, $container_id);
             if ($contributions === null) { unset($selections[$owner]); continue; }
@@ -63,33 +64,59 @@ final class CanonicalCapabilityRecordsViewRegistry {
                 throw new LogicException('Invalid view contributions.');
             }
             $criterion = $contributions['natural'];
+            if ($criterion !== null && !$criterion instanceof CanonicalRecordCriterion) {
+                throw new LogicException('Invalid natural criterion.');
+            }
             foreach ($contributions['views'] as $key => $definition) {
-                if (!is_string($key) || !AA_Canonical_Key::is_valid($key) || !is_string($definition['label'] ?? null) || !array_key_exists('criterion', $definition)) {
+                if (!is_string($key) || !AA_Canonical_Key::is_valid($key)
+                    || !$definition instanceof CanonicalCapabilityRecordsViewDefinition
+                    || $definition->key() !== $key
+                ) {
                     throw new LogicException('Invalid view definition.');
                 }
-                if ($definition['label'] === '' || ($definition['criterion'] !== null && !$definition['criterion'] instanceof CanonicalRecordCriterion)) {
-                    throw new LogicException('Invalid view criterion or label.');
-                }
-                $available[] = ['owner' => $owner, 'key' => $key, 'label' => $definition['label']];
+                $available_definitions[] = ['owner' => $owner, 'definition' => $definition];
             }
             if (isset($selections[$owner])) {
                 $key = $selections[$owner];
                 if (!isset($contributions['views'][$key])) { throw new InvalidArgumentException('Unknown active capability view.'); }
                 $definition = $contributions['views'][$key];
-                $criterion = $definition['criterion'];
-                $current[] = $definition['label'];
+                $criterion = $definition->criterion();
+                $current[] = $definition->label();
+                $allows_record_creation = $allows_record_creation && $definition->allows_record_creation();
             }
             if ($criterion !== null) { $criteria[$owner] = $criterion; }
         }
         $selections = array_intersect_key($selections, $this->providers);
         ksort($selections);
+        $available = [];
+        foreach ($available_definitions as $row) {
+            $owner = $row['owner'];
+            $definition = $row['definition'];
+            $active = isset($selections[$owner]) && $selections[$owner] === $definition->key();
+            $target = $selections;
+            if ($active) {
+                unset($target[$owner]);
+            } else {
+                $target[$owner] = $definition->key();
+            }
+            ksort($target);
+            $available[] = [
+                'owner' => $owner,
+                'key' => $definition->key(),
+                'label' => $definition->label(),
+                'active' => $active,
+                'target_selections' => $target,
+            ];
+        }
         ksort($requested);
         $changed = $requested !== $selections;
         return [
             'spec' => new CanonicalRecordsQuerySpec($container_id, $criteria),
             'selections' => $selections,
+            'simple' => ['key' => 'simple', 'label' => 'Simple', 'active' => $selections === [], 'target_selections' => []],
             'available' => $available,
             'current' => $current === [] ? null : ['label' => implode(' · ', $current)],
+            'policy' => ['allows_record_creation' => $allows_record_creation],
             'redirect' => $redirect || $changed,
             'criteria_changed' => $changed,
         ];

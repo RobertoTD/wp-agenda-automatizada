@@ -122,6 +122,8 @@ La lectura de registros parte siempre del conjunto canónico del contenedor. Cad
 
 La vista canónica **Simple** es la base más los criterios naturales activos. Una combinación explícita de vistas es válida cuando todos sus propietarios están registrados y activos y no declaran incompatibilidad. Conteo, listado y paginación deben consumir una misma especificación de consulta; no se permite componer resultados ya paginados.
 
+Las vistas son definiciones tipadas. Cada una declara su clave, label, criterio sustituto y si permite crear registros mientras está seleccionada. Su navegación es aditiva: activar una vista conserva selecciones de otros propietarios; pulsar una vista activa retira solo la propia; **Simple** limpia todas. La política combinada de creación es restrictiva: si alguna vista seleccionada no permite crear, la composición tampoco lo permite. El shell consume el resultado y no bifurca por capability.
+
 Una vista solicitada de capability conocida pero inactiva o no disponible se retira de la URL mediante redirección canónica, conservando el resto del contexto y selecciones válidas. Una selección perteneciente a un paquete ausente también se descarta de forma segura. Transporte malformado o una vista inválida de una capability activa sigue siendo solicitud inválida.
 
 Desactivar o desinstalar una capability conserva por defecto sus datos y schema tipados. La eliminación física es una operación **purge** explícita y separada. El contrato y la secuencia operativa están en `docs/plans/canonical-record-view-composition-v0.md`.
