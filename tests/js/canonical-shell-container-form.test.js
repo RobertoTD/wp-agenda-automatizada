@@ -383,12 +383,13 @@ describe('canonical-shell-container-form', () => {
             })
         }), [
             { id: 11, title: 'Edit me', details: null }
-        ]);
+        ], { capabilityViews: { completed: 'completed' }, shellView: 'records' });
         ui.editBtns[0]._listeners.click[0]();
         ui.titleInput.value = 'Editado';
         ui.form._listeners.submit[0]({ preventDefault() {} });
         assert.equal(ui.getLastFormData().action, 'aa_update_canonical_container');
         assert.equal(ui.getLastFormData().nonce, 'update-nonce');
+        assert.equal(ui.getLastFormData()['capability_views[completed]'], 'completed');
         assert.equal(ui.getLastFormData().container_id, '11');
         await new Promise((resolve) => setTimeout(resolve, 0));
         assert.equal(

@@ -13,7 +13,7 @@ Una capability registrada podrá declarar en código contribuciones para slots c
 
 - acción de tarjeta;
 - asset y configuración de cliente;
-- vista de registros mediante el registry existente de C5.1.
+- vista de registros mediante el contrato de composición RVC-1.
 
 El Shell itera contribuciones ofrecidas para la lista efectiva. La activación de la lista gobierna toda contribución conforme a `docs/05-canonical-capabilities.md` §5.1. No se guarda código, HTML, callbacks ni paths en base de datos.
 
@@ -25,7 +25,7 @@ Los puntos heredados de cards, formulario y carga directa de assets son un puent
 
 - No se añade allí ninguna capability, campo, acción, script, label o conducta nueva.
 - Solo admite correcciones de bug, seguridad o compatibilidad que preserven el producto existente.
-- `completed` permanece solo como objetivo transitorio de CP-2; no recibe ampliaciones antes de migrarse.
+- `completed` usa el slot v0 de acciones, su módulo cliente registrado y el contrato de composición RVC-1.
 - `contact_dossier` es una solution y no una excepción de capability; su puente heredado se tratará en un contrato de presentación de solutions posterior.
 
 Los archivos del puente llevan un marcador explícito y una prueba estática impide incorporar una capability registrada fuera de esta lista cerrada.

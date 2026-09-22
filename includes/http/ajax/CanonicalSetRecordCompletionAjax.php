@@ -9,6 +9,12 @@ final class CanonicalSetRecordCompletionAjax {
         if (!is_user_logged_in()) { self::error('unauthorized', 'Debes iniciar sesión.', 401); }
         $nonce = isset($_POST['nonce']) ? wp_unslash($_POST['nonce']) : '';
         if (!is_string($nonce) || !wp_verify_nonce($nonce, self::NONCE_ACTION)) { self::error('invalid_nonce', 'Nonce de seguridad inválido o expirado.', 403); }
+        $return_input = [];
+        foreach (['lists_scope', 'page', 'containers_page', 'capability_views'] as $key) {
+            if (array_key_exists($key, $_POST)) { $return_input[$key] = wp_unslash($_POST[$key]); }
+        }
+        $return_ctx = AA_Canonical_Shell_Base_Url_Policy::parse_mutation_return_context($return_input);
+        if ($return_ctx === null) { self::error('invalid_payload', 'Contexto de retorno inválido.', 400); }
         $family = isset($_POST['family_key']) && is_string($_POST['family_key']) ? sanitize_key(wp_unslash($_POST['family_key'])) : '';
         $container = isset($_POST['container_id']) ? (int) $_POST['container_id'] : 0;
         $record = isset($_POST['record_id']) ? (int) $_POST['record_id'] : 0;
@@ -31,7 +37,7 @@ final class CanonicalSetRecordCompletionAjax {
             $containers = AA_Canonical_Schema::containers_table_name();
             if ($wpdb->update($records, ['updated_at' => $now], ['id' => $record, 'container_id' => $container], ['%s'], ['%d','%d']) === false || $wpdb->update($containers, ['updated_at' => $now], ['id' => $container, 'family_id' => $family_id], ['%s'], ['%d','%d']) === false) { throw new \RuntimeException('touch_failed'); }
             $wpdb->query('COMMIT');
-            wp_send_json_success(['redirect_url' => wp_get_referer() ?: AA_Canonical_Shell_Base_Url_Policy::build_records_url('action', $container)]);
+            wp_send_json_success(['redirect_url' => AA_Canonical_Shell_Base_Url_Policy::build_records_url($family, $container, $return_ctx['page'], $return_ctx['containers_page'], $return_ctx['lists_scope'], 'simple', $return_ctx['capability_views'])]);
         } catch (\Throwable $e) {
             global $wpdb; if (isset($wpdb)) { $wpdb->query('ROLLBACK'); }
             self::error('persistence_failed', 'No se pudo actualizar el estado.', 500);

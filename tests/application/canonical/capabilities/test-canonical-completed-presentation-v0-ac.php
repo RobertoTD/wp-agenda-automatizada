@@ -68,9 +68,12 @@ completed_presentation_assert('Capability inactiva no carga módulo', $modules_r
 $card_source = (string) file_get_contents($plugin_root . '/includes/admin/ui/modules/canonical_shell/partials/record-card.php');
 $shell_source = (string) file_get_contents($plugin_root . '/includes/admin/ui/modules/canonical_shell/index.php');
 $script_source = (string) file_get_contents($plugin_root . '/includes/admin/ui/modules/canonical_shell/capabilities/canonical-shell-completed-action.js');
+$endpoint_source = (string) file_get_contents($plugin_root . '/includes/http/ajax/CanonicalSetRecordCompletionAjax.php');
 completed_presentation_assert('Card usa el slot genérico y no conoce completed', strpos($card_source, 'completed') === false && strpos($card_source, 'record-card-capability-actions.php') !== false);
 completed_presentation_assert('Shell itera módulos y no conoce configuración completed', strpos($shell_source, 'completed_capability_active') === false && strpos($shell_source, 'AA_CANONICAL_SHELL_COMPLETED') === false && strpos($shell_source, 'capability_client_modules') !== false);
 completed_presentation_assert('Módulo de completed consume namespace genérico y payload', strpos($script_source, 'AA_CANONICAL_SHELL_CAPABILITY_ACTION_MODULES') !== false && strpos($script_source, 'data-aa-capability-action-payload') !== false);
+completed_presentation_assert('Módulo de completed transporta el contexto compuesto', strpos($script_source, 'config.returnContext') !== false && strpos($script_source, "capability_views[' + owner + ']") !== false);
+completed_presentation_assert('Endpoint completed valida y reconstruye el retorno compuesto', strpos($endpoint_source, 'parse_mutation_return_context') !== false && strpos($endpoint_source, '$return_ctx[\'capability_views\']') !== false);
 
 echo "\n{$passed}/{$total} assertions passed.\n";
 if ($failed !== []) {

@@ -31,6 +31,24 @@ final class CanonicalUpdateRecordAjax {
             self::error('invalid_nonce', 'Nonce de seguridad inválido o expirado.', 403);
         }
 
+        $return_ctx_input = [];
+        if (array_key_exists('capability_views', $_POST)) {
+            $return_ctx_input['capability_views'] = wp_unslash($_POST['capability_views']);
+        }
+        if (array_key_exists('lists_scope', $_POST)) {
+            $return_ctx_input['lists_scope'] = wp_unslash($_POST['lists_scope']);
+        }
+        if (array_key_exists('page', $_POST)) {
+            $return_ctx_input['page'] = wp_unslash($_POST['page']);
+        }
+        if (array_key_exists('containers_page', $_POST)) {
+            $return_ctx_input['containers_page'] = wp_unslash($_POST['containers_page']);
+        }
+        $return_ctx = AA_Canonical_Shell_Base_Url_Policy::parse_mutation_return_context($return_ctx_input);
+        if ($return_ctx === null) {
+            self::error('invalid_payload', 'La solicitud contiene campos no válidos.', 400);
+        }
+
         $family_key_raw = isset($_POST['family_key']) ? wp_unslash($_POST['family_key']) : null;
         $container_id_raw = isset($_POST['container_id']) ? wp_unslash($_POST['container_id']) : null;
         $record_id_raw = isset($_POST['record_id']) ? wp_unslash($_POST['record_id']) : null;
@@ -165,20 +183,7 @@ final class CanonicalUpdateRecordAjax {
             self::error('persistence_failed', 'No se pudo actualizar el registro.', 500);
         }
 
-        $return_ctx_input = [];
-        if (array_key_exists('lists_scope', $_POST)) {
-            $return_ctx_input['lists_scope'] = wp_unslash($_POST['lists_scope']);
-        }
-        if (array_key_exists('page', $_POST)) {
-            $return_ctx_input['page'] = wp_unslash($_POST['page']);
-        }
-        if (array_key_exists('containers_page', $_POST)) {
-            $return_ctx_input['containers_page'] = wp_unslash($_POST['containers_page']);
-        }
-        $return_ctx = AA_Canonical_Shell_Base_Url_Policy::parse_mutation_return_context($return_ctx_input);
-        if ($return_ctx === null) {
-            self::error('invalid_payload', 'La solicitud contiene campos no válidos.', 400);
-        }
+
 
         $containers_page = $return_ctx['containers_page'];
         $redirect_page = $return_ctx['page'];
@@ -187,7 +192,7 @@ final class CanonicalUpdateRecordAjax {
             $container_id,
             ($redirect_page !== null && $redirect_page > 1) ? $redirect_page : null,
             ($containers_page !== null && $containers_page > 1) ? $containers_page : null,
-            $return_ctx['lists_scope']
+            $return_ctx['lists_scope'], 'simple', $return_ctx['capability_views']
         );
 
         wp_send_json_success([

@@ -87,7 +87,7 @@ require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/Canonic
 require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/CanonicalPage.php';
 require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/CanonicalRecordsPage.php';
 require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/CanonicalReadAdapter.php';
-require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/CanonicalRecordsFilter.php';
+require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/CanonicalRecordsQuerySpec.php';
 require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/CanonicalReadAdapterResolver.php';
 require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/CanonicalReadBindingNotFound.php';
 require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/CanonicalContainerNotFound.php';
@@ -162,7 +162,7 @@ require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/images/
 require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/capabilities/images/CanonicalImagesRecordsPageContributor.php';
 require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/capabilities/completed/CanonicalCompletedRecordsPageContributor.php';
 require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/capabilities/completed/CanonicalCompletedCardActionProvider.php';
-require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/capabilities/completed/CanonicalCompletedRecordsFilter.php';
+require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/capabilities/completed/CanonicalCompletedCriterion.php';
 require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/capabilities/completed/CanonicalCompletedRecordsViewProvider.php';
 require_once plugin_dir_path(__FILE__) . 'includes/repositories/CanonicalRecordImagesRepository.php';
 require_once plugin_dir_path(__FILE__) . 'includes/repositories/CanonicalCapabilityConfigRepository.php';

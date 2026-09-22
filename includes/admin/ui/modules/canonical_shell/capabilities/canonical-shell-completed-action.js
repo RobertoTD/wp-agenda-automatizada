@@ -19,6 +19,16 @@
         data.append('family_key', config.familyKey);
         data.append('container_id', String(config.containerId));
         data.append('record_id', String(recordId));
+        var context = config.returnContext || {};
+        Object.keys(context).forEach(function (key) {
+            if (key === 'capability_views') {
+                Object.keys(context[key] || {}).forEach(function (owner) {
+                    data.append('capability_views[' + owner + ']', context[key][owner]);
+                });
+            } else if (context[key] !== null && context[key] !== undefined) {
+                data.append(key, String(context[key]));
+            }
+        });
         data.append('completed', String(payload.completed === 1 || payload.completed === '1' ? 1 : 0));
         fetch(config.ajaxUrl, { method: 'POST', credentials: 'same-origin', body: data })
             .then(function (response) { return response.json(); })

@@ -40,7 +40,7 @@ ac_assert('Bootstrap registra', strpos($boot_src, 'CanonicalUpdateRecordAjax::re
 ac_assert('Access Policy vía soporte SB1-5C1', strpos($support_src, 'AA_Canonical_Access_Policy::check_family_access') !== false
     && strpos($ajax_src, 'CanonicalShellWriteAjaxSupport::authorize_identity') !== false);
 ac_assert('Write bootstrap vía soporte SB1-5C1', strpos($support_src, 'AA_Canonical_Write_Binding_Bootstrap::register_productive') !== false
-    && strpos($ajax_src, 'CanonicalShellWriteAjaxSupport::build_write_gateway') !== false);
+    && strpos($ajax_src, 'CanonicalShellWriteAjaxSupport::build_write_composition') !== false);
 ac_assert('UseCase update', strpos($ajax_src, '->update($manifest, $command)') !== false);
 ac_assert('Sin SQL directo', strpos($ajax_src, '$wpdb') === false
     && !preg_match('/->query\(|->insert\(/', $ajax_src));
@@ -408,6 +408,18 @@ ac_assert('Precedencia: record_id inválido gana sobre familia desconocida', ($r
 $r = aa_run_update_record_ajax(aa_base_update_post(['title' => ['x'], 'record_id' => 'y']));
 ac_assert('Precedencia: payload no escalar gana sobre record_id inválido', ($r['data']['code'] ?? '') === 'invalid_payload');
 
+
+$r = aa_run_update_record_ajax(aa_base_update_post([
+    'capability_views' => ['completed' => 'completed', 'test_flag' => 'flagged'],
+    'page' => '2', 'containers_page' => '3', 'lists_scope' => 'all'
+]));
+parse_str(parse_url($r['data']['redirect_url'] ?? '', PHP_URL_QUERY) ?? '', $return_query);
+ac_assert('RVC-1: retorno conserva selecciones y procedencia', ($return_query['capability_views'] ?? []) === ['completed'=>'completed','test_flag'=>'flagged']
+    && ($return_query['records_view'] ?? '') === 'simple' && ($return_query['page'] ?? '') === '2'
+    && ($return_query['containers_page'] ?? '') === '3' && ($return_query['lists_scope'] ?? '') === 'all');
+$r = aa_run_update_record_ajax(aa_base_update_post(['capability_views' => ['completed' => ['invalid']]]));
+ac_assert('RVC-1: transporte anidado inválido rechazado antes de escribir', ($r['data']['code'] ?? '') === 'invalid_payload');
+ac_assert('RVC-1: validación de retorno precede mutación', strpos($ajax_src, 'parse_mutation_return_context') < strpos($ajax_src, '$result = $use_case->'));
 CanonicalUpdateRecordAjax::register();
 ac_assert('Register hook', in_array('wp_ajax_aa_update_canonical_record', $GLOBALS['aa_test_actions'], true));
 

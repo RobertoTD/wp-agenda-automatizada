@@ -20,7 +20,7 @@ final class AA_Canonical_Shell_Base_Url_Policy {
     public const ACTION_IFRAME_CONTENT = 'aa_iframe_content';
     public const SHELL_MODE_PREVIEW = 'preview';
     public const VIEW_RECORDS = 'records';
-    public const RECORDS_VIEW_COMPLETED = 'completed';
+    public const RECORDS_VIEW_SIMPLE = 'simple';
     public const LISTS_SCOPE_ALL = 'all';
 
     private const ALLOWED_QUERY_KEYS = [
@@ -34,6 +34,7 @@ final class AA_Canonical_Shell_Base_Url_Policy {
         'containers_page',
         'lists_scope',
         'records_view',
+        'capability_views',
     ];
 
     /**
@@ -90,7 +91,8 @@ final class AA_Canonical_Shell_Base_Url_Policy {
         ?int $page = null,
         ?int $containers_page = null,
         ?string $lists_scope = null,
-        ?string $records_view = null
+        ?string $records_view = null,
+        array $capability_views = []
     ): string {
         if (!AA_Canonical_Key::is_valid($family_key)) {
             throw new InvalidArgumentException('Clave de familia no válida para shell base.');
@@ -115,9 +117,12 @@ final class AA_Canonical_Shell_Base_Url_Policy {
         if ($lists_scope === self::LISTS_SCOPE_ALL) {
             $args['lists_scope'] = self::LISTS_SCOPE_ALL;
         }
-        if ($records_view === self::RECORDS_VIEW_COMPLETED) {
-            $args['records_view'] = self::RECORDS_VIEW_COMPLETED;
+        if ($records_view !== null && $records_view !== self::RECORDS_VIEW_SIMPLE) {
+            throw new InvalidArgumentException('Non-canonical records_view in URL builder.');
         }
+        $args['records_view'] = self::RECORDS_VIEW_SIMPLE;
+        $capability_views = self::parse_capability_views($capability_views);
+        if ($capability_views !== []) { $args['capability_views'] = $capability_views; }
 
         return add_query_arg($args, admin_url('admin-post.php'));
     }
@@ -216,9 +221,17 @@ final class AA_Canonical_Shell_Base_Url_Policy {
      * la cadena exacta `"records"`. Cualquier otro valor presente es inválido.
      *
      * @param array{lists_scope?:mixed,page?:mixed,containers_page?:mixed,return_view?:mixed} $input
-     * @return array{lists_scope:?string,page:?int,containers_page:?int,return_view:?string}|null null si el input es inválido
+     * @return array{lists_scope:?string,page:?int,containers_page:?int,return_view:?string,capability_views:array}|null null si el input es inválido
      */
+    public static function parse_capability_views($value): array {
+        require_once dirname(__DIR__, 2) . '/application/canonical/capabilities/CanonicalCapabilityRecordsViewRegistry.php';
+        return CanonicalCapabilityRecordsViewRegistry::validate_selections($value);
+    }
+
     public static function parse_mutation_return_context(array $input): ?array {
+        try {
+            $capability_views = self::parse_capability_views(array_key_exists('capability_views', $input) ? $input['capability_views'] : []);
+        } catch (InvalidArgumentException $e) { return null; }
         $lists_scope = null;
         if (array_key_exists('lists_scope', $input)) {
             $parsed = self::parse_present_lists_scope($input['lists_scope']);
@@ -260,6 +273,7 @@ final class AA_Canonical_Shell_Base_Url_Policy {
             'page' => $page,
             'containers_page' => $containers_page,
             'return_view' => $return_view,
+            'capability_views' => $capability_views,
         ];
     }
 
@@ -413,6 +427,17 @@ final class AA_Canonical_Shell_Base_Url_Policy {
             if ($family === '' || !AA_Canonical_Key::is_valid($family)) {
                 return false;
             }
+        }
+
+        if (array_key_exists('records_view', $query)) {
+            if ($view !== self::VIEW_RECORDS || $shell_mode !== '' || !is_string($query['records_view']) || !AA_Canonical_Key::is_valid($query['records_view'])) {
+                return false;
+            }
+        }
+        if (array_key_exists('capability_views', $query)) {
+            if ($view !== self::VIEW_RECORDS || $shell_mode !== '' || !$has_family) { return false; }
+            try { self::parse_capability_views($query['capability_views']); }
+            catch (InvalidArgumentException $e) { return false; }
         }
 
         if (isset($query['page'])) {

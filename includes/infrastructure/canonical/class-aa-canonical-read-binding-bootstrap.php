@@ -25,15 +25,16 @@ final class AA_Canonical_Read_Binding_Bootstrap {
      * @throws CanonicalFamilyEnablementPersistenceFailed
      * @throws \LogicException
      */
-    public static function register_productive(AA_Canonical_Read_Binding_Registry $registry, ?CanonicalRecordsFilter $records_filter = null): void {
+    public static function register_productive(AA_Canonical_Read_Binding_Registry $registry, ?CanonicalRecordsQuerySpec $records_query = null): void {
         self::require_dependencies();
+        require_once __DIR__ . '/class-aa-canonical-capability-records-view-bootstrap.php';
 
         $canonical = AA_Canonical_Core_Bootstrap::instance();
         $snapshot = (new ReadCanonicalFamilyEnablementUseCase(
             new AA_Canonical_Family_Enablement_Store()
         ))->execute($canonical);
 
-        $repository = new CanonicalRelationalRepository();
+        $repository = new CanonicalRelationalRepository(null, AA_Canonical_Capability_Records_View_Bootstrap::query_compiler());
 
         foreach ($canonical->families() as $family) {
             $family_key = $family->key();
@@ -44,7 +45,7 @@ final class AA_Canonical_Read_Binding_Bootstrap {
             $identity = new CanonicalReadIdentity($family_key);
             $registry->register(
                 $identity,
-                new AA_Canonical_Relational_Read_Adapter($repository, $identity, $records_filter)
+                new AA_Canonical_Relational_Read_Adapter($repository, $identity, $records_query)
             );
         }
     }

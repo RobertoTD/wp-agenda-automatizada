@@ -91,6 +91,7 @@ if ($active_module === 'canonical_shell') {
     $shell_containers_page = 1;
     $shell_lists_scope = null;
     $shell_records_view = null;
+    $shell_capability_views = [];
     $records_transport_invalid = false;
     $records_transport_message = '';
 
@@ -145,11 +146,23 @@ if ($active_module === 'canonical_shell') {
     }
     if (!$records_transport_invalid && $records_view_present) {
         $raw_records_view = wp_unslash($_GET['records_view']);
-        if (!is_string($raw_records_view) || !AA_Canonical_Key::is_valid($raw_records_view) || $view !== AA_Canonical_Shell_Base_Url_Policy::VIEW_RECORDS) {
+        if (!is_string($raw_records_view) || !AA_Canonical_Key::is_valid($raw_records_view) || $view !== AA_Canonical_Shell_Base_Url_Policy::VIEW_RECORDS || $shell_mode !== '') {
             $records_transport_invalid = true;
             $records_transport_message = 'El parámetro records_view no es válido.';
         } else {
             $shell_records_view = $raw_records_view;
+        }
+    }
+
+    if (!$records_transport_invalid && array_key_exists('capability_views', $_GET)) {
+        try {
+            if ($view !== AA_Canonical_Shell_Base_Url_Policy::VIEW_RECORDS || $shell_mode !== '') {
+                throw new InvalidArgumentException('Capability views require productive records.');
+            }
+            $shell_capability_views = AA_Canonical_Shell_Base_Url_Policy::parse_capability_views(wp_unslash($_GET['capability_views']));
+        } catch (InvalidArgumentException $e) {
+            $records_transport_invalid = true;
+            $records_transport_message = 'El parámetro capability_views no es válido.';
         }
     }
 
@@ -362,44 +375,39 @@ if ($active_module === 'canonical_shell') {
                 if (function_exists('status_header')) {
                     status_header(200);
                 }
-            } elseif ($is_records_view && $shell_records_view !== null) {
-                $views = AA_Canonical_Capability_Records_View_Bootstrap::bootstrap();
-                $resolution = $views->resolve($aa_canonical_family->key(), $shell_container_id, $shell_records_view);
-                if (!$resolution['recognized']) {
-                    $aa_shell_route_state = 'invalid_request';
-                    $aa_shell_route_message = 'La vista solicitada no existe.';
-                    if (function_exists('status_header')) { status_header(400); }
-                } elseif ($resolution['filter'] === null) {
-                    wp_safe_redirect(AA_Canonical_Shell_Base_Url_Policy::build_records_url(
-                        $aa_canonical_family->key(), $shell_container_id, null,
-                        $shell_containers_page > 1 ? $shell_containers_page : null, $shell_lists_scope
-                    ));
-                    exit;
-                } else {
+            } elseif ($is_records_view) {
+                try {
+                    $resolution = AA_Canonical_Shell_View_Composer::resolve_records_query(
+                        $aa_canonical_family, $shell_container_id, $shell_capability_views, $shell_records_view
+                    );
+                    $effective_page = $resolution['criteria_changed'] ? 1 : $shell_page;
+                    $aa_canonical_url = AA_Canonical_Shell_Base_Url_Policy::build_records_url(
+                        $aa_canonical_family->key(), $shell_container_id, $effective_page,
+                        $shell_containers_page, $shell_lists_scope, 'simple', $resolution['selections']
+                    );
+                    if ($resolution['redirect'] || $shell_records_view === null) {
+                        if (!wp_safe_redirect($aa_canonical_url)) { throw new RuntimeException('Canonical redirect failed.'); }
+                        exit;
+                    }
                     $aa_shell_route_state = 'resolved';
                     $aa_shell_route_message = 'Ruta canónica resuelta.';
-                    $aa_canonical_url = AA_Canonical_Shell_Base_Url_Policy::build_records_url($aa_canonical_family->key(), $shell_container_id, $shell_page > 1 ? $shell_page : null, $shell_containers_page > 1 ? $shell_containers_page : null, $shell_lists_scope, $shell_records_view);
-                    $aa_shell_view = AA_Canonical_Shell_View_Composer::compose_family_records($aa_canonical_family, $shell_container_id, $shell_page, $shell_containers_page, $shell_lists_scope, $shell_records_view);
+                    $aa_shell_view = AA_Canonical_Shell_View_Composer::compose_family_records(
+                        $aa_canonical_family, $shell_container_id, $effective_page,
+                        $shell_containers_page, $shell_lists_scope, 'simple', $resolution['selections'], $resolution
+                    );
+                } catch (CanonicalContainerNotFound $e) {
+                    $aa_shell_route_state = 'container_not_found';
+                    $aa_shell_route_message = 'La lista no existe.';
+                    if (function_exists('status_header')) { status_header(404); }
+                } catch (InvalidArgumentException $e) {
+                    $aa_shell_route_state = 'invalid_request';
+                    $aa_shell_route_message = 'La vista solicitada no es válida.';
+                    if (function_exists('status_header')) { status_header(400); }
+                } catch (\Throwable $e) {
+                    $aa_shell_route_state = 'contract_error';
+                    $aa_shell_route_message = 'No se pudo resolver la consulta de registros.';
+                    if (function_exists('status_header')) { status_header(500); }
                 }
-            } elseif ($is_records_view) {
-                $aa_shell_route_state = 'resolved';
-                $aa_shell_route_message = 'Ruta canónica resuelta.';
-                $aa_canonical_url = AA_Canonical_Shell_Base_Url_Policy::build_records_url(
-                    $aa_canonical_family->key(),
-                    $shell_container_id,
-                    $shell_page > 1 ? $shell_page : null,
-                    $shell_containers_page > 1 ? $shell_containers_page : null,
-                    $shell_lists_scope,
-                    $shell_records_view
-                );
-                $aa_shell_view = AA_Canonical_Shell_View_Composer::compose_family_records(
-                    $aa_canonical_family,
-                    $shell_container_id,
-                    $shell_page,
-                    $shell_containers_page,
-                    $shell_lists_scope,
-                    $shell_records_view
-                );
             } else {
                 $aa_shell_route_state = 'resolved';
                 $aa_shell_route_message = 'Ruta canónica resuelta.';

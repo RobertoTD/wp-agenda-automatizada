@@ -55,17 +55,17 @@ final class AA_Canonical_Relational_Read_Adapter implements CanonicalReadAdapter
     /** @var CanonicalReadIdentity */
     private $bound_identity;
 
-    /** @var CanonicalRecordsFilter|null */
-    private $records_filter;
+    /** @var CanonicalRecordsQuerySpec|null */
+    private $records_query;
 
     public function __construct(
         CanonicalRelationalRepository $repository,
         CanonicalReadIdentity $bound_identity,
-        ?CanonicalRecordsFilter $records_filter = null
+        ?CanonicalRecordsQuerySpec $records_query = null
     ) {
         $this->repository = $repository;
         $this->bound_identity = $bound_identity;
-        $this->records_filter = $records_filter;
+        $this->records_query = $records_query;
     }
 
     public function list_containers(int $page, int $per_page): CanonicalPage {
@@ -136,11 +136,15 @@ final class AA_Canonical_Relational_Read_Adapter implements CanonicalReadAdapter
         $container_id = $this->assert_positive_id($container_id, 'container_id');
 
         $this->get_container($container_id);
+        if ($this->records_query !== null && $this->records_query->container_id() !== $container_id) {
+            throw new LogicException('Query container mismatch.');
+        }
+        $predicate = $this->records_query !== null ? $this->repository->compile_records_query($this->records_query) : null;
 
         try {
-            $total = $this->records_filter === null
+            $total = $this->records_query === null
                 ? $this->repository->count_records($container_id)
-                : $this->records_filter->count($this->repository, $container_id);
+                : $this->repository->count_records_matching($predicate);
         } catch (CanonicalRelationalQueryFailed $e) {
             throw $this->map_query_failed($e);
         }
@@ -155,9 +159,9 @@ final class AA_Canonical_Relational_Read_Adapter implements CanonicalReadAdapter
         }
 
         try {
-            $rows = $this->records_filter === null
+            $rows = $this->records_query === null
                 ? $this->repository->list_records($container_id, $page, $per_page)
-                : $this->records_filter->list($this->repository, $container_id, $page, $per_page);
+                : $this->repository->list_records_matching($predicate, $page, $per_page);
         } catch (CanonicalRelationalQueryFailed $e) {
             throw $this->map_query_failed($e);
         }

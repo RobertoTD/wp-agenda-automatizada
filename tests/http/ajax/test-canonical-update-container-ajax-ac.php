@@ -63,7 +63,7 @@ ac_assert(
 );
 ac_assert(
     'Update pasa selection al UseCase',
-    preg_match('/->update\(\s*\$manifest\s*,\s*\$command\s*,\s*\$selection\s*\)/', $ajax_src) === 1
+    preg_match('/->update\(\s*\$manifest\s*,\s*\$command\s*,\s*\$selection\s*,\s*\$solution_effects\s*\)/', $ajax_src) === 1
 );
 ac_assert(
     'Acepta return_view=records',
@@ -454,6 +454,18 @@ ac_assert(
     ($r['data']['code'] ?? '') === 'invalid_payload'
 );
 
+
+$r = aa_run_update_container_ajax(aa_base_update_post([
+    'capability_views' => ['completed' => 'completed', 'test_flag' => 'flagged'],
+    'page' => '2', 'containers_page' => '3', 'lists_scope' => 'all', 'return_view' => 'records'
+]));
+parse_str(parse_url($r['data']['redirect_url'] ?? '', PHP_URL_QUERY) ?? '', $return_query);
+ac_assert('RVC-1: retorno conserva selecciones y procedencia', ($return_query['capability_views'] ?? []) === ['completed'=>'completed','test_flag'=>'flagged']
+    && ($return_query['records_view'] ?? '') === 'simple' && ($return_query['page'] ?? '') === '2'
+    && ($return_query['containers_page'] ?? '') === '3' && ($return_query['lists_scope'] ?? '') === 'all');
+$r = aa_run_update_container_ajax(aa_base_update_post(['capability_views' => ['completed' => ['invalid']]]));
+ac_assert('RVC-1: transporte anidado inválido rechazado antes de escribir', ($r['data']['code'] ?? '') === 'invalid_payload');
+ac_assert('RVC-1: validación de retorno precede mutación', strpos($ajax_src, 'parse_mutation_return_context') < strpos($ajax_src, '$result = $use_case->'));
 CanonicalUpdateContainerAjax::register();
 ac_assert('Register hook', in_array('wp_ajax_aa_update_canonical_container', $GLOBALS['aa_test_actions'], true));
 

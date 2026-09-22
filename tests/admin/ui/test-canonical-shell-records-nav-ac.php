@@ -210,6 +210,7 @@ require_once $plugin_root . '/includes/admin/ui/modules/canonical_shell/presente
 require_once $plugin_root . '/includes/admin/ui/modules/canonical_shell/presenters/class-aa-canonical-email-shell-presenter.php';
 require_once $plugin_root . '/includes/admin/ui/modules/canonical_shell/presenters/class-aa-canonical-images-shell-presenter.php';
 require_once $plugin_root . '/includes/admin/ui/modules/canonical_shell/class-aa-canonical-family-icon-markup.php';
+require_once $plugin_root . '/includes/admin/ui/modules/canonical_shell/presenters/class-aa-canonical-dossier-shell-presenter.php';
 
 if (!class_exists('AA_Canonical_Capability_Page_Contributor_Bootstrap')) {
     final class AA_Canonical_Capability_Page_Contributor_Bootstrap {
@@ -451,6 +452,7 @@ $family_records = AA_Canonical_Shell_Base_Url_Policy::build_records_url('finance
 ac_assert('Family records URL omits page=1 and containers_page=1', query_has($family_records, 'view', 'records')
     && query_has($family_records, 'container_id', '7')
     && query_has($family_records, 'family', 'finance')
+    && query_has($family_records, 'records_view', 'simple')
     && query_missing($family_records, 'page')
     && query_missing($family_records, 'containers_page'));
 

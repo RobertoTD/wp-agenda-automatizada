@@ -286,6 +286,7 @@ function boot(fetchImpl, payloads, options) {
                 attachImageNonce: 'attach-image-nonce',
                 familyKey: 'finance',
                 containerId: 42,
+                capabilityViews: options.capabilityViews || {},
                 maxTitleLength: 200,
                 capabilityContributions: capabilityContributions
             },
@@ -473,13 +474,16 @@ describe('canonical-shell-record-form', () => {
                     }
                 })
             }),
-            [{ id: 11, title: 'Old', details: '' }]
+            [{ id: 11, title: 'Old', details: '' }],
+            { capabilityViews: { completed: 'completed', test_flag: 'flagged' } }
         );
         ui.editBtns[0]._listeners.click[0]();
         ui.titleInput.value = 'New';
         ui.form._listeners.submit[0]({ preventDefault() {} });
         assert.equal(ui.getLastFormData().action, 'aa_update_canonical_record');
         assert.equal(ui.getLastFormData().nonce, 'update-nonce');
+        assert.equal(ui.getLastFormData()['capability_views[completed]'], 'completed');
+        assert.equal(ui.getLastFormData()['capability_views[test_flag]'], 'flagged');
         assert.equal(ui.getLastFormData().record_id, '11');
         await new Promise((resolve) => setTimeout(resolve, 0));
         assert.equal(ui.getAssignedUrl(), 'https://example.test/records?container_id=42');
@@ -580,7 +584,8 @@ describe('canonical-shell-record-form', () => {
                     }
                 })
             }),
-            [{ id: 11, title: 'Borrar', details: '' }]
+            [{ id: 11, title: 'Borrar', details: '' }],
+            { capabilityViews: { completed: 'completed' } }
         );
         ui.deleteBtns[0]._listeners.click[0]();
         ui.deleteConfirmBtn._listeners.click[0]();
@@ -588,6 +593,7 @@ describe('canonical-shell-record-form', () => {
         assert.equal(ui.getFetchCalls(), 1);
         assert.equal(ui.getLastFormData().action, 'aa_delete_canonical_record');
         assert.equal(ui.getLastFormData().nonce, 'delete-nonce');
+        assert.equal(ui.getLastFormData()['capability_views[completed]'], 'completed');
         assert.equal(ui.getLastFormData().record_id, '11');
         assert.equal(ui.getLastFormData().retire_action, undefined);
         assert.equal(ui.getLastFormData().mandate_id, undefined);
@@ -870,7 +876,10 @@ describe('canonical-shell-record-form', () => {
                 })
             }),
             [{ id: 9, title: 'R', details: '' }],
-            { imagePayloads: [{ id: 77, record_id: 9 }] }
+            {
+                imagePayloads: [{ id: 77, record_id: 9 }],
+                capabilityViews: { completed: 'completed', test_flag: 'flagged' }
+            }
         );
         assert.ok(ui.deleteImageBtns[0]._listeners.click);
         ui.deleteImageBtns[0]._listeners.click[0]({});
@@ -881,6 +890,8 @@ describe('canonical-shell-record-form', () => {
         assert.equal(ui.getFetchCalls(), 1);
         assert.equal(ui.getLastFormData().action, 'aa_delete_canonical_record_image');
         assert.equal(ui.getLastFormData().image_id, '77');
+        assert.equal(ui.getLastFormData()['capability_views[completed]'], 'completed');
+        assert.equal(ui.getLastFormData()['capability_views[test_flag]'], 'flagged');
         assert.equal(ui.imageNodes[0]._removed, true);
         assert.equal(ui.deleteImageModal.classList.contains('hidden'), true);
     });

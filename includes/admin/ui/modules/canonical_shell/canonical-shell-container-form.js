@@ -107,6 +107,10 @@
     var deleteConfirmDefaultLabel = deleteConfirmBtn ? deleteConfirmBtn.textContent : 'Eliminar lista';
 
     function appendReturnContext(body) {
+        var views = cfg.capabilityViews || {};
+        Object.keys(views).forEach(function (owner) {
+            body.append('capability_views[' + owner + ']', views[owner]);
+        });
         if (listsScope === 'all') {
             body.append('lists_scope', 'all');
         }

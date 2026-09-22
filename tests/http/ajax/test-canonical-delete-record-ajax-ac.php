@@ -390,18 +390,29 @@ $r = aa_run_delete_record_ajax(aa_base_delete_post());
 ac_assert('Corrida ajena → forbidden', ($r['data']['code'] ?? '') === 'forbidden' && ($r['status'] ?? 0) === 403);
 
 $GLOBALS['aa_test_retire_mode'] = 'confirmed';
-$r = aa_run_delete_record_ajax(aa_base_delete_post());
+$r = aa_run_delete_record_ajax(aa_base_delete_post([
+    'lists_scope' => 'all',
+    'page' => '2',
+    'containers_page' => '3',
+    'capability_views' => [
+        'completed' => 'completed',
+        'test_flag' => 'flagged',
+    ],
+]));
 ac_assert('Confirmed success', ($r['success'] ?? false) === true);
 ac_assert('Confirmed status', ($r['data']['status'] ?? '') === 'confirmed');
 ac_assert('Confirmed resource_id', (int) ($r['data']['resource_id'] ?? 0) === 10);
 ac_assert('Confirmed container_id', (int) ($r['data']['container_id'] ?? 0) === 1);
 ac_assert('Confirmed sin mandate_id', !array_key_exists('mandate_id', $r['data'] ?? []));
 ac_assert(
-    'Redirect records page 1',
+    'Redirect conserva contexto compuesto',
     is_string($r['data']['redirect_url'] ?? null)
     && strpos($r['data']['redirect_url'], 'view=records') !== false
-    && strpos($r['data']['redirect_url'], 'page=') === false
-    && strpos($r['data']['redirect_url'], 'containers_page=') === false
+    && strpos($r['data']['redirect_url'], 'page=2') !== false
+    && strpos($r['data']['redirect_url'], 'containers_page=3') !== false
+    && strpos($r['data']['redirect_url'], 'lists_scope=all') !== false
+    && strpos($r['data']['redirect_url'], 'capability_views%5Bcompleted%5D=completed') !== false
+    && strpos($r['data']['redirect_url'], 'capability_views%5Btest_flag%5D=flagged') !== false
 );
 
 $r2 = aa_run_delete_record_ajax(aa_base_delete_post());

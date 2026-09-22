@@ -47,11 +47,13 @@ final class CanonicalRelationalRepository {
 
     /** @var object */
     private $wpdb;
+    private $query_compiler;
 
     /**
      * @param object|null $wpdb Instancia wpdb; global si null (tests pueden inyectar).
      */
-    public function __construct($wpdb = null) {
+    public function __construct($wpdb = null, ?CanonicalRecordsQueryCompiler $query_compiler = null) {
+        $this->query_compiler = $query_compiler;
         if ($wpdb !== null) {
             $this->wpdb = $wpdb;
             return;
@@ -345,17 +347,19 @@ final class CanonicalRelationalRepository {
         return (int) $count;
     }
 
-    public function count_records_by_completion(int $container_id, bool $completed): int {
-        $records = $this->records_table();
-        $completion = AA_Canonical_Schema::record_completion_table_name();
-        $join = $completed ? 'INNER JOIN' : 'LEFT JOIN';
-        $where = $completed ? 'c.record_id IS NOT NULL' : 'c.record_id IS NULL';
+    public function compile_records_query(CanonicalRecordsQuerySpec $spec): CanonicalRecordsPredicate {
+        if ($this->query_compiler === null) { throw new LogicException('Query compiler not configured.'); }
+        return $this->query_compiler->compile($spec);
+    }
+
+    public function count_records_matching(CanonicalRecordsPredicate $predicate): int {
+        $table = $this->records_table();
+        $this->clear_error_state();
         $count = $this->wpdb->get_var($this->wpdb->prepare(
-            "SELECT COUNT(*) FROM `{$records}` r {$join} `{$completion}` c ON c.record_id = r.id WHERE r.container_id = %d AND {$where}",
-            $container_id
+            "SELECT COUNT(*) FROM `{$table}` r WHERE " . $predicate->sql(), ...$predicate->parameters()
         ));
         if ($count === false || $count === null || $this->wpdb->last_error !== '') {
-            throw new CanonicalRelationalQueryFailed('count_records_by_completion query failed.');
+            throw new CanonicalRelationalQueryFailed('count_records_matching query failed.');
         }
         return (int) $count;
     }
@@ -398,22 +402,18 @@ final class CanonicalRelationalRepository {
         return $mapped;
     }
 
-    public function list_records_by_completion(int $container_id, int $page, int $per_page, bool $completed): array {
+    public function list_records_matching(CanonicalRecordsPredicate $predicate, int $page, int $per_page): array {
         $this->assert_pagination($page, $per_page);
-        $offset = ($page - 1) * $per_page;
-        $records = $this->records_table();
-        $completion = AA_Canonical_Schema::record_completion_table_name();
-        $join = $completed ? 'INNER JOIN' : 'LEFT JOIN';
-        $where = $completed ? 'c.record_id IS NOT NULL' : 'c.record_id IS NULL';
+        $table = $this->records_table();
+        $this->clear_error_state();
+        $parameters = array_merge($predicate->parameters(), [$per_page, ($page - 1) * $per_page]);
         $rows = $this->wpdb->get_results($this->wpdb->prepare(
             "SELECT r.id, r.public_id, r.container_id, r.title, r.details, r.created_at, r.updated_at
-             FROM `{$records}` r {$join} `{$completion}` c ON c.record_id = r.id
-             WHERE r.container_id = %d AND {$where}
-             ORDER BY r.updated_at DESC, r.id DESC LIMIT %d OFFSET %d",
-            $container_id, $per_page, $offset
+             FROM `{$table}` r WHERE " . $predicate->sql() .
+             " ORDER BY r.updated_at DESC, r.id DESC LIMIT %d OFFSET %d", ...$parameters
         ), ARRAY_A);
         if ($rows === false || $this->wpdb->last_error !== '') {
-            throw new CanonicalRelationalQueryFailed('list_records_by_completion query failed.');
+            throw new CanonicalRelationalQueryFailed('list_records_matching query failed.');
         }
         return array_values(array_filter(array_map(function ($row) { return $this->map_record_row(is_array($row) ? $row : null); }, (array) $rows)));
     }

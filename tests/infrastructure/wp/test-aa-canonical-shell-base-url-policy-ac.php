@@ -83,7 +83,8 @@ $records = AA_Canonical_Shell_Base_Url_Policy::build_records_url('finance', 5, 2
 ac_assert('Records builder includes transport', strpos($records, 'view=records') !== false
     && strpos($records, 'container_id=5') !== false
     && strpos($records, 'page=2') !== false
-    && strpos($records, 'containers_page=3') !== false);
+    && strpos($records, 'containers_page=3') !== false
+    && strpos($records, 'records_view=simple') !== false);
 ac_assert('Records URL allowlisted', AA_Canonical_Shell_Base_Url_Policy::is_allowlisted_shell_url($records) === true);
 
 $records_omit = AA_Canonical_Shell_Base_Url_Policy::build_records_url('finance', 5, 1, 1);

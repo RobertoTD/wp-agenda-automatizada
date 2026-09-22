@@ -112,9 +112,19 @@ El **Capability Presentation Contract v0** es el contrato de proyección para el
 
 v0 inicia solo con acciones de tarjeta, assets/configuración cliente y las vistas de registros ya registradas. No define todavía campos ni un generador universal de formularios; ese contrato se explora antes de `event_date`. Las contribuciones viven en código registrado: nunca callbacks, paths o HTML ejecutable persistidos.
 
-Existe un **Legacy Presentation Bridge** administrativo y de lista cerrada: `amount`, `phone`, `whatsapp`, `email` e `images`. `completed` ya usa el slot v0 de acciones y su módulo cliente registrado; sus vistas continúan en el registry C5.1. El bridge solo puede recibir correcciones de bug, seguridad o compatibilidad; está prohibido añadirle una capability, campo, acción, script, label, configuración o comportamiento de producto nuevos. La prueba de frontera protege esta regla.
+Existe un **Legacy Presentation Bridge** administrativo y de lista cerrada: `amount`, `phone`, `whatsapp`, `email` e `images`. `completed` usa el slot v0 de acciones, su módulo cliente registrado y el contrato de composición de vistas RVC-1. El bridge solo puede recibir correcciones de bug, seguridad o compatibilidad; está prohibido añadirle una capability, campo, acción, script, label, configuración o comportamiento de producto nuevos. La prueba de frontera protege esta regla.
 
 `contact_dossier` no pertenece a este bridge: es una deuda de presentación de la solution `contact_dossier`, regulada por `docs/06-canonical-solutions.md` y fuera de v0 inicial. El detalle operativo y la secuencia de migración viven en `docs/plans/capability-presentation-contract-v0.md`.
+
+### 5.3 Composición de consulta y vistas (decisión aceptada)
+
+La lectura de registros parte siempre del conjunto canónico del contenedor. Cada capability activa puede aportar un **criterio natural** y vistas que sustituyen exclusivamente ese criterio, sin retirar los criterios de otras capabilities. El shell transporta selecciones registradas y presenta navegación; no conoce claves, tablas, SQL ni semántica particulares.
+
+La vista canónica **Simple** es la base más los criterios naturales activos. Una combinación explícita de vistas es válida cuando todos sus propietarios están registrados y activos y no declaran incompatibilidad. Conteo, listado y paginación deben consumir una misma especificación de consulta; no se permite componer resultados ya paginados.
+
+Una vista solicitada de capability conocida pero inactiva o no disponible se retira de la URL mediante redirección canónica, conservando el resto del contexto y selecciones válidas. Una selección perteneciente a un paquete ausente también se descarta de forma segura. Transporte malformado o una vista inválida de una capability activa sigue siendo solicitud inválida.
+
+Desactivar o desinstalar una capability conserva por defecto sus datos y schema tipados. La eliminación física es una operación **purge** explícita y separada. El contrato y la secuencia operativa están en `docs/plans/canonical-record-view-composition-v0.md`.
 
 ---
 
@@ -354,4 +364,4 @@ La solution conserva una relación 1:1 contacto→lista Archivo, creación difer
 
 Su recurso es `aa_canonical_record_completion`: una fila con `completed_at` significa completado; la ausencia de fila significa pendiente. No es historial, prioridad ni criterio de orden. Completar o devolver a pendiente toca el registro y su lista en la misma transacción para conservar el orden canónico ordinario.
 
-La vista base de Acciones contiene pendientes; `records_view=completed` selecciona completadas y se filtra antes de contar y paginar. Sólo la capability aporta esa semántica: el shell aporta el transporte de URL, la navegación y la presentación contextual. La UI ofrece `Completar` y la acción reversible `Marcar como pendiente`; en Completadas no se ofrece crear registros.
+La vista Simple contiene pendientes porque `completed` activa aporta su criterio natural. `capability_views[completed]=completed` sustituye únicamente ese criterio y selecciona completadas antes de contar y paginar; la entrada legacy `records_view=completed` solo se acepta para normalizarla por redirección. Sólo la capability aporta esa semántica: el shell transporta selecciones registradas, navega y presenta el contexto. La UI ofrece `Completar` y la acción reversible `Marcar como pendiente`; en Completadas no se ofrece crear registros.

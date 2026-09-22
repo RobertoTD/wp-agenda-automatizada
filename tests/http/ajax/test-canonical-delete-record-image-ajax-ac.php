@@ -67,6 +67,9 @@ ac_assert('JS one-click / incomplete / Cerrar', strpos($js_src, 'submitDeleteIma
     && strpos($js_src, 'closeDeleteImageModal') !== false
     && strpos($js_src, 'bindImageDeleteOnce') !== false
     && strpos($js_src, 'e.repeat') !== false);
+ac_assert('Retorno de imagen conserva selección compuesta', strpos($ajax_src, "'capability_views'") !== false
+    && strpos($ajax_src, 'parse_mutation_return_context') !== false
+    && strpos($ajax_src, '$return_ctx[\'capability_views\']') !== false);
 
 echo "\n";
 if (count($failed) === 0) {

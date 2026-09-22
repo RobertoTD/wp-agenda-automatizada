@@ -37,7 +37,7 @@ ac_assert('Bootstrap registra', strpos($boot_src, 'CanonicalCreateRecordAjax::re
 ac_assert('Access Policy vía soporte SB1-5C1', strpos($support_src, 'AA_Canonical_Access_Policy::check_family_access') !== false
     && strpos($ajax_src, 'CanonicalShellWriteAjaxSupport::authorize_identity') !== false);
 ac_assert('Write bootstrap vía soporte SB1-5C1', strpos($support_src, 'AA_Canonical_Write_Binding_Bootstrap::register_productive') !== false
-    && strpos($ajax_src, 'CanonicalShellWriteAjaxSupport::build_write_gateway') !== false);
+    && strpos($ajax_src, 'CanonicalShellWriteAjaxSupport::build_write_composition') !== false);
 ac_assert('UseCase create', strpos($ajax_src, 'WriteCanonicalShellRecordUseCase') !== false);
 ac_assert('Sin SQL directo', preg_match('/\$wpdb|->query\(|->insert\(|->update\(/', $ajax_src) !== 1);
 ac_assert('Códigos estables', strpos($ajax_src, "'container_not_found'") !== false
@@ -359,6 +359,18 @@ ac_assert(
     && strpos($r['data']['redirect_url'], 'containers_page=') === false
 );
 
+
+$r = aa_run_create_record_ajax(aa_base_record_post([
+    'capability_views' => ['completed' => 'completed', 'test_flag' => 'flagged'],
+    'page' => '2', 'containers_page' => '3', 'lists_scope' => 'all'
+]));
+parse_str(parse_url($r['data']['redirect_url'] ?? '', PHP_URL_QUERY) ?? '', $return_query);
+ac_assert('RVC-1: create conserva selecciones y procedencia y vuelve a página 1', ($return_query['capability_views'] ?? []) === ['completed'=>'completed','test_flag'=>'flagged']
+    && ($return_query['records_view'] ?? '') === 'simple' && !array_key_exists('page', $return_query)
+    && ($return_query['containers_page'] ?? '') === '3' && ($return_query['lists_scope'] ?? '') === 'all');
+$r = aa_run_create_record_ajax(aa_base_record_post(['capability_views' => ['completed' => ['invalid']]]));
+ac_assert('RVC-1: transporte anidado inválido rechazado antes de escribir', ($r['data']['code'] ?? '') === 'invalid_payload');
+ac_assert('RVC-1: validación de retorno precede mutación', strpos($ajax_src, 'parse_mutation_return_context') < strpos($ajax_src, '$result = $use_case->'));
 CanonicalCreateRecordAjax::register();
 ac_assert('Register hook', in_array('wp_ajax_aa_create_canonical_record', $GLOBALS['aa_test_actions'], true));
 

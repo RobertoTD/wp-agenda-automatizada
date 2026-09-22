@@ -14,13 +14,13 @@ $plugin_root = dirname(__DIR__, 4);
 require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-key.php';
 require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-capability-definition.php';
 require_once $plugin_root . '/includes/domain/canonical/class-aa-canonical-capability-registry.php';
-require_once $plugin_root . '/includes/application/canonical/CanonicalRecordsFilter.php';
+require_once $plugin_root . '/includes/application/canonical/CanonicalRecordsQuerySpec.php';
 require_once $plugin_root . '/includes/application/canonical/capabilities/CanonicalCapabilityRecordsViewProvider.php';
 require_once $plugin_root . '/includes/application/canonical/capabilities/CanonicalCapabilityRecordsViewRegistry.php';
 require_once $plugin_root . '/includes/application/canonical/capabilities/CanonicalCapabilityRecordReadState.php';
 require_once $plugin_root . '/includes/application/canonical/capabilities/CanonicalCapabilityRecordsPageContribution.php';
 require_once $plugin_root . '/includes/application/canonical/capabilities/CanonicalCapabilityRecordPageContributor.php';
-require_once $plugin_root . '/includes/application/canonical/capabilities/completed/CanonicalCompletedRecordsFilter.php';
+require_once $plugin_root . '/includes/application/canonical/capabilities/completed/CanonicalCompletedCriterion.php';
 require_once $plugin_root . '/includes/application/canonical/capabilities/completed/CanonicalCompletedRecordsViewProvider.php';
 require_once $plugin_root . '/includes/application/canonical/capabilities/completed/CanonicalCompletedRecordsPageContributor.php';
 
@@ -65,32 +65,32 @@ $views->register($provider);
 $contributor = new CanonicalCompletedRecordsPageContributor($config, new ActivationLifecycleCompletionStub(), $capabilities);
 
 // Activa: la capability posee filtro, vista, navegación y representación.
-$active_resolution = $views->resolve('action', 41, 'completed');
+$active_resolution = $views->resolve_query('action', 41, ['completed' => 'completed']);
 $active_contribution = $contributor->contribute_for_records_page('action', 41, [7]);
-ac_assert('Activa: filtro base de pendientes', $views->default_filter('action', 41) instanceof CanonicalCompletedRecordsFilter);
-ac_assert('Activa: vista completadas resoluble', $active_resolution['recognized'] && $active_resolution['filter'] instanceof CanonicalCompletedRecordsFilter && ($active_resolution['view']['label'] ?? '') === 'Completadas');
+ac_assert('Activa: filtro base de pendientes', !$views->resolve_query('action', 41)['spec']->criteria()['completed']->completed());
+ac_assert('Activa: vista completadas resoluble', $active_resolution['spec']->criteria()['completed']->completed() && ($active_resolution['current']['label'] ?? '') === 'Completadas');
 ac_assert('Activa: contribución y estado de tarjeta ofrecidos', $active_contribution->offered() && $active_contribution->state_for(7) !== null);
 
 // Inactiva: no queda ninguna proyección, pero la vista sigue reconocida para que el router pueda volver a base.
 $config->active = false;
-$inactive_resolution = $views->resolve('action', 41, 'completed');
+$inactive_resolution = $views->resolve_query('action', 41, ['completed' => 'completed']);
 $inactive_contribution = $contributor->contribute_for_records_page('action', 41, [7]);
-ac_assert('Inactiva: lectura base sin filtro de capability', $views->default_filter('action', 41) === null);
-ac_assert('Inactiva: sin vista, etiqueta ni navegación ofrecidas', $views->available_views('action', 41) === [] && $inactive_resolution['view'] === null);
-ac_assert('Inactiva: URL de vista reconocida no produce filtro y permite retorno a base', $inactive_resolution['recognized'] && $inactive_resolution['filter'] === null);
+ac_assert('Inactiva: lectura base sin filtro de capability', $views->resolve_query('action', 41)['spec']->criteria() === []);
+ac_assert('Inactiva: sin vista, etiqueta ni navegación ofrecidas', $inactive_resolution['available'] === [] && $inactive_resolution['current'] === null);
+ac_assert('Inactiva: URL de vista reconocida no produce filtro y permite retorno a base', $inactive_resolution['redirect'] && $inactive_resolution['selections'] === [] && $inactive_resolution['spec']->criteria() === []);
 ac_assert('Inactiva: sin contribución ni acción de tarjeta', !$inactive_contribution->offered() && $inactive_contribution->records() === []);
 
 // Reactivar recupera la misma proyección; la prueba no borra ni fabrica estado persistido.
 $config->active = true;
-$reactivated_resolution = $views->resolve('action', 41, 'completed');
+$reactivated_resolution = $views->resolve_query('action', 41, ['completed' => 'completed']);
 $reactivated_contribution = $contributor->contribute_for_records_page('action', 41, [7]);
-ac_assert('Reactivada: recupera vista y filtro', $reactivated_resolution['filter'] instanceof CanonicalCompletedRecordsFilter && ($reactivated_resolution['view']['key'] ?? '') === 'completed');
+ac_assert('Reactivada: recupera vista y filtro', $reactivated_resolution['spec']->criteria()['completed']->completed() && $reactivated_resolution['selections'] === ['completed' => 'completed']);
 ac_assert('Reactivada: recupera el estado previamente legible', $reactivated_contribution->offered() && $reactivated_contribution->state_for(7) !== null);
 
 // El router y el compositor son neutrales: no codifican la capability ni su familia.
 $router_source = (string) file_get_contents($plugin_root . '/includes/admin/ui/index.php');
 $composer_source = (string) file_get_contents($plugin_root . '/includes/infrastructure/canonical/class-aa-canonical-shell-view-composer.php');
-ac_assert('Router: redirige una vista reconocida pero inactiva a la base', strpos($router_source, "elseif (\$resolution['filter'] === null)") !== false && strpos($router_source, 'wp_safe_redirect') !== false);
+ac_assert('Router: normaliza transporte e inactividad a la URL canónica', strpos($router_source, "\$resolution['redirect'] || \$shell_records_view === null") !== false && strpos($router_source, 'wp_safe_redirect') !== false);
 ac_assert('Router y compositor no nombran completed ni bifurcan por familia', strpos($router_source, "'completed'") === false && strpos($composer_source, "'completed'") === false && strpos($router_source, 'family_key() ===') === false && strpos($composer_source, 'family_key() ===') === false);
 
 echo "\n{$passed}/{$total} assertions passed.\n";

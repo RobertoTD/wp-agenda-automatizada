@@ -78,7 +78,8 @@ $available_record_views = is_array($view) && isset($view['available_record_views
     ? $view['available_record_views']
     : [];
 $default_records_url = is_array($view) ? (string) ($view['default_records_url'] ?? '') : '';
-$is_capability_records_view = ($records_view !== null && $current_record_view !== null);
+$capability_views = is_array($view) && is_array($view['capability_views'] ?? null) ? $view['capability_views'] : [];
+$is_capability_records_view = ($capability_views !== [] && $current_record_view !== null);
 if (
     $family_icon_key === ''
     && isset($aa_canonical_family)
@@ -1552,6 +1553,7 @@ $is_records_fill = $show_read_ui
 
     <script>
     window.AA_CANONICAL_SHELL_CONTAINER_FORM = {
+        capabilityViews: <?php echo wp_json_encode((object) $capability_views); ?>,
         ajaxUrl: <?php echo wp_json_encode(admin_url('admin-ajax.php')); ?>,
         createAction: <?php echo wp_json_encode(CanonicalCreateContainerAjax::ACTION); ?>,
         createNonce: <?php echo wp_json_encode(wp_create_nonce(CanonicalCreateContainerAjax::NONCE_ACTION)); ?>,
@@ -2101,6 +2103,7 @@ if ($is_records) {
 
     <script>
     window.AA_CANONICAL_SHELL_RECORD_FORM = {
+        capabilityViews: <?php echo wp_json_encode((object) $capability_views); ?>,
         ajaxUrl: <?php echo wp_json_encode(admin_url('admin-ajax.php')); ?>,
         createAction: <?php echo wp_json_encode(CanonicalCreateRecordAjax::ACTION); ?>,
         createNonce: <?php echo wp_json_encode(wp_create_nonce(CanonicalCreateRecordAjax::NONCE_ACTION)); ?>,
@@ -2161,7 +2164,13 @@ if ($is_records) {
         action: <?php echo wp_json_encode($client_module->ajax_action()); ?>,
         nonce: <?php echo wp_json_encode(wp_create_nonce($client_module->nonce_action())); ?>,
         familyKey: <?php echo wp_json_encode($create_family_key); ?>,
-        containerId: <?php echo (int) $create_container_id; ?>
+        containerId: <?php echo (int) $create_container_id; ?>,
+        returnContext: <?php echo wp_json_encode([
+            'capability_views' => (object) $capability_views,
+            'lists_scope' => $is_all_lists_scope ? 'all' : null,
+            'page' => $page_num,
+            'containers_page' => $containers_page_num,
+        ]); ?>
     };
     <?php endforeach; ?>
     </script>
