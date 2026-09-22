@@ -59,8 +59,7 @@ foreach ($ops as $i => $spec) {
         && $receipt->resource_type() === $type
         && $receipt->resource_id() === $rid
         && $receipt->container_id() === $cid
-        && $receipt->family_key() === 'sample'
-        && $receipt->family_key() === 'alpha');
+        && $receipt->family_key() === 'sample');
 }
 
 $uncertain_specs = [

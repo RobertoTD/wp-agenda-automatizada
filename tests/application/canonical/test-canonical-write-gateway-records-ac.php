@@ -135,7 +135,7 @@ $bad_registry->register(
             throw new RuntimeException('Not used');
         }
 
-        public function update_container(CanonicalReadIdentity $identity, CanonicalUpdateContainerCommand $command): CanonicalMutationReceipt {
+        public function update_container(CanonicalReadIdentity $identity, CanonicalUpdateContainerCommand $command, array $effects = []): CanonicalMutationReceipt {
             throw new RuntimeException('Not used');
         }
 

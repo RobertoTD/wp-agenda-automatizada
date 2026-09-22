@@ -37,7 +37,7 @@ final class ContractBreakingContainerWriteAdapter implements CanonicalWriteAdapt
         return $this->receipt;
     }
 
-    public function update_container(CanonicalReadIdentity $identity, CanonicalUpdateContainerCommand $command): CanonicalMutationReceipt {
+    public function update_container(CanonicalReadIdentity $identity, CanonicalUpdateContainerCommand $command, array $effects = []): CanonicalMutationReceipt {
         return $this->receipt;
     }
 

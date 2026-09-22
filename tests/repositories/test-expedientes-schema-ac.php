@@ -46,7 +46,7 @@ function ac_schema_table_block(string $schema_src, string $table_literal): strin
 
 $schema_src = file_get_contents($schema_file);
 ac_assert('Schema readable', is_string($schema_src) && $schema_src !== '');
-ac_assert('DB_VERSION is 19', strpos($schema_src, "DB_VERSION = '19'") !== false);
+ac_assert('DB_VERSION is 38', strpos($schema_src, "DB_VERSION = '38'") !== false);
 ac_assert(
     'usa prefix aa_expediente_categories',
     strpos($schema_src, "\$wpdb->prefix . 'aa_expediente_categories'") !== false

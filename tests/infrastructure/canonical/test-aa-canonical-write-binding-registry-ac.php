@@ -34,10 +34,10 @@ function ac_assert(string $label, bool $ok, string $detail = ''): void {
 }
 
 $registry = new AA_Canonical_Write_Binding_Registry();
-$alpha = new CanonicalReadIdentity('sample');
-$beta = new CanonicalReadIdentity('sample');
-$adapter_alpha = new CanonicalFixtureWriteAdapter('sample');
-$adapter_beta = new CanonicalFixtureWriteAdapter('beta');
+$alpha = new CanonicalReadIdentity('finance');
+$beta = new CanonicalReadIdentity('archive');
+$adapter_alpha = new CanonicalFixtureWriteAdapter('finance');
+$adapter_beta = new CanonicalFixtureWriteAdapter('archive');
 
 $registry->register($alpha, $adapter_alpha);
 $registry->register($beta, $adapter_beta);
@@ -57,12 +57,12 @@ ac_assert('Duplicate write throws', $dup);
 ac_assert('Duplicate write tag', strpos($dup_msg, '[duplicate_write_binding]') !== false);
 ac_assert('Original write binding preserved', $registry->require($alpha) === $adapter_alpha);
 
-$missing = new CanonicalReadIdentity('sample');
+$missing = new CanonicalReadIdentity('catalog');
 $threw = false;
 try {
     $registry->require($missing);
 } catch (CanonicalWriteBindingNotFound $e) {
-    $threw = strpos($e->getMessage(), 'sample.gamma') !== false;
+    $threw = strpos($e->getMessage(), 'catalog') !== false;
 }
 ac_assert('Missing binding throws CanonicalWriteBindingNotFound', $threw);
 

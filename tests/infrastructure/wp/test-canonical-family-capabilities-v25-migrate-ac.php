@@ -27,7 +27,7 @@ function ac_assert(string $label, bool $ok, string $detail = ''): void {
 $schema_src = (string) file_get_contents($plugin_root . '/includes/infrastructure/wp/Schema.php');
 $canonical_src = (string) file_get_contents($plugin_root . '/includes/infrastructure/wp/CanonicalSchema.php');
 
-ac_assert("DB_VERSION = '26'", strpos($schema_src, "DB_VERSION = '26'") !== false);
+ac_assert("DB_VERSION = '38'", strpos($schema_src, "DB_VERSION = '38'") !== false);
 ac_assert(
     'Schema bumpea aa_db_version tras CanonicalSchema::install',
     preg_match(

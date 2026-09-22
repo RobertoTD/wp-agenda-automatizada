@@ -50,6 +50,7 @@ ac_assert('build_registry() contains finance family', $built_registry->has_famil
 ac_assert('build_registry() contains archive family', $built_registry->has_family('archive') === true);
 ac_assert('build_registry() contains catalog family', $built_registry->has_family('catalog') === true);
 ac_assert('build_registry() contains contact family', $built_registry->has_family('contact') === true);
+ac_assert('build_registry() contains action family', $built_registry->has_family('action') === true);
 
 $threw_still_not_bootstrapped = false;
 try {
@@ -91,15 +92,20 @@ ac_assert('Family "contact" exists', $family_contact instanceof AA_Canonical_Fam
 ac_assert('Family "contact" label is Contactos', $family_contact->label() === 'Contactos');
 ac_assert('Family "contact" icon_key is contact_card', $family_contact->icon_key() === 'contact_card');
 
+$family_action = $instance->family('action');
+ac_assert('Family "action" exists', $family_action instanceof AA_Canonical_Family_Definition);
+ac_assert('Family "action" label is Acciones', $family_action->label() === 'Acciones');
+ac_assert('Family "action" icon_key is checklist', $family_action->icon_key() === 'checklist');
+
 $families = $instance->families();
-ac_assert('Exactly 4 productive families registered', count($families) === 4);
+ac_assert('Exactly 5 productive families registered', count($families) === 5);
 $family_keys = array_map(static function ($f) {
     return $f->key();
 }, $families);
 sort($family_keys);
 ac_assert(
-    'Families are archive, catalog, contact and finance',
-    $family_keys === ['archive', 'catalog', 'contact', 'finance']
+    'Families are action, archive, catalog, contact and finance',
+    $family_keys === ['action', 'archive', 'catalog', 'contact', 'finance']
 );
 ac_assert('Preview family is not in productive catalog', $instance->has_family('shell_preview') === false);
 

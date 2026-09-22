@@ -45,6 +45,14 @@ foreach ($iterator as $file) {
         continue;
     }
     $path = $file->getPathname();
+    // Las capabilities y solutions son verticales: sus términos de dominio son
+    // legítimos. Esta guardia protege exclusivamente el núcleo horizontal.
+    if (strpos($path, DIRECTORY_SEPARATOR . 'capabilities' . DIRECTORY_SEPARATOR) !== false
+        || strpos($path, DIRECTORY_SEPARATOR . 'images' . DIRECTORY_SEPARATOR) !== false
+        || strpos($path, DIRECTORY_SEPARATOR . 'solutions' . DIRECTORY_SEPARATOR) !== false
+    ) {
+        continue;
+    }
     $contents = file_get_contents($path);
     if ($contents === false) {
         $violations[] = $path . ' (unreadable)';
@@ -57,7 +65,7 @@ foreach ($iterator as $file) {
     }
 }
 
-ac_assert('No forbidden vocabulary in Application canonical', $violations === [], $violations === [] ? '' : implode('; ', $violations));
+ac_assert('Núcleo horizontal sin vocabulario vertical prohibido', $violations === [], $violations === [] ? '' : implode('; ', $violations));
 
 echo "\n--- Resumen: {$passed}/{$total} ---\n";
 if ($failed !== []) {

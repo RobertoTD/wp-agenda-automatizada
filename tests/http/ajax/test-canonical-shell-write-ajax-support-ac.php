@@ -69,19 +69,23 @@ foreach ($endpoint_positions as $endpoint => $pos) {
 }
 ac_assert('Soporte disponible antes de los seis endpoints', $loaded_before_all);
 
-$adopters = 0;
+$authorized_endpoints = 0;
+$write_stack_endpoints = 0;
 foreach (array_keys($endpoint_positions) as $endpoint) {
     $src = (string) file_get_contents($plugin_root . '/includes/http/ajax/' . $endpoint . '.php');
     $uses_write_stack = strpos($src, 'CanonicalShellWriteAjaxSupport::build_write_gateway') !== false
         || strpos($src, 'CanonicalShellWriteAjaxSupport::build_write_composition') !== false;
     if (strpos($src, 'CanonicalShellWriteAjaxSupport::authorize_identity') !== false
-        && $uses_write_stack
         && strpos($src, 'catch (CanonicalShellWriteAjaxRejection $e)') !== false
     ) {
-        $adopters++;
+        $authorized_endpoints++;
+    }
+    if ($uses_write_stack) {
+        $write_stack_endpoints++;
     }
 }
-ac_assert('Los seis endpoints adoptan el soporte', $adopters === 6, $adopters . '/6');
+ac_assert('Los seis endpoints adoptan autorización compartida', $authorized_endpoints === 6, $authorized_endpoints . '/6');
+ac_assert('Los cuatro endpoints de create/update construyen el write stack', $write_stack_endpoints === 4, $write_stack_endpoints . '/4');
 
 $keeps_own_manifest = 0;
 foreach (array_keys($endpoint_positions) as $endpoint) {
@@ -92,7 +96,7 @@ foreach (array_keys($endpoint_positions) as $endpoint) {
         $keeps_own_manifest++;
     }
 }
-ac_assert('Cada endpoint conserva identidad y manifest propios', $keeps_own_manifest === 6, $keeps_own_manifest . '/6');
+ac_assert('Los cuatro endpoints de create/update conservan identidad y manifest propios', $keeps_own_manifest === 4, $keeps_own_manifest . '/4');
 
 if (!defined('ABSPATH')) {
     define('ABSPATH', $plugin_root . '/');

@@ -26,7 +26,7 @@ function ac_assert(string $label, bool $ok, string $detail = ''): void {
 
 echo "=== 1. Contención estática Schema DB25 ===\n";
 $schema_src = (string) file_get_contents($plugin_root . '/includes/infrastructure/wp/Schema.php');
-ac_assert('DB_VERSION = 26', strpos($schema_src, "DB_VERSION = '26'") !== false);
+ac_assert('DB_VERSION = 38', strpos($schema_src, "DB_VERSION = '38'") !== false);
 ac_assert('Sin AA_Finance_Schema::install', strpos($schema_src, 'AA_Finance_Schema::install') === false);
 ac_assert('Sin require FinanceSchema', strpos($schema_src, 'FinanceSchema.php') === false);
 ac_assert('Retira records antes que containers', strpos($schema_src, 'LEGACY_FINANCE_TABLE_RECORDS') !== false

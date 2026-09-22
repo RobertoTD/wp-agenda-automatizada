@@ -63,9 +63,9 @@ ac_assert(
     strpos($ajax_src, 'CanonicalShellWriteAjaxSupport::parse_capability_selection_from_source') !== false
 );
 ac_assert(
-    'Create pasa selection al UseCase',
-    strpos($ajax_src, '$use_case->create($manifest, $command, $selection)') !== false
-    || preg_match('/->create\(\s*\$manifest\s*,\s*\$command\s*,\s*\$selection\s*\)/', $ajax_src) === 1
+    'Create pasa selection y effects de solution al UseCase',
+    strpos($ajax_src, '$use_case->create($manifest, $command, $selection, $solution_effects)') !== false
+    || preg_match('/->create\(\s*\$manifest\s*,\s*\$command\s*,\s*\$selection\s*,\s*\$solution_effects\s*\)/', $ajax_src) === 1
 );
 ac_assert(
     'Soporte expone parse_capability_selection_from_source',

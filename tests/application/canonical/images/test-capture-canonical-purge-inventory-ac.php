@@ -92,8 +92,8 @@ ac_assert('confirmación reconsulta purge antes de INSERT', strpos($confirm_src,
     && preg_match('/blocking_purge_failure[\s\S]{0,400}insert_confirmed/', $confirm_src) === 1);
 ac_assert('delete shell opcional: sin purge no bloquea', strpos($write_rec_src, 'if ($this->purge_runs === null)') !== false
     && strpos($write_cont_src, 'if ($this->purge_runs === null)') !== false);
-ac_assert('AJAX productivo: retiro de registro vía Retire; contenedor conserva guarda', strpos((string) file_get_contents($plugin_root . '/includes/http/ajax/CanonicalDeleteRecordAjax.php'), 'RetireCanonicalRecordUseCase') !== false
-    && strpos((string) file_get_contents($plugin_root . '/includes/http/ajax/CanonicalDeleteContainerAjax.php'), 'new CanonicalPurgeRunsRepository()') !== false);
+ac_assert('AJAX productivo: retiros de registro y contenedor delegan en sus Use Cases', strpos((string) file_get_contents($plugin_root . '/includes/http/ajax/CanonicalDeleteRecordAjax.php'), 'RetireCanonicalRecordUseCase') !== false
+    && strpos((string) file_get_contents($plugin_root . '/includes/http/ajax/CanonicalDeleteContainerAjax.php'), 'RetireCanonicalContainerUseCase') !== false);
 ac_assert('captura reutilizable bajo lock ya adquirido', strpos($uc_src, 'function execute_with_held_lock') !== false
     && strpos($uc_src, 'execute_with_held_lock') > strpos($uc_src, 'function execute('));
 ac_assert('tandas persistidas 0-based', strpos($store_src, 'intdiv($index, $max) + 1') === false

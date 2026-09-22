@@ -461,7 +461,7 @@ $now = gmdate('Y-m-d H:i:s');
 try {
     AA_Canonical_Schema::install();
     ac_assert('schema verify tras install v31', true);
-    ac_assert('aa_db_version option no requerida aquí', AA_Schema::DB_VERSION === '37');
+    ac_assert('aa_db_version option no requerida aquí', AA_Schema::DB_VERSION === '38');
 
     // Reaplicar ensure v31 es idempotente.
     AA_Canonical_Schema::ensure_purge_image_retire_v31();
