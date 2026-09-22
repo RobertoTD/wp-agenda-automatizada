@@ -141,7 +141,16 @@ function boot() {
     popupA.classList.add('hidden');
     popupA.setAttribute('hidden', '');
     const editA = createEl({ class: 'aa-shell-edit-container-btn' });
+    const viewsTriggerA = createEl({ class: 'aa-shell-record-views-trigger' });
+    viewsTriggerA.setAttribute('aria-expanded', 'false');
+    const viewsPanelA = createEl({ class: 'aa-shell-record-views-panel hidden' });
+    viewsPanelA.classList.add('hidden');
+    viewsPanelA.setAttribute('hidden', '');
+    const viewLinkA = createEl({ class: 'aa-shell-record-view-link' });
+    viewsPanelA.appendChild(viewLinkA);
     popupA.appendChild(editA);
+    popupA.appendChild(viewsTriggerA);
+    popupA.appendChild(viewsPanelA);
     wrapA.appendChild(triggerA);
     wrapA.appendChild(popupA);
 
@@ -191,6 +200,9 @@ function boot() {
         triggerA,
         popupA,
         editA,
+        viewsTriggerA,
+        viewsPanelA,
+        viewLinkA,
         wrapB,
         triggerB,
         popupB,
@@ -290,11 +302,53 @@ describe('canonical-shell-container-options', () => {
         assert.ok(harness.isClosed(harness.popupA, harness.triggerA), 'closed after edit');
     });
 
+    it('opens and toggles the inline record views disclosure', () => {
+        harness.clickRoot(harness.triggerA);
+        harness.clickRoot(harness.viewsTriggerA);
+        assert.ok(harness.isOpen(harness.viewsPanelA, harness.viewsTriggerA), 'views panel open');
+        harness.clickRoot(harness.viewsTriggerA);
+        assert.ok(harness.isClosed(harness.viewsPanelA, harness.viewsTriggerA), 'views panel closed');
+        assert.ok(harness.viewsTriggerA.focusCalls >= 1, 'views trigger regains focus');
+    });
+
+    it('first Escape closes views and second Escape closes outer popup', () => {
+        harness.clickRoot(harness.triggerA);
+        harness.clickRoot(harness.viewsTriggerA);
+
+        const first = harness.keydown('Escape');
+        assert.ok(harness.isClosed(harness.viewsPanelA, harness.viewsTriggerA), 'views closed first');
+        assert.ok(harness.isOpen(harness.popupA, harness.triggerA), 'outer popup remains open');
+        assert.ok(first.defaultPrevented, 'first Escape prevented');
+
+        const second = harness.keydown('Escape');
+        assert.ok(harness.isClosed(harness.popupA, harness.triggerA), 'outer popup closed second');
+        assert.ok(second.defaultPrevented, 'second Escape prevented');
+    });
+
+    it('closing or switching the outer popup resets the views disclosure', () => {
+        harness.clickRoot(harness.triggerA);
+        harness.clickRoot(harness.viewsTriggerA);
+        harness.clickRoot(harness.triggerB);
+        assert.ok(harness.isClosed(harness.viewsPanelA, harness.viewsTriggerA), 'views reset');
+        assert.ok(harness.isClosed(harness.popupA, harness.triggerA), 'first outer popup closed');
+        assert.ok(harness.isOpen(harness.popupB, harness.triggerB), 'second outer popup open');
+    });
+
+    it('keeps the outer popup open when a view link is clicked', () => {
+        harness.clickRoot(harness.triggerA);
+        harness.clickRoot(harness.viewsTriggerA);
+        harness.clickRoot(harness.viewLinkA);
+        assert.ok(harness.isOpen(harness.popupA, harness.triggerA), 'browser navigation owns link click');
+        assert.ok(harness.isOpen(harness.viewsPanelA, harness.viewsTriggerA), 'disclosure remains until navigation');
+    });
+
     it('source avoids menu roles', () => {
         const src = fs.readFileSync(jsPath, 'utf8');
         assert.doesNotMatch(src, /role=["']menu["']/);
         assert.doesNotMatch(src, /menuitem/);
         assert.match(src, /aa-shell-container-options-trigger/);
         assert.match(src, /aa-shell-container-options-popup/);
+        assert.match(src, /aa-shell-record-views-trigger/);
+        assert.match(src, /aa-shell-record-views-panel/);
     });
 });

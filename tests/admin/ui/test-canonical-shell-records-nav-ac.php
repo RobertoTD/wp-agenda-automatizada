@@ -863,6 +863,132 @@ ac_assert('Preview records keep classic card article', strpos($html_r, 'data-aa-
     && strpos($html_r, '<article class="bg-white rounded-xl') !== false
     && strpos($html_r, 'aa-shell-records-scroll-extender') === false);
 
+// RVC-2B — el shell presenta navegación declarada y aplica solo la política de creación.
+$simple_view_url = AA_Canonical_Shell_Base_Url_Policy::build_records_url('finance', 42, null, 1, null, 'simple', []);
+$completed_view_url = AA_Canonical_Shell_Base_Url_Policy::build_records_url(
+    'finance',
+    42,
+    null,
+    1,
+    null,
+    'simple',
+    ['completed' => 'completed']
+);
+$fill_completed_view = array_merge($fill_page_view, [
+    'records_view' => 'simple',
+    'capability_views' => ['completed' => 'completed'],
+    'simple_record_view' => [
+        'key' => 'simple',
+        'label' => 'Simple',
+        'active' => false,
+        'url' => $simple_view_url,
+    ],
+    'available_record_views' => [[
+        'owner' => 'completed',
+        'key' => 'completed',
+        'label' => 'Completadas',
+        'active' => true,
+        'url' => $simple_view_url,
+    ]],
+    'records_view_policy' => ['allows_record_creation' => false],
+    'current_record_view' => ['label' => 'Completadas'],
+    'default_records_url' => $simple_view_url,
+]);
+$html_fill_completed = render_shell([
+    'aa_shell_route_state' => 'resolved',
+    'aa_shell_route_message' => '',
+    'aa_shell_view' => $fill_completed_view,
+    'aa_canonical_family' => $family,
+]);
+ac_assert('RVC-2B: alternative view renders inline Vista disclosure',
+    strpos($html_fill_completed, 'aa-shell-record-views-trigger') !== false
+    && strpos($html_fill_completed, 'aria-controls="aa-shell-record-views-panel"') !== false
+    && strpos($html_fill_completed, 'aa-shell-record-views-panel hidden') !== false
+    && strpos($html_fill_completed, '>Vista<') !== false
+    && strpos($html_fill_completed, '>Simple<') !== false
+    && strpos($html_fill_completed, '>Completadas<') !== false
+);
+ac_assert('RVC-2B: active capability view is visibly and semantically marked',
+    strpos($html_fill_completed, 'data-aa-record-view-owner="completed"') !== false
+    && strpos($html_fill_completed, 'data-aa-record-view-active="1"') !== false
+    && strpos($html_fill_completed, '<span class="sr-only">Activa</span>') !== false
+);
+ac_assert('RVC-2B: creation policy hides only creation UI',
+    strpos($html_fill_completed, 'id="aa-shell-open-create-record-btn"') === false
+    && strpos($html_fill_completed, 'aa-shell-edit-record-btn') !== false
+    && strpos($html_fill_completed, 'aa-shell-delete-record-btn') !== false
+    && strpos($html_fill_completed, 'canonical-shell-record-form.js') !== false
+);
+ac_assert('RVC-2B: alternative view keeps list management out and exposes context label',
+    strpos($html_fill_completed, 'aa-shell-edit-container-btn') === false
+    && strpos($html_fill_completed, 'aa-shell-delete-container-btn') === false
+    && strpos($html_fill_completed, '>Completadas</span>') !== false
+    && strpos($html_fill_completed, 'Ver pendientes') === false
+    && strpos($html_fill_completed, 'Ver Completadas') === false
+);
+ac_assert('RVC-2B: alternative-only options load their interaction controller',
+    strpos($html_fill_completed, 'canonical-shell-container-options.js') !== false
+);
+
+$fill_simple_views = array_merge($fill_empty_view, [
+    'records_view' => 'simple',
+    'capability_views' => [],
+    'simple_record_view' => [
+        'key' => 'simple',
+        'label' => 'Simple',
+        'active' => true,
+        'url' => $simple_view_url,
+    ],
+    'available_record_views' => [[
+        'owner' => 'completed',
+        'key' => 'completed',
+        'label' => 'Completadas',
+        'active' => false,
+        'url' => $completed_view_url,
+    ]],
+    'records_view_policy' => ['allows_record_creation' => true],
+    'current_record_view' => null,
+    'default_records_url' => $simple_view_url,
+]);
+$html_fill_simple_views = render_shell([
+    'aa_shell_route_state' => 'resolved',
+    'aa_shell_route_message' => '',
+    'aa_shell_view' => $fill_simple_views,
+    'aa_canonical_family' => $family,
+]);
+ac_assert('RVC-2B: Simple marks base and preserves list management plus creation',
+    strpos($html_fill_simple_views, 'data-aa-record-view-active="1"') !== false
+    && strpos($html_fill_simple_views, 'aa-shell-edit-container-btn') !== false
+    && strpos($html_fill_simple_views, 'aa-shell-delete-container-btn') !== false
+    && strpos($html_fill_simple_views, 'id="aa-shell-open-create-record-btn"') !== false
+    && strpos($html_fill_simple_views, '>Pendientes<') === false
+);
+
+$fill_permissive_view = array_merge($fill_simple_views, [
+    'capability_views' => ['test_flag' => 'flagged'],
+    'simple_record_view' => array_merge($fill_simple_views['simple_record_view'], ['active' => false]),
+    'available_record_views' => [[
+        'owner' => 'test_flag',
+        'key' => 'flagged',
+        'label' => 'Marcadas',
+        'active' => true,
+        'url' => $simple_view_url,
+    ]],
+    'records_view_policy' => ['allows_record_creation' => true],
+    'current_record_view' => ['label' => 'Marcadas'],
+]);
+$html_fill_permissive = render_shell([
+    'aa_shell_route_state' => 'resolved',
+    'aa_shell_route_message' => '',
+    'aa_shell_view' => $fill_permissive_view,
+    'aa_canonical_family' => $family,
+]);
+ac_assert('RVC-2B: permissive alternative view keeps record creation available',
+    strpos($html_fill_permissive, 'id="aa-shell-open-create-record-btn"') !== false
+    && strpos($html_fill_permissive, 'aa-shell-edit-container-btn') === false
+    && strpos($html_fill_permissive, '>Marcadas</span>') !== false
+);
+
 $layout_src = (string) file_get_contents($plugin_root . '/includes/admin/ui/shared/canonical-layout.php');
 $main_js_src = (string) file_get_contents($plugin_root . '/includes/admin/ui/assets/js/main.js');
 $css_src = (string) file_get_contents($plugin_root . '/includes/admin/ui/assets/css/admin.source.css');

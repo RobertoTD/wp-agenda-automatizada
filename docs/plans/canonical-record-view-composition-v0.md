@@ -1,6 +1,6 @@
 # Canonical Record View Composition v0
 
-**Estado:** RVC-0, RVC-1 y RVC-2A completados; RVC-2B pendiente.
+**Estado:** RVC-0, RVC-1, RVC-2A y RVC-2B completados; RVC-2C pendiente.
 
 **Ámbito:** consulta y navegación de registros del Shell Canónico administrativo.
 
@@ -105,7 +105,7 @@ La metadata de `completed` podrá mostrar `Completada el: …`; `postpone`, `Pos
 1. **RVC-0:** este contrato documental. **Completado.**
 2. **RVC-1:** especificación y composición de consulta; migrar `completed` sin cambiar producto. **Completado.**
 3. **RVC-2A:** definiciones tipadas, toggles aditivos y política de creación. **Completado.**
-4. **RVC-2B:** menú accesible `Vista` y `Simple`; aplicar la política de creación.
+4. **RVC-2B:** menú accesible `Vista` y `Simple`; aplicar la política de creación. **Completado.**
 5. **RVC-2C:** slot de metadata de card; `completed_at` como primer consumidor.
 6. **RVC-2D:** slot tipado de detalles/agregados sin migrar capabilities legacy.
 7. **PKG-0:** manifiesto, registry y validador del Package Contract v0.
@@ -126,6 +126,12 @@ RVC-1 no cambia schema ni versión de base de datos y no implementa `postpone`, 
 Cada vista es una definición tipada con clave, label, criterio y política `allows_record_creation`. La resolución entrega `Simple`, estado activo, target de toggle por propietario y política combinada; activar conserva las demás selecciones, desactivar retira solo la propia y `Simple` limpia todas. Si varias vistas están seleccionadas, la prohibición de crear prevalece. `completed` declara que Completadas no permite crear.
 
 El compositor ya expone URLs toggle, `simple_record_view` y `records_view_policy`, pero la UI no los aplica todavía: menú, FAB y presentación visible corresponden a RVC-2B. RVC-2A no cambia schema, datos ni `DB_VERSION`.
+
+## Implementación de RVC-2B
+
+El encabezado de lista presenta un disclosure `Vista` con `Simple` y las vistas declaradas, marca todas las selecciones activas y navega mediante los targets aditivos de RVC-2A. El control usa botones y enlaces nativos; Escape cierra primero el disclosure y después el popup exterior.
+
+La política compuesta gobierna únicamente la creación de registros. Las vistas alternativas no retiran edición base, imágenes ni acciones de otras capabilities; la administración de la lista permanece en `Simple`. RVC-2B no cambia consulta, schema, datos ni `DB_VERSION`.
 
 ## Aceptación de RVC-1 y posteriores
 

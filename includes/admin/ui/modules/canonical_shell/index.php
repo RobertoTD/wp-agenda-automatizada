@@ -77,9 +77,20 @@ $current_record_view = is_array($view) && isset($view['current_record_view']) &&
 $available_record_views = is_array($view) && isset($view['available_record_views']) && is_array($view['available_record_views'])
     ? $view['available_record_views']
     : [];
+$simple_record_view = is_array($view) && isset($view['simple_record_view']) && is_array($view['simple_record_view'])
+    ? $view['simple_record_view']
+    : [];
+$records_view_policy = is_array($view) && isset($view['records_view_policy']) && is_array($view['records_view_policy'])
+    ? $view['records_view_policy']
+    : [];
 $default_records_url = is_array($view) ? (string) ($view['default_records_url'] ?? '') : '';
 $capability_views = is_array($view) && is_array($view['capability_views'] ?? null) ? $view['capability_views'] : [];
 $is_capability_records_view = ($capability_views !== [] && $current_record_view !== null);
+$is_simple_records_view = array_key_exists('active', $simple_record_view)
+    ? !empty($simple_record_view['active'])
+    : !$is_capability_records_view;
+$record_creation_allowed = !array_key_exists('allows_record_creation', $records_view_policy)
+    || !empty($records_view_policy['allows_record_creation']);
 if (
     $family_icon_key === ''
     && isset($aa_canonical_family)
@@ -173,17 +184,21 @@ if (is_array($parent_container) && isset($parent_container['title'])) {
     $create_container_title = (string) $parent_container['title'];
 }
 
-$show_create_record_ui = $show_read_ui
+$records_write_context = $show_read_ui
     && !$is_preview
     && $is_records
     && $route_state === 'resolved'
     && in_array($read_state, ['empty', 'resolved_page'], true)
     && $create_family_key !== ''
-    && $create_container_id >= 1
-    && !$is_capability_records_view;
+    && $create_container_id >= 1;
 
-// Editar lista desde records: misma puerta de escritura que crear registro (familia + contenedor padre).
-$show_edit_container_on_records = $show_create_record_ui;
+// La política compuesta de vistas gobierna solo la creación. No retira edición
+// base, imágenes ni acciones ajenas a la capability propietaria de la vista.
+$show_create_record_ui = $records_write_context && $record_creation_allowed;
+
+// La administración de la lista permanece en Simple; las vistas alternativas no
+// truncan las mutaciones ordinarias de sus registros.
+$show_edit_container_on_records = $records_write_context && $is_simple_records_view;
 
 $show_container_write_ui = $show_create_ui || $show_edit_container_on_records;
 
@@ -309,6 +324,7 @@ try {
     $open_image_purges_on_records = [];
 }
 
+$show_record_write_ui = $records_write_context && !$list_retire_in_progress;
 $show_record_fab = $show_create_record_ui && !$list_retire_in_progress;
 
 $is_records_fill = $show_read_ui
@@ -459,9 +475,10 @@ $is_records_fill = $show_read_ui
                         $edit_list_payload_attr = esc_attr($edit_list_payload);
                     }
                 }
-                $has_record_view_navigation = $is_capability_records_view
-                    ? ($default_records_url !== '')
-                    : ($available_record_views !== []);
+                $simple_record_view_url = isset($simple_record_view['url'])
+                    ? (string) $simple_record_view['url']
+                    : $default_records_url;
+                $has_record_view_navigation = $simple_record_view_url !== '' && $available_record_views !== [];
                 $show_container_options = $edit_list_payload_attr !== '' || $has_record_view_navigation;
                 ?>
 
@@ -497,7 +514,7 @@ $is_records_fill = $show_read_ui
                                             class="aa-shell-container-options-popup hidden absolute right-0 top-full z-30 mt-2 w-[12rem] box-border rounded-lg border border-gray-200 bg-white py-1 shadow-lg"
                                             hidden
                                         >
-                                            <?php if (!$is_capability_records_view && $edit_list_payload_attr !== '') : ?>
+                                            <?php if ($edit_list_payload_attr !== '') : ?>
                                             <button
                                                 type="button"
                                                 class="aa-shell-edit-container-btn flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 focus:outline-none focus:bg-gray-50 focus:ring-2 focus:ring-inset focus:ring-indigo-500/30"
@@ -507,15 +524,56 @@ $is_records_fill = $show_read_ui
                                                 Editar
                                             </button>
                                             <?php endif; ?>
-                                            <?php if ($is_capability_records_view && $default_records_url !== '') : ?>
-                                                <a href="<?php echo esc_url($default_records_url); ?>" class="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 focus:outline-none focus:bg-gray-50 focus:ring-2 focus:ring-inset focus:ring-indigo-500/30">Ver pendientes</a>
-                                            <?php elseif (!$is_capability_records_view) : ?>
+                                            <?php if ($has_record_view_navigation) : ?>
+                                                <button
+                                                    type="button"
+                                                    class="aa-shell-record-views-trigger flex w-full items-center justify-between gap-2 px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 focus:outline-none focus:bg-gray-50 focus:ring-2 focus:ring-inset focus:ring-indigo-500/30"
+                                                    aria-expanded="false"
+                                                    aria-controls="aa-shell-record-views-panel"
+                                                >
+                                                    <span>Vista</span>
+                                                    <svg class="h-4 w-4 shrink-0" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                                        <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/>
+                                                    </svg>
+                                                </button>
+                                                <div
+                                                    id="aa-shell-record-views-panel"
+                                                    class="aa-shell-record-views-panel hidden border-y border-gray-100 bg-gray-50/70 py-1"
+                                                    hidden
+                                                >
+                                                    <?php
+                                                    $simple_active = !empty($simple_record_view['active']);
+                                                    $simple_label = isset($simple_record_view['label']) && (string) $simple_record_view['label'] !== ''
+                                                        ? (string) $simple_record_view['label']
+                                                        : 'Simple';
+                                                    ?>
+                                                    <a
+                                                        href="<?php echo esc_url($simple_record_view_url); ?>"
+                                                        class="aa-shell-record-view-link flex w-full items-center gap-2 px-4 py-2 text-left text-sm <?php echo $simple_active ? 'bg-indigo-50 font-semibold text-indigo-800' : 'text-gray-700 hover:bg-gray-100'; ?> focus:outline-none focus:ring-2 focus:ring-inset focus:ring-indigo-500/30"
+                                                        data-aa-record-view-active="<?php echo $simple_active ? '1' : '0'; ?>"
+                                                    >
+                                                        <span class="inline-flex w-4 shrink-0 justify-center" aria-hidden="true"><?php echo $simple_active ? '&#10003;' : ''; ?></span>
+                                                        <span><?php echo esc_html($simple_label); ?></span>
+                                                        <?php if ($simple_active) : ?><span class="sr-only">Activa</span><?php endif; ?>
+                                                    </a>
                                                 <?php foreach ($available_record_views as $record_view_link) : ?>
                                                     <?php if (!is_array($record_view_link) || empty($record_view_link['url']) || empty($record_view_link['label'])) { continue; } ?>
-                                                    <a href="<?php echo esc_url((string) $record_view_link['url']); ?>" class="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 focus:outline-none focus:bg-gray-50 focus:ring-2 focus:ring-inset focus:ring-indigo-500/30">Ver <?php echo esc_html((string) $record_view_link['label']); ?></a>
+                                                    <?php $record_view_active = !empty($record_view_link['active']); ?>
+                                                    <a
+                                                        href="<?php echo esc_url((string) $record_view_link['url']); ?>"
+                                                        class="aa-shell-record-view-link flex w-full items-center gap-2 px-4 py-2 text-left text-sm <?php echo $record_view_active ? 'bg-indigo-50 font-semibold text-indigo-800' : 'text-gray-700 hover:bg-gray-100'; ?> focus:outline-none focus:ring-2 focus:ring-inset focus:ring-indigo-500/30"
+                                                        data-aa-record-view-owner="<?php echo esc_attr((string) ($record_view_link['owner'] ?? '')); ?>"
+                                                        data-aa-record-view-key="<?php echo esc_attr((string) ($record_view_link['key'] ?? '')); ?>"
+                                                        data-aa-record-view-active="<?php echo $record_view_active ? '1' : '0'; ?>"
+                                                    >
+                                                        <span class="inline-flex w-4 shrink-0 justify-center" aria-hidden="true"><?php echo $record_view_active ? '&#10003;' : ''; ?></span>
+                                                        <span><?php echo esc_html((string) $record_view_link['label']); ?></span>
+                                                        <?php if ($record_view_active) : ?><span class="sr-only">Activa</span><?php endif; ?>
+                                                    </a>
                                                 <?php endforeach; ?>
+                                                </div>
                                             <?php endif; ?>
-                                            <?php if (!$is_capability_records_view && $edit_list_payload_attr !== '') : ?>
+                                            <?php if ($edit_list_payload_attr !== '') : ?>
                                             <button
                                                 type="button"
                                                 class="aa-shell-delete-container-btn flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-red-600 hover:bg-gray-50 focus:outline-none focus:bg-gray-50 focus:ring-2 focus:ring-inset focus:ring-red-500/30"
@@ -659,9 +717,9 @@ $is_records_fill = $show_read_ui
                                         $card_capability_actions = isset($item['capability_card_actions']) && is_array($item['capability_card_actions'])
                                             ? $item['capability_card_actions']
                                             : [];
-                                        $show_edit_record = $show_record_fab;
+                                        $show_edit_record = $show_record_write_ui;
                                         $shell_record_presentation = 'compact';
-                                        $show_image_actions = $show_create_record_ui && !$list_retire_in_progress;
+                                        $show_image_actions = $show_record_write_ui;
                                         $card_image_summary_url = $aa_shell_resolve_card_image_summary_url(
                                             $card_capabilities,
                                             $card_record_id,
@@ -860,9 +918,9 @@ $is_records_fill = $show_read_ui
                                 $card_capability_actions = isset($item['capability_card_actions']) && is_array($item['capability_card_actions'])
                                     ? $item['capability_card_actions']
                                     : [];
-                                $show_edit_record = $show_record_fab;
+                                $show_edit_record = $show_record_write_ui;
                                 $shell_record_presentation = 'card';
-                                $show_image_actions = $show_create_record_ui && !$list_retire_in_progress;
+                                $show_image_actions = $show_record_write_ui;
                                 $card_image_summary_url = $aa_shell_resolve_card_image_summary_url(
                                     $card_capabilities,
                                     $card_record_id,
@@ -1583,7 +1641,7 @@ $is_records_fill = $show_read_ui
         : esc_url((defined('AA_PLUGIN_URL') ? AA_PLUGIN_URL : '') . 'includes/admin/ui/modules/canonical_shell/canonical-shell-container-options.js'); ?>"></script>
 <?php endif; ?>
 
-<?php if (!$show_container_write_ui && $is_records && $is_capability_records_view) : ?>
+<?php if (!$show_container_write_ui && $is_records && $available_record_views !== []) : ?>
 <script src="<?php echo function_exists('aa_asset_url')
     ? aa_asset_url('includes/admin/ui/modules/canonical_shell/canonical-shell-container-options.js')
     : esc_url((defined('AA_PLUGIN_URL') ? AA_PLUGIN_URL : '') . 'includes/admin/ui/modules/canonical_shell/canonical-shell-container-options.js'); ?>"></script>
@@ -1613,7 +1671,7 @@ if ($is_records) {
 }
 ?>
 
-<?php if ($show_record_fab || $capability_client_modules !== []) : ?>
+<?php if ($show_record_write_ui || $capability_client_modules !== []) : ?>
     <?php
     if (!class_exists('CanonicalCreateRecordAjax')) {
         require_once dirname(__DIR__, 4) . '/http/ajax/CanonicalCreateRecordAjax.php';
