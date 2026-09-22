@@ -9,7 +9,7 @@
  * Phone: DEFAULTS_VERSION=4 → contact/phone default off (insert-if-missing).
  * WhatsApp: DEFAULTS_VERSION=5 → contact/whatsapp default on (insert-if-missing; solo listas nuevas).
  * Email: DEFAULTS_VERSION=6 → contact/email default off (insert-if-missing).
- * Completed: DEFAULTS_VERSION=8 → action/completed default on; images default off.
+ * Completed Package v1: DEFAULTS_VERSION=8 → action/completed default on; images default off.
  *
  * @package WP_Agenda_Automatizada
  * @subpackage Infrastructure\Canonical
@@ -137,7 +137,7 @@ final class AA_Canonical_Capability_Defaults_Lifecycle {
      * @return list<array{family_key:string,capability_key:string,is_default:bool}>
      */
     public static function declared_seeds(): array {
-        return [
+        $legacy_seeds = [
             [
                 'family_key' => 'finance',
                 'capability_key' => 'amount',
@@ -183,11 +183,16 @@ final class AA_Canonical_Capability_Defaults_Lifecycle {
                 'capability_key' => 'images',
                 'is_default' => false,
             ],
-            [
-                'family_key' => 'action',
-                'capability_key' => 'completed',
-                'is_default' => true,
-            ],
         ];
+        foreach (AA_Canonical_Capability_Package_Registry_Bootstrap::bootstrap()->all() as $package) {
+            foreach ($package->family_defaults() as $family_key => $is_default) {
+                $legacy_seeds[] = [
+                    'family_key' => $family_key,
+                    'capability_key' => $package->key(),
+                    'is_default' => $is_default,
+                ];
+            }
+        }
+        return $legacy_seeds;
     }
 }

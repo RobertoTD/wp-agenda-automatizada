@@ -25,14 +25,22 @@ final class AA_Canonical_Capability_Presentation_Registry_Bootstrap {
             'whatsapp' => 'WhatsApp',
             'email' => 'Email',
             'images' => 'Imágenes',
-            'completed' => 'Completar',
         ];
+
+        $packages = AA_Canonical_Capability_Package_Registry_Bootstrap::bootstrap();
 
         foreach ($labels as $capability_key => $label) {
             if (!$capability_registry->has($capability_key)) {
                 throw new \LogicException('[unknown_capability_presentation] Presentation metadata requires a registered capability.');
             }
             $registry->register(new CanonicalCapabilityPresentationDefinition($capability_key, $label));
+        }
+        foreach ($packages->all() as $package) {
+            $capability_key = $package->key();
+            if (!$capability_registry->has($capability_key)) {
+                throw new \LogicException('[unknown_capability_package_presentation] Package presentation requires a registered capability.');
+            }
+            $registry->register(new CanonicalCapabilityPresentationDefinition($capability_key, $package->label()));
         }
 
         return $registry->freeze();

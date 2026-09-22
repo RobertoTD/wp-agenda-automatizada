@@ -108,10 +108,16 @@ La metadata de `completed` podrá mostrar `Completada el: …`; `postpone`, `Pos
 4. **RVC-2B:** menú accesible `Vista` y `Simple`; aplicar la política de creación. **Completado.**
 5. **RVC-2C:** slot de metadata de card; `completed_at` como primer consumidor. **Completado:** provider tipado, registry sellado, localización neutral del composer y slot antes de `updated_at`; repetir completar conserva su fecha.
 6. **RVC-2D:** slot tipado de detalles/agregados sin migrar capabilities legacy.
-7. **PKG-0:** manifiesto, registry y validador del Package Contract v0.
+7. **PKG-0:** manifiesto, registry y validador del Package Contract v0. **Completado:** `completed` v1 es el primer package; es fuente de identidad, label y seed/default `action=true`. Sus providers siguen en registries por slot y el package no ejecuta callbacks ni autodiscovery.
 8. **POST-1:** schema, persistencia, lectura y escritura de `postpone`.
 9. **POST-2:** acción, módulo cliente, vistas y contribuciones visuales.
 10. **POST-3:** combinaciones, lifecycle, expiración y validación integrada.
+
+RVC-2D queda aplazado conscientemente: el agregado de detalles de lista no bloquea `postpone` ni el contrato de package.
+
+## Implementación de PKG-0
+
+`AA_Canonical_Capability_Package_Definition` valida el manifiesto y `AA_Canonical_Capability_Package_Registry` lo sella. El package declara resource key y lifecycle conservativo (`deactivate`/`uninstall` preservan; `purge` es explícito), no tablas ni SQL. `completed` v1 declara `record_read`, `record_write`, permiso canónico de registro, criterio natural, vista `completed` y sus cuatro contribuciones v0. La definición canónica, label y seeds se derivan del package; registries de providers permanecen contratos independientes por superficie.
 
 ## Implementación de RVC-1
 

@@ -70,12 +70,15 @@ require_once plugin_dir_path(__FILE__) . 'includes/domain/canonical/class-aa-can
 require_once plugin_dir_path(__FILE__) . 'includes/domain/canonical/class-aa-canonical-registry.php';
 require_once plugin_dir_path(__FILE__) . 'includes/domain/canonical/class-aa-canonical-capability-definition.php';
 require_once plugin_dir_path(__FILE__) . 'includes/domain/canonical/class-aa-canonical-capability-registry.php';
+require_once plugin_dir_path(__FILE__) . 'includes/domain/canonical/class-aa-canonical-capability-package-definition.php';
+require_once plugin_dir_path(__FILE__) . 'includes/domain/canonical/class-aa-canonical-capability-package-registry.php';
 require_once plugin_dir_path(__FILE__) . 'includes/domain/canonical/class-aa-canonical-solution-definition.php';
 require_once plugin_dir_path(__FILE__) . 'includes/domain/canonical/class-aa-canonical-solution-registry.php';
 require_once plugin_dir_path(__FILE__) . 'includes/domain/canonical/class-aa-canonical-instant.php';
 require_once plugin_dir_path(__FILE__) . 'includes/domain/canonical/class-aa-canonical-container.php';
 require_once plugin_dir_path(__FILE__) . 'includes/domain/canonical/class-aa-canonical-record.php';
 require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/canonical/class-aa-canonical-core-bootstrap.php';
+require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/canonical/class-aa-canonical-capability-package-registry-bootstrap.php';
 require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/canonical/class-aa-canonical-capability-registry-bootstrap.php';
 require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/canonical/class-aa-canonical-solution-registry-bootstrap.php';
 AA_Canonical_Core_Bootstrap::bootstrap();

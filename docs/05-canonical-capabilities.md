@@ -130,6 +130,10 @@ Una vista solicitada de capability conocida pero inactiva o no disponible se ret
 
 Desactivar o desinstalar una capability conserva por defecto sus datos y schema tipados. La eliminación física es una operación **purge** explícita y separada. El contrato y la secuencia operativa están en `docs/plans/canonical-record-view-composition-v0.md`.
 
+### 5.4 Capability Package v0 (decisión aceptada)
+
+Toda capability nueva entra por un manifiesto PHP sellado y validado: identidad, versión, compatibilidad/default por familia, persistencia tipada, lifecycle, lectura/escritura/permisos, criterios/vistas, contribuciones v0 y combinaciones. No contiene SQL, callbacks, HTML, paths ejecutables ni configuración persistida. Los packages legacy quedan fuera hasta una migración explícita; el detalle operativo está en `docs/plans/canonical-record-view-composition-v0.md`.
+
 ---
 
 ## 6. Datos tipados y formas de persistencia (decisión aceptada)

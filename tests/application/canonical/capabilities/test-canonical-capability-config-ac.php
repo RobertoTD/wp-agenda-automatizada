@@ -52,11 +52,11 @@ ac_assert('Lifecycle filtra !is_ready', strpos($life_src, 'is_ready()') !== fals
 ac_assert('Ops sin AJAX/Settings', stripos($ops_src, 'wp_ajax') === false && stripos($ops_src, 'options.php') === false);
 ac_assert('Ops sin bypass wp-config', stripos($ops_src, 'wp-config') === false && stripos($ops_src, 'AA_CAPABILITY') === false);
 
-$index_src = (string) file_get_contents(
-    $plugin_root . '/includes/admin/ui/modules/canonical_shell/index.php'
+$presentation_src = (string) file_get_contents(
+    $plugin_root . '/includes/infrastructure/canonical/class-aa-canonical-capability-presentation-registry-bootstrap.php'
 );
-ac_assert('Shell label Imágenes para images', strpos($index_src, "'Imágenes'") !== false);
-ac_assert('Shell label Importe para amount', strpos($index_src, "'Importe'") !== false);
+ac_assert('Registry de presentación declara label Imágenes', strpos($presentation_src, "'Imágenes'") !== false);
+ac_assert('Registry de presentación declara label Importe', strpos($presentation_src, "'Importe'") !== false);
 ac_assert('Lifecycle declara capability_key images', strpos($life_src, "'capability_key' => 'images'") !== false);
 ac_assert('Lifecycle conserva capability_key amount', strpos($life_src, "'capability_key' => 'amount'") !== false);
 

@@ -11,6 +11,12 @@
 
 defined('ABSPATH') or die('No direct access');
 
+if (!class_exists('AA_Canonical_Capability_Package_Registry_Bootstrap')) {
+    require_once dirname(__DIR__, 2) . '/domain/canonical/class-aa-canonical-capability-package-definition.php';
+    require_once dirname(__DIR__, 2) . '/domain/canonical/class-aa-canonical-capability-package-registry.php';
+    require_once __DIR__ . '/class-aa-canonical-capability-package-registry-bootstrap.php';
+}
+
 final class AA_Canonical_Capability_Registry_Bootstrap {
 
     /** @var AA_Canonical_Capability_Registry|null */
@@ -58,13 +64,9 @@ final class AA_Canonical_Capability_Registry_Bootstrap {
                 true
             )
         );
-        $registry->register(
-            new AA_Canonical_Capability_Definition(
-                'completed',
-                AA_Canonical_Capability_Definition::SCOPE_RECORD,
-                true
-            )
-        );
+        foreach (AA_Canonical_Capability_Package_Registry_Bootstrap::bootstrap()->all() as $package) {
+            $registry->register($package->capability());
+        }
 
         $registry->freeze();
 
