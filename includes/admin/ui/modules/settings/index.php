@@ -693,6 +693,14 @@ $aa_show_legacy_fixed_schedule_ui = (bool) apply_filters(
 <?php
 $settings_module_ver = defined('AA_PLUGIN_VERSION') ? AA_PLUGIN_VERSION : '1.0.0';
 $aa_settings_requires_freemium_consent = isset($aa_requires_freemium_consent) && $aa_requires_freemium_consent;
+?>
+<script>
+window.AA_SETTINGS_DATA = window.AA_SETTINGS_DATA || {};
+window.AA_SETTINGS_DATA.requiresFreemiumConsentBeforeGoogle = <?php echo $aa_settings_requires_freemium_consent ? 'true' : 'false'; ?>;
+</script>
+
+<?php if (empty(AA_CANONICAL_FREE_V2)) : ?>
+<?php
 $aa_family_enabled_ajax_url = admin_url('admin-ajax.php');
 $aa_family_enabled_nonce = class_exists('CanonicalFamilyEnabledAjax')
     ? wp_create_nonce(CanonicalFamilyEnabledAjax::NONCE_ACTION)
@@ -706,8 +714,6 @@ if (!empty($_SERVER['HTTP_HOST'])) {
 }
 ?>
 <script>
-window.AA_SETTINGS_DATA = window.AA_SETTINGS_DATA || {};
-window.AA_SETTINGS_DATA.requiresFreemiumConsentBeforeGoogle = <?php echo $aa_settings_requires_freemium_consent ? 'true' : 'false'; ?>;
 window.AA_CANONICAL_FAMILY_ENABLED = <?php echo wp_json_encode([
     'ajaxUrl' => $aa_family_enabled_ajax_url,
     'action' => $aa_family_enabled_action,
@@ -723,6 +729,8 @@ window.AA_CANONICAL_FAMILY_ENABLED = <?php echo wp_json_encode([
     }, $aa_record_types_families),
 ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE); ?>;
 </script>
+<script src="<?php echo esc_url(plugin_dir_url(__FILE__) . 'canonical-family-toggles.js?ver=' . rawurlencode($settings_module_ver)); ?>"></script>
+<?php endif; ?>
+
 <!-- Module JS -->
 <script src="<?php echo esc_url(plugin_dir_url(__FILE__) . 'module.js?ver=' . rawurlencode($settings_module_ver)); ?>"></script>
-<script src="<?php echo esc_url(plugin_dir_url(__FILE__) . 'canonical-family-toggles.js?ver=' . rawurlencode($settings_module_ver)); ?>"></script>
