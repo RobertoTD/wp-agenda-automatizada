@@ -17,5 +17,6 @@ $aa_clean_record_details = trim((string) ($aa_clean_record['details'] ?? ''));
         <?php else : ?>
             <p class="text-gray-500">Sin detalles.</p>
         <?php endif; ?>
+        <div class="mt-4 flex gap-3 border-t border-gray-100 pt-3"><button class="text-sm text-gray-700 underline decoration-gray-300 underline-offset-4 hover:text-gray-950" type="button" data-aa-clean-action="edit-record" data-aa-clean-list-id="<?php echo (int) $aa_clean_record['container_id']; ?>" data-aa-clean-record-id="<?php echo (int) $aa_clean_record['id']; ?>" data-aa-clean-title="<?php echo esc_attr($aa_clean_record['title']); ?>" data-aa-clean-details="<?php echo esc_attr($aa_clean_record_details); ?>">Editar</button><button class="text-sm text-red-700 underline decoration-red-200 underline-offset-4 hover:text-red-900" type="button" data-aa-clean-action="delete-record" data-aa-clean-list-id="<?php echo (int) $aa_clean_record['container_id']; ?>" data-aa-clean-record-id="<?php echo (int) $aa_clean_record['id']; ?>" data-aa-clean-title="<?php echo esc_attr($aa_clean_record['title']); ?>">Eliminar</button></div>
     </div>
 </details>

@@ -13,6 +13,7 @@ interface CanonicalCorePort {
     public function list_records(int $list_id): array;
     /** @return array{items:list<array>,page:int,per_page:int,total:int,total_pages:int}|null */
     public function list_records_page(int $list_id, int $page, int $per_page): array;
+    public function count_records(int $list_id): int;
     /** @return array{id:int,public_id:string,title:string,details:?string,created_at:string,updated_at:string} */
     public function create_list(AA_Canonical_Base_Fields $fields): array;
     /** @return array{id:int,public_id:string,title:string,details:?string,created_at:string,updated_at:string}|null */

@@ -52,7 +52,7 @@ No rediseña pantalla ni reutiliza el flujo Family/capability legacy.
 
 ### FH-2 — Shell administrativo limpio
 
-**Estado:** FH-2A implementado; FH-2B y FH-2C pendientes.
+**Estado:** FH-2A y FH-2B implementados; FH-2C pendiente.
 
 Construir sobre FH-1 la interfaz universal:
 
@@ -72,6 +72,12 @@ Se pueden extraer patrones visuales o de interacción del código legacy sólo s
 La raíz muestra únicamente listas universales paginadas; cada card usa título, vista previa limitada a dos líneas y `updated_at`. La ruta de registros es `view=records&container_id={id}` sin parámetros verticales; los registros se paginan y sus detalles completos se revelan mediante `<details>` nativo. La fase es deliberadamente de sólo lectura: no contiene FAB, formularios, menús de opciones ni transportes de mutación. Esos controles regresan, sobre la misma superficie, en FH-2B.
 
 **Validación técnica:** parser de rutas puro, pruebas del contrato de lectura, compilación CSS y recorrido local con más de quince listas y registros.
+
+#### FH-2B — Mutaciones y accesibilidad
+
+**Estado:** implementado.
+
+El shell añade FAB contextual, menús de opciones, formularios y confirmaciones mediante un diálogo nativo propio. El transporte AJAX usa únicamente `CanonicalCoreUseCase`, `manage_options`, nonce y payloads escalares; no conoce identidad vertical. Crear una lista desde el FAB navega a la lista recién creada como decisión exclusiva de esta interfaz, no del núcleo. Borrar una lista consulta y muestra el conteo actual de registros hijos antes de confirmar. El puente C1 de formularios POST fue retirado.
 
 ### FH-2R — Revisión y cierre de diseño del shell
 

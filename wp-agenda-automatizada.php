@@ -442,8 +442,8 @@ StaffAjax::register();
 require_once __DIR__ . '/includes/http/ajax/ServiceAjax.php';
 ServiceAjax::register();
 
-require_once __DIR__ . '/includes/http/admin/CanonicalFreeShellPost.php';
-CanonicalFreeShellPost::register();
+require_once __DIR__ . '/includes/http/ajax/CanonicalCleanShellAjax.php';
+CanonicalCleanShellAjax::register();
 
 // Soporte común del transporte de mutaciones canónicas (SB1-5C1): antes de los seis endpoints.
 require_once __DIR__ . '/includes/http/ajax/CanonicalShellWriteAjaxRejection.php';

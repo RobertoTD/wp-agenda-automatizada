@@ -19,6 +19,7 @@ final class CanonicalCoreUseCase {
     public function list(int $list_id): ?array { return $this->port->find_list(self::positive($list_id, 'list_id')); }
     public function records(int $list_id): array { return $this->port->list_records(self::positive($list_id, 'list_id')); }
     public function records_page(int $list_id, int $page): array { return $this->port->list_records_page(self::positive($list_id, 'list_id'), max(1, $page), self::PAGE_SIZE); }
+    public function record_count(int $list_id): int { return $this->port->count_records(self::positive($list_id, 'list_id')); }
 
     public function create_list(AA_Canonical_Base_Fields $fields): CanonicalCoreMutationResult { return $this->mutate(function () use ($fields) { return $this->port->create_list($fields); }); }
     public function update_list(int $list_id, AA_Canonical_Base_Fields $fields): CanonicalCoreMutationResult { return $this->mutate(function () use ($list_id, $fields) { return $this->port->update_list(self::positive($list_id, 'list_id'), $fields); }); }

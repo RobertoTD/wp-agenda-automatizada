@@ -31,6 +31,9 @@ final class CanonicalCoreRepository implements CanonicalCorePort {
         if ($this->find_list($list_id) === null) return null;
         return $this->page($this->records_table(), $list_id, $page, $per_page);
     }
+    public function count_records(int $list_id): int {
+        return (int) $this->value($this->wpdb->prepare('SELECT COUNT(*) FROM `' . $this->records_table() . '` WHERE container_id=%d', $list_id));
+    }
 
     public function create_list(AA_Canonical_Base_Fields $fields): array {
         $table = $this->lists_table();

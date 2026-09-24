@@ -18,6 +18,7 @@ final class CanonicalCoreFakePort implements CanonicalCorePort {
     public function find_list(int $list_id): ?array { return $list_id === 1 ? ['id' => 1] : null; }
     public function list_records(int $list_id): array { return []; }
     public function list_records_page(int $list_id, int $page, int $per_page): array { return $list_id === 1 ? ['items' => [], 'page' => $page, 'per_page' => $per_page, 'total' => 0, 'total_pages' => 0] : null; }
+    public function count_records(int $list_id): int { return $list_id === 1 ? 3 : 0; }
     public function create_list(AA_Canonical_Base_Fields $fields): array { return $this->outcome(['id' => 7, 'title' => $fields->title()]); }
     public function update_list(int $list_id, AA_Canonical_Base_Fields $fields): ?array { return $list_id === 1 ? $this->outcome(['id' => 1]) : null; }
     public function delete_list(int $list_id): bool { return $list_id === 1; }
@@ -43,5 +44,6 @@ core_assert('resultado incierto es explícito', $use_case->create_list($fields)-
 $port->mode = 'ok';
 $use_case->lists_page(0);
 core_assert('paginación normaliza página y fija tamaño', $port->page_args === [1, CanonicalCoreUseCase::PAGE_SIZE]);
+core_assert('conteo de registros pertenece al contrato horizontal', $use_case->record_count(1) === 3);
 
-echo "--- Resumen: 9/9 ---\n";
+echo "--- Resumen: 10/10 ---\n";
