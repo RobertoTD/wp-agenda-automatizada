@@ -50,7 +50,7 @@ Reglas de resolución:
 - capability conocida pero inactiva/not-ready → se elimina su selección y se redirige a URL canónica;
 - paquete ausente → se elimina su selección y se redirige conservando el resto válido;
 - capability activa con vista inválida → `400`;
-- parámetros de familia, lista, origen y selecciones válidas restantes se conservan;
+- parámetros de lista, origen y selecciones válidas restantes se conservan; parámetros de familia son legado v1 y no se emiten;
 - cualquier cambio de criterios reinicia `page` a 1; paginar conserva todas las selecciones.
 
 La ausencia histórica de `records_view` y `records_view=completed` pueden aceptarse como entradas legacy y redirigirse a la forma objetivo. Internamente existe una sola especificación.
@@ -72,8 +72,8 @@ Una URL antigua no reactiva ni instala una capability.
 
 Toda capability nueva debe declarar o justificar:
 
-- identidad, label, alcance y familias compatibles;
-- default por familia;
+- identidad, label y alcance;
+- dependencias e incompatibilidades explícitas, si existen;
 - persistencia tipada y lifecycle de schema;
 - lectura, escritura y permisos;
 - criterio natural;
@@ -88,7 +88,7 @@ El manifiesto será PHP registrado y validado. No reemplaza las capas Domain/App
 
 ## Decisiones de producto para `postpone`
 
-- familia compatible: `action`; default desactivada;
+- sin familia propietaria; default desactivada en toda lista;
 - acción: **Postponer**; vista: **Postpuestas**; acción inversa: **Reanudar ahora**;
 - presets exactos: 24 horas, 3 días, 7 días y 30 días;
 - persistencia mínima: `record_id`, `postponed_at`, `postponed_until`, `preset_key`;

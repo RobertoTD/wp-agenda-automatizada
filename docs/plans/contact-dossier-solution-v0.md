@@ -1,8 +1,8 @@
 # Contact Dossier Solution v0 — Plan de transición
 
-**Status:** completed — transición directa local completada en C3.
+**Status:** historical / retired — `contact_dossier` se retira sin sustitución en Canon libre v2.
 
-**Naturaleza:** plan temporal de exploración e implementación. No sustituye `docs/04-canonical-constitution.md`, `docs/05-canonical-capabilities.md` ni `docs/06-canonical-solutions.md`.
+**Naturaleza:** antecedente técnico. No es autoridad operativa y no preserva la solution, sus tablas ni sus relaciones.
 
 ## Objetivo
 

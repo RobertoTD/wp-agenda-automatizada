@@ -1,29 +1,29 @@
 ---
-description: Puntero condicional al Canon DEO y al plan Shell Base v1.
+description: Puntero condicional al Canon DEO y al plan Canon libre v2.
 alwaysApply: true
 ---
 # Canon DEO — lectura condicional
 
 No cargues ni copies aquí la constitución, el documento de capacidades ni el plan.
 
-Si el encargo toca canon, familia, capability, solution, adaptador, gateway, contrato contenedor–registro, Shell Canónico, o cambios de sidebar/router/shared orientados a vestir familias canónicas:
+Si el encargo toca canon, capability, solution, adaptador, gateway, contrato contenedor–registro, Shell Canónico, o cambios de sidebar/router/shared canónicos:
 
 1. Lee `docs/04-canonical-constitution.md` antes de razonar o modificar.
 2. Si el encargo toca capabilities (asignación, configuración, activación, valores, `amount`, imágenes u otras), lee también `docs/05-canonical-capabilities.md`.
 3. Si el encargo toca solutions (registro, aplicación, relaciones, acciones, vistas o lifecycle), lee también `docs/06-canonical-solutions.md`.
-4. Mientras el plan esté activo, lee también `docs/plans/shell-canonical-base-v1.md`.
-5. Clasifica el cambio como núcleo horizontal, shell, familia, capability, solution, runtime público o transporte. Si no puedes clasificarlo, detente.
-6. Ante un conflicto con otras docs o con el código existente, repórtalo. No reinterpretes ni “mejores” la constitución ni el documento de capacidades o solutions.
+4. Mientras el plan esté activo, lee también `docs/plans/canonical-free-v2.md`.
+5. Clasifica el cambio como núcleo horizontal, shell, capability, solution, runtime público o transporte. Si no puedes clasificarlo, detente.
+6. Ante un conflicto con otras docs o con el código existente, repórtalo y distingue destino v2 de implementación v1. No reintroduzcas familia como identidad, ruta, autorización o restricción de capabilities.
 
 ## Invariantes canónicas (orientación rápida)
 
-- Destino: tres tablas universales (`canonical_families` / `canonical_containers` / `canonical_records`; nombres físicos con prefijo técnico).
-- Las tablas base solo admiten estado y campos universales; nada particular de familia.
+- Destino: dos tablas universales (`canonical_containers` / `canonical_records`; nombres físicos con prefijo técnico).
+- Las tablas base solo admiten estado y campos universales.
 - Las características reutilizables viven en capabilities tipadas; las composiciones instalables viven en solutions. Detalle normativo en `docs/05-canonical-capabilities.md` y `docs/06-canonical-solutions.md`.
-- El shell permanece neutral y opera por contratos/adaptadores.
+- El shell permanece neutral y opera por contratos; la lista y el registro no requieren familia.
 - Barrera futura: API, exportación/importación, identidades públicas y runtime público de solo lectura — no implementarlas prematuramente.
 - Finance legacy está retirado (LEGACY-X). Expedientes legacy no es el nuevo canon.
 
-Estado de la ruta PCU / CAP / LEGACY-X Finance: ver “Decisiones posteriores y estado” en `docs/plans/shell-canonical-base-v1.md`.
+Estado de transición: ver `docs/plans/canonical-free-v2.md`. Los planes v1 conservan historia, no autoridad operativa.
 
 Si el encargo es ajeno a ese ámbito, no abras esos documentos.

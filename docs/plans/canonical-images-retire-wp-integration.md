@@ -1,5 +1,7 @@
 # Exploración: retiro canónico WP, mandatos de limpieza y cuota
 
+> **Ámbito de autoridad desde Canon libre v2:** las garantías de recursos `images` (admisión, seguridad, cuota, retiro, purge y recuperación) siguen vigentes. Toda referencia de este registro histórico a `family_key`, repertorio/defaults de familia, rutas `family=…`, fixtures locales o matrices por familia está supersedida por `docs/04-canonical-constitution.md`, `docs/05-canonical-capabilities.md` y `docs/plans/canonical-free-v2.md`.
+
 **Estado:** **etapa de desarrollo de eliminaciones IMG-5 cerrada**. Worker periódico **apagado**. **§12 Paso 1** + **§13 Paso 2** implementados. **Paso 5 flip:** `images.is_ready=true` + `DEFAULTS_VERSION=3` **implementado**. Galería/`display`/visor/delete UI final **pendientes**.
 **Fecha:** 2026-09-14 … Paso 2: 2026-09-15; Paso 5 flip: 2026-09-15.
 **Ámbito:** retiro canónico; amount↔images; Pasos 1–2 UI; **Paso 5 readiness flip**.

@@ -1,181 +1,82 @@
 # Instrucciones permanentes — Canon de DEO
 
-**Vigencia:** permanente.
+**Vigencia:** permanente desde Canon libre v2.
 
 **Autoridad:** fuente vinculante de la arquitectura canónica de DEO.
 
-**Regla documental:** no duplicar, resumir, reinterpretar ni reescribir esta constitución en otros archivos. Los demás documentos solo deben referenciarla.
+**Estado de transición:** esta constitución define el destino obligatorio. El código y el esquema que todavía requieren `family_key`, `family_id` o enablement de familias son legado v1 pendiente de retiro; no convierten esas restricciones en norma.
 
 ## Propósito rector
 
-Construir y preservar una arquitectura canónica capaz de representar, operar, compartir y consultar las distintas familias de DEO mediante una organización común.
+DEO organiza información mediante una superficie canónica universal: listas y sus registros. Una lista puede existir, crearse, editarse y operar sin pertenecer a una categoría, familia, preset, solution ni capability.
 
-El shell administrativo, el futuro runtime público y la futura API/CLI deben consumir el mismo contrato canónico de datos. El HTML es una representación; nunca es la fuente de verdad.
+El shell administrativo, un futuro runtime público y una futura API/CLI consumen el mismo contrato canónico. HTML y URLs son proyecciones, nunca la fuente de verdad.
 
 ## Modelo canónico invariable
 
-Toda familia integrada al canon se organiza en dos niveles:
-
-Contenedor
+```text
+Lista (contenedor)
 └── Registros
+```
 
-Contenedores y registros poseen siempre:
+Listas y registros poseen siempre `title` obligatorio y `details` opcional/nullable. Un registro pertenece obligatoriamente a una lista.
 
-title, obligatorio.
-details, opcional y nullable.
-
-Un registro pertenece obligatoriamente a un contenedor.
-
-Toda referencia canónica debe permitir identificar:
-
-family_key;
-tipo de recurso: container o record;
-identificador;
-container_id cuando sea un registro.
+La identidad canónica de un recurso contiene solamente su tipo, identificador y, cuando corresponda, `container_id`. No requiere ni infiere `family_key`, `variant_key`, preset, clasificación ni capability activa.
 
 ## Persistencia canónica universal
 
-Las familias canónicas comparten una única persistencia lógica base:
+La persistencia base contiene solo dos entidades lógicas:
 
-canonical_families;
-canonical_containers;
-canonical_records.
+```text
+canonical_containers
+canonical_records
+```
 
-Los nombres físicos llevan el prefijo técnico de la instalación (actualmente planteados como `aa_canonical_families`, `aa_canonical_containers` y `aa_canonical_records`).
+Los nombres físicos llevan el prefijo técnico de la instalación. Las tablas base almacenan únicamente estado y campos universales; no admiten columnas verticales, JSON genérico, EAV ni payloads arbitrarios como sustituto de persistencia tipada.
 
-No existe una pareja de tablas por familia.
+Cada característica no universal se implementa como capability con contrato, validación y persistencia tipada propios. Su asignación y activación por lista se rigen exclusivamente por `docs/05-canonical-capabilities.md`.
 
-La tabla de contenedores identifica la familia. Un registro pertenece obligatoriamente a un contenedor y hereda de él su familia.
+Las familias, su enablement y su catálogo no forman parte de la identidad, autorización, persistencia base, URL, navegación ni creación canónica. Eliminar sus tablas y registros locales sin backfill es una migración aceptada para este entorno de desarrollo.
 
-Las tablas base almacenan exclusivamente estado y campos universales del contrato. No admiten columnas particulares de ninguna familia (`amount`, imágenes, SKU, teléfonos, datos de agenda u equivalentes), ni JSON genérico, ni EAV, ni payloads arbitrarios como sustituto de persistencia tipada.
+Los timestamps universales se guardan en UTC; la zona configurada solo transforma la presentación.
 
-Toda característica no universal reutilizable se implementa como capability. Cada capability exige estructura y validación explícitas para sus datos; la forma de persistencia es propia del contrato de esa capability (p. ej. extensión decimal tipada para `amount`), referida al contenedor, al registro o a ambos según su alcance. No se impone “un campo / una tabla” como regla universal, ni se exime a capacidades complejas de datos tipados. Una capability se implementa una vez y puede contribuir a persistencia, validación, formularios, cards, API y runtime público. El desarrollo normativo de asignación, configuración, activación y valores está en `docs/05-canonical-capabilities.md`.
+## Shell canónico
 
-Una solution no sustituye una capability ni crea una cuarta persistencia base canónica. Es una composición instalable de producto que coordina familias, listas, capabilities, relaciones, vistas, acciones y flujos para cumplir una intención concreta. Puede poseer configuración y relaciones tipadas propias fuera de las tres tablas base, siempre que declare su ciclo de vida, no duplique el CRUD canónico y no convierta sus detalles verticales en conocimiento del shell. Su norma es `docs/06-canonical-solutions.md`.
+El shell contiene comportamiento universal: raíz única de listas, navegación lista–registros, CRUD base, modales, FAB, paginación, estados de carga/vacío/error, accesibilidad, coordinación de mutaciones y manejo de resultados inciertos.
 
-Las definiciones de familia y de solutions son contratos de producto declarados en código. La base de datos guarda estado de instalación y habilitación, contenedores, registros y —según `docs/05-canonical-capabilities.md` y `docs/06-canonical-solutions.md`— configuración persistida de capabilities y solutions; nunca clases, callbacks, SQL ni definiciones ejecutables.
+La raíz es `module=canonical_shell`, sin parámetro `family`. Las URLs de lista y registro se identifican por sus IDs canónicos. Un parámetro de capability puede seleccionar una vista registrada, pero no crea identidad ni habilita una capability.
 
-Los timestamps técnicos de las tablas canónicas universales se almacenan en UTC. UTC es la fuente de verdad; la conversión a la zona configurada ocurre en la presentación.
-
-La arquitectura debe preservar compatibilidad cercana con API, exportación e importación eficientes, identidades públicas estables y un runtime público de solo lectura que proyecte por enlace un registro o contenedor y sus registros autorizados, sin modificar la instalación de origen. Esa compatibilidad es una barrera arquitectónica: no autoriza implementar ahora API, sharing, tokens, snapshots, permisos públicos ni infraestructura del runtime, ni fija todavía si una compartición será snapshot o proyección viva.
-
-Una familia implementada antes de esta regla puede conservar temporalmente tablas propias. Esa persistencia es implementación legacy: no constituye el nuevo canon, no autoriza dual-write ni backfill, y no debe proyectarse al shell nuevo sin un ciclo explícito.
-
-## Separación de responsabilidades
-
-### Shell
-
-El shell contiene únicamente comportamiento universal:
-
-routing por familia;
-encabezados contextuales;
-cards base;
-navegación contenedor–registros;
-paginación;
-FAB;
-CRUD estándar;
-modales base;
-estados de carga, vacío y error;
-accesibilidad;
-coordinación de mutaciones;
-locks y manejo de resultados inciertos.
-
-El shell no debe conocer nombres, campos, tablas, endpoints ni reglas particulares de ninguna familia.
-
-### Familia
-
-La familia define:
-
-semántica de negocio;
-su definición;
-Application y adaptadores;
-validaciones;
-capabilities disponibles o predeterminadas.
-
-La familia no define ni posee su propia persistencia base. Usa la persistencia canónica universal y expresa sus características particulares mediante capabilities.
-
-Ninguna familia es el shell. La primera familia implementada tampoco define por sí sola el canon.
+El shell no conoce nombres, tablas, endpoints ni reglas de una capability. Recibe contribuciones declaradas por contratos de Application/presentación y las proyecta solo cuando la lista las tiene activas.
 
 ## Capabilities
 
-Una capability representa una característica no universal.
+Una capability es una característica reutilizable no universal. Se declara en código, con estado de disponibilidad técnica (`known` y `ready`), alcance, datos tipados, lectura, escritura, lifecycle, contribuciones de presentación y —solo cuando sea necesario— dependencias o incompatibilidades explícitas.
 
-Debe contemplarse como contrato vertical:
+Una lista nueva parte sin capabilities activas. El usuario autorizado puede configurar en su creación o edición cualquier combinación válida de capabilities `known + ready`. La ausencia de una regla explícita significa que no existe una exclusión conceptual por dominio; las restricciones deben ser mecánicas, visibles y justificadas por compatibilidad, datos o seguridad.
 
-estructura de datos;
-validación;
-persistencia;
-Application;
-API;
-UI administrativa;
-representación pública.
+Desactivar conserva valores y recursos, retira toda su proyección y rechaza escrituras nuevas de esa capability. Reactivar recupera la proyección conforme a su contrato.
 
-Un booleano puede activar una capability, pero no constituye por sí mismo su implementación.
+## Solutions y presets
 
-Una característica particular nunca debe añadirse al shell base solamente porque la primera familia la utiliza.
+Una solution coordina varias piezas para una experiencia instalada; no es una capability ni una tercera entidad base. No hay solutions activas en esta etapa: `contact_dossier` y sus recursos se retiran sin rediseño ni conservación.
 
-La lista (contenedor) es la unidad de asignación y configuración efectiva de capabilities. El repertorio y defaults de familia, la selección por lista, la materialización al crear, la activación frente a los datos y el marco de `amount` se desarrollan de forma vinculante en `docs/05-canonical-capabilities.md`. Este documento no duplica esas reglas.
+Un preset sería, en el futuro, una receta opcional que materializa una configuración inicial de lista. No es identidad, autoridad continua ni una clase de lista. No se construye infraestructura de presets en esta etapa.
 
-## Solutions
+## Barreras arquitectónicas
 
-Una solution es una composición instalable de una experiencia y no una capability de gran tamaño. Declara los contextos donde puede aplicarse, sus prerrequisitos y recursos, y puede aplicar configuración por lista o por otro contexto declarado. Una solution puede usar capabilities sin redefinirlas y puede crear relaciones o recursos tipados propios; su configuración no se almacena en el repertorio ni en la selección de capabilities.
-
-El shell conserva sus mecanismos universales. Las acciones, vistas o flujos particulares aportados por una solution se integran mediante contratos de Application y presentación, sin que el shell conozca su nombre, tabla o regla de negocio. El contrato vinculante y sus límites están en `docs/06-canonical-solutions.md`.
-
-## Contrato canónico común
-
-Cada familia implementa un adaptador que transforma sus datos al mismo contrato canónico.
-
-El shell, el runtime público y la API no deben acceder directamente a tablas ni repositorios de familia. Deben consumir servicios de Application o un gateway canónico.
-
-La estructura común debe permanecer estable; los datos particulares se exponen mediante extensiones identificadas por una capability o, cuando sean el resultado de una composición vertical, por una solution aplicable.
-
-## Consumidores
-
-La arquitectura debe permitir tres consumidores del mismo contrato:
-
-Shell administrativo: lectura y mutaciones autorizadas.
-Runtime público: representación compartida, inicialmente de solo lectura.
-API/CLI: datos estructurados mediante JSON y autorización por API key.
-
-Estos consumidores pueden tener permisos y presentaciones diferentes, pero no modelos de datos incompatibles.
-
-La futura compartición de contenedores o registros debe conservar su identidad canónica completa y no depender de una URL interna de administración.
-
-## Interfaces especializadas
-
-Una familia puede conservar interfaces especializadas, como calendario, timeline o galería.
-
-La interfaz especializada puede coexistir con la vista canónica. No debe obligarse al shell universal a absorber comportamientos que solo corresponden a esa familia.
-
-Una familia se integra al canon únicamente cuando puede proyectar coherentemente sus datos como contenedores y registros.
+La arquitectura debe conservar una evolución eficiente hacia API, exportación/importación, identidades públicas estables y runtime público de solo lectura. Esta barrera no autoriza implementar ahora esas superficies, clasificadores, buscador facetado, presets, soluciones ni un sistema de permisos distinto de `manage_options`.
 
 ## Reglas de contención
 
-Antes de proponer o implementar cualquier cambio:
+Antes de cambiar el canon, clasificar el trabajo como núcleo horizontal, shell, capability, solution, transporte o consumidor futuro. Detenerse si no puede clasificarse.
 
-Clasificarlo explícitamente como núcleo horizontal, shell, familia, capability, solution, runtime público o transporte.
-Detenerse si la responsabilidad no puede clasificarse claramente.
-No colocar código particular de una familia dentro del shell.
-No duplicar en cada familia una función que pertenece al shell.
-No convertir una diferencia de UI en capability sin considerar datos, backend, API y runtime.
-No convertir una solución que coordina varias piezas en una capability para reutilizar su configuración o presentación.
-No diseñar el canon alrededor de la única familia existente.
-No hacer que UI, runtime o API consulten directamente la base de datos.
-No sacrificar el contrato futuro de API y compartición para simplificar una implementación inmediata.
-Preferir evolución incremental mediante adaptadores; evitar reescrituras totales.
-Si un ciclo mejora una familia pero aleja el sistema de esta arquitectura, detenerlo y corregir la propuesta antes de implementar.
+- No introducir una condición de familia como sustituto de compatibilidad o activación efectiva.
+- No poner código particular de una capability en el shell.
+- No agregar una capability al contrato base solo porque una lista la usa.
+- No persistir código, callbacks, SQL o definiciones ejecutables.
+- No usar una URL, clasificación o preset como autoridad sobre la configuración vigente de una lista.
+- No anticipar clasificadores o búsqueda facetada dentro de esta etapa.
 
 ## Criterio máximo
 
-El proyecto conserva su dirección mientras cualquier familia compatible puede:
-
-registrar su estructura;
-resolverse por `family_key` en el shell universal (sin `variant_key` en contratos, URLs ni persistencia `aa_canonical_*`);
-usar el shell sin copiarlo;
-añadir capabilities sin contaminarlo;
-aplicar solutions sin convertirlas en persistencia base ni en condiciones particulares del shell;
-proyectar sus datos al contrato canónico;
-ser representada en administración, runtime público y API mediante la misma identidad y organización.
-
-La identidad de un recurso canónico (contenedor o registro) requiere `family_key`. El alcance de consulta de un listado puede ser general (`module=canonical_shell` sin `family`) sin que eso sustituya ni infiera la identidad de un recurso concreto.
+El canon conserva su dirección cuando cualquier lista puede nacer vacía, recibir una combinación válida de capabilities y seguir siendo legible, editable y navegable por su identidad canónica, sin que un origen de configuración determine permanentemente lo que la lista es.

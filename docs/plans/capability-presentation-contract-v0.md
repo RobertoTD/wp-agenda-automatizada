@@ -30,7 +30,7 @@ Los puntos heredados de cards, formulario y carga directa de assets son un puent
 - No se añade allí ninguna capability, campo, acción, script, label o conducta nueva.
 - Solo admite correcciones de bug, seguridad o compatibilidad que preserven el producto existente.
 - `completed` usa el slot v0 de acciones, su módulo cliente registrado y el contrato de composición RVC-1.
-- `contact_dossier` es una solution y no una excepción de capability; su puente heredado se tratará en un contrato de presentación de solutions posterior.
+- `contact_dossier` está retirado de esta etapa y no tiene puente ni contrato de presentación vigente.
 
 Los archivos del puente llevan un marcador explícito y una prueba estática impide incorporar una capability registrada fuera de esta lista cerrada.
 

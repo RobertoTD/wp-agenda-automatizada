@@ -1,10 +1,10 @@
 # Shell Canónico Base v1 — Plan de construcción
 
-**Status:** active.
+**Status:** historical — superseded by `docs/plans/canonical-free-v2.md`.
 
 **Naturaleza:** plan temporal de construcción. No tiene rango constitucional.
 
-**Fuente estructural:** `docs/04-canonical-constitution.md`. Capacidades: `docs/05-canonical-capabilities.md`.
+**Fuente histórica:** conserva el recorrido v1. No es autoridad para identidad, rutas, enablement, repertorio ni defaults de familia. La fuente vigente es `docs/04-canonical-constitution.md`; el plan activo es `docs/plans/canonical-free-v2.md`.
 
 **Control del texto:** este brief no debe reescribirse ni completarse por inferencia. Las decisiones nuevas aprobadas deben registrarse separadamente en “Decisiones posteriores y estado”.
 

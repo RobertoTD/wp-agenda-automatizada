@@ -1,6 +1,6 @@
 # Rollback estructural — shell canónico DB 22 (sin variant_key)
 
-**Naturaleza:** nota operativa de rollback. No ejecutar salvo recuperación controlada.
+**Naturaleza:** nota histórica de rollback de Family v1. No ejecutar: Canon libre v2 elimina ese modelo y la instalación local autorizó reset sin backfill.
 
 **Alcance:** revertir el esquema de `aa_canonical_containers` de `DB_VERSION=22` (familia sola) a la forma previa con `variant_key` e índice compuesto con variante.
 
