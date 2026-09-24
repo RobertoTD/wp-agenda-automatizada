@@ -1,32 +1,89 @@
 <?php
+/**
+ * FH-2A — universal read surface for the canonical shell.
+ *
+ * It is intentionally read-only. CRUD controls return in FH-2B, once their
+ * modal and confirmation surface can be introduced without legacy coupling.
+ */
 defined('ABSPATH') or die('No direct access');
 if (!current_user_can('manage_options')) { wp_die('Permisos insuficientes.', 'Error', ['response' => 403]); }
-if (!class_exists('AA_Canonical_Base_Fields')) require_once dirname(__DIR__, 3) . '/domain/canonical/class-aa-canonical-base-fields.php';
 if (!class_exists('CanonicalCoreUseCase')) require_once dirname(__DIR__, 3) . '/application/canonical/core/CanonicalCoreUseCase.php';
 if (!class_exists('CanonicalCoreRepository')) require_once dirname(__DIR__, 3) . '/repositories/CanonicalCoreRepository.php';
-$core = new CanonicalCoreUseCase(new CanonicalCoreRepository());
-$view = isset($_GET['view']) ? sanitize_key(wp_unslash($_GET['view'])) : '';
-$container_id = isset($_GET['container_id']) ? (int) $_GET['container_id'] : 0;
-$nonce = wp_create_nonce('aa_canonical_free');
-$base = admin_url('admin-post.php?action=aa_iframe_content&module=canonical_shell');
+if (!class_exists('AA_Canonical_Clean_Shell_Read_Route')) require_once __DIR__ . '/canonical_clean_shell/class-aa-canonical-clean-shell-read-route.php';
+
+$aa_clean_core = new CanonicalCoreUseCase(new CanonicalCoreRepository());
+$aa_clean_route = AA_Canonical_Clean_Shell_Read_Route::from_query($_GET);
+$aa_clean_base_url = admin_url('admin-post.php?action=aa_iframe_content&module=canonical_shell');
+$aa_clean_url = static function (string $kind, int $container_id = 0, int $page = 1) use ($aa_clean_base_url): string {
+    $args = [];
+    if ($kind === AA_Canonical_Clean_Shell_Read_Route::RECORDS && $container_id > 0) {
+        $args['view'] = 'records';
+        $args['container_id'] = (string) $container_id;
+    }
+    if ($page > 1) {
+        $args['page'] = (string) $page;
+    }
+    return $args === [] ? $aa_clean_base_url : add_query_arg($args, $aa_clean_base_url);
+};
+$aa_clean_updated_label = static function (string $value): string {
+    try {
+        $date = new DateTimeImmutable($value, new DateTimeZone('UTC'));
+        $timezone = function_exists('wp_timezone') ? wp_timezone() : new DateTimeZone('UTC');
+        return function_exists('wp_date')
+            ? (string) wp_date('j M Y, H:i', $date->getTimestamp(), $timezone)
+            : $date->setTimezone($timezone)->format('j M Y, H:i');
+    } catch (Throwable $e) {
+        return 'sin fecha';
+    }
+};
 ?>
-<section class="mx-auto max-w-5xl p-4" data-aa-canonical-free="1">
-<?php if ($view === 'records' && $container_id > 0) : $list=$core->list($container_id); if (!$list) : ?>
-  <div class="rounded-lg bg-red-50 p-4 text-red-700">La lista no existe.</div>
+<section class="mx-auto max-w-4xl px-3 py-5 sm:px-5 sm:py-7" data-aa-canonical-clean-shell="1">
+<?php if ($aa_clean_route['kind'] === AA_Canonical_Clean_Shell_Read_Route::INVALID_RECORDS) : ?>
+    <div class="rounded-xl border border-gray-200 bg-white p-6 text-center shadow-sm">
+        <h1 class="text-lg font-semibold text-gray-950">Lista no encontrada</h1>
+        <p class="mt-2 text-sm text-gray-600">La dirección de esta lista no es válida.</p>
+        <a class="mt-4 inline-flex text-sm text-gray-700 underline decoration-gray-300 underline-offset-4 hover:text-gray-950" href="<?php echo esc_url($aa_clean_url(AA_Canonical_Clean_Shell_Read_Route::ROOT)); ?>">Volver a todas las listas</a>
+    </div>
+<?php elseif ($aa_clean_route['kind'] === AA_Canonical_Clean_Shell_Read_Route::RECORDS) : ?>
+    <?php $aa_clean_list = $aa_clean_core->list($aa_clean_route['container_id']); ?>
+    <?php if ($aa_clean_list === null) : ?>
+        <div class="rounded-xl border border-gray-200 bg-white p-6 text-center shadow-sm">
+            <h1 class="text-lg font-semibold text-gray-950">Lista no encontrada</h1>
+            <p class="mt-2 text-sm text-gray-600">Esta lista ya no existe o no está disponible.</p>
+            <a class="mt-4 inline-flex text-sm text-gray-700 underline decoration-gray-300 underline-offset-4 hover:text-gray-950" href="<?php echo esc_url($aa_clean_url(AA_Canonical_Clean_Shell_Read_Route::ROOT)); ?>">Volver a todas las listas</a>
+        </div>
+    <?php else : ?>
+        <?php $aa_clean_page_data = $aa_clean_core->records_page($aa_clean_route['container_id'], $aa_clean_route['page']); ?>
+        <header class="mb-5">
+            <a class="text-sm text-gray-600 transition hover:text-gray-950 focus:outline-none focus:ring-2 focus:ring-slate-400/50" href="<?php echo esc_url($aa_clean_url(AA_Canonical_Clean_Shell_Read_Route::ROOT)); ?>">← Todas las listas</a>
+            <h1 class="mt-3 text-2xl font-semibold tracking-tight text-gray-950"><?php echo esc_html($aa_clean_list['title']); ?></h1>
+            <?php if (trim((string) $aa_clean_list['details']) !== '') : ?><p class="mt-2 whitespace-pre-wrap text-sm leading-6 text-gray-600"><?php echo esc_html($aa_clean_list['details']); ?></p><?php endif; ?>
+        </header>
+        <?php if ($aa_clean_page_data['items'] === []) : ?>
+            <div class="rounded-xl border border-dashed border-gray-300 bg-white p-8 text-center">
+                <h2 class="text-base font-semibold text-gray-900">Esta lista no tiene registros</h2>
+                <p class="mt-2 text-sm text-gray-600">Los registros aparecerán aquí cuando se creen.</p>
+            </div>
+        <?php else : ?>
+            <div class="space-y-3">
+                <?php foreach ($aa_clean_page_data['items'] as $aa_clean_record) require __DIR__ . '/canonical_clean_shell/partials/record-disclosure.php'; ?>
+            </div>
+            <?php $aa_clean_route_kind = AA_Canonical_Clean_Shell_Read_Route::RECORDS; $aa_clean_container_id = $aa_clean_route['container_id']; require __DIR__ . '/canonical_clean_shell/partials/pagination.php'; ?>
+        <?php endif; ?>
+    <?php endif; ?>
 <?php else : ?>
-  <div class="mb-5 flex items-center justify-between gap-3"><div><a class="text-sm text-indigo-700 hover:underline" href="<?php echo esc_url($base); ?>">← Todas las listas</a><h1 class="mt-1 text-xl font-semibold text-gray-900"><?php echo esc_html($list['title']); ?></h1></div></div>
-  <a href="#aa-canonical-free-create-record" class="fixed bottom-6 right-6 z-40 inline-flex h-14 w-14 items-center justify-center rounded-full bg-indigo-600 text-3xl text-white shadow-lg hover:bg-indigo-700" aria-label="Crear registro">+</a>
-  <form id="aa-canonical-free-create-record" method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" class="mb-5 rounded-xl bg-white p-4 shadow-sm">
-    <input type="hidden" name="action" value="aa_canonical_free_save_record"><input type="hidden" name="_wpnonce" value="<?php echo esc_attr($nonce); ?>"><input type="hidden" name="container_id" value="<?php echo (int)$container_id; ?>">
-    <label class="block text-sm font-medium">Nuevo registro <input required name="title" class="mt-1 w-full rounded border border-gray-300 p-2" maxlength="200"></label>
-    <label class="mt-3 block text-sm font-medium">Detalles <textarea name="details" class="mt-1 w-full rounded border border-gray-300 p-2"></textarea></label>
-    <button class="mt-3 rounded bg-indigo-600 px-4 py-2 font-semibold text-white">Crear registro</button>
-  </form>
-  <div class="space-y-3"><?php foreach ($core->records($container_id) as $record) : ?><article class="rounded-xl bg-white p-4 shadow-sm"><div class="flex justify-between gap-3"><div><h2 class="font-semibold text-gray-900"><?php echo esc_html($record['title']); ?></h2><?php if ($record['details']) : ?><p class="mt-1 whitespace-pre-wrap text-sm text-gray-600"><?php echo esc_html($record['details']); ?></p><?php endif; ?></div><form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>"><input type="hidden" name="action" value="aa_canonical_free_delete_record"><input type="hidden" name="_wpnonce" value="<?php echo esc_attr($nonce); ?>"><input type="hidden" name="container_id" value="<?php echo (int)$container_id; ?>"><input type="hidden" name="id" value="<?php echo (int)$record['id']; ?>"><button class="text-sm text-red-700">Eliminar</button></form></div><details class="mt-3"><summary class="cursor-pointer text-sm text-indigo-700">Editar</summary><form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" class="mt-2"><input type="hidden" name="action" value="aa_canonical_free_save_record"><input type="hidden" name="_wpnonce" value="<?php echo esc_attr($nonce); ?>"><input type="hidden" name="container_id" value="<?php echo (int)$container_id; ?>"><input type="hidden" name="id" value="<?php echo (int)$record['id']; ?>"><input required name="title" value="<?php echo esc_attr($record['title']); ?>" class="w-full rounded border p-2"><textarea name="details" class="mt-2 w-full rounded border p-2"><?php echo esc_textarea($record['details']); ?></textarea><button class="mt-2 text-sm text-indigo-700">Guardar</button></form></details></article><?php endforeach; ?></div>
-<?php endif; else : ?>
-  <div class="mb-5 flex items-center justify-between"><h1 class="text-xl font-semibold text-gray-900">Todas las listas</h1></div>
-  <a href="#aa-canonical-free-create-list" class="fixed bottom-6 right-6 z-40 inline-flex h-14 w-14 items-center justify-center rounded-full bg-indigo-600 text-3xl text-white shadow-lg hover:bg-indigo-700" aria-label="Crear lista">+</a>
-  <form id="aa-canonical-free-create-list" method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" class="mb-5 rounded-xl bg-white p-4 shadow-sm"><input type="hidden" name="action" value="aa_canonical_free_save_list"><input type="hidden" name="_wpnonce" value="<?php echo esc_attr($nonce); ?>"><label class="block text-sm font-medium">Nueva lista <input required name="title" class="mt-1 w-full rounded border border-gray-300 p-2" maxlength="200"></label><label class="mt-3 block text-sm font-medium">Detalles <textarea name="details" class="mt-1 w-full rounded border border-gray-300 p-2"></textarea></label><button class="mt-3 rounded bg-indigo-600 px-4 py-2 font-semibold text-white">Crear lista</button></form>
-  <div class="space-y-3"><?php foreach ($core->lists() as $list) : $url=add_query_arg(['view'=>'records','container_id'=>(int)$list['id']],$base); ?><article class="rounded-xl bg-white p-4 shadow-sm"><div class="flex justify-between gap-3"><div><a class="font-semibold text-indigo-700 hover:underline" href="<?php echo esc_url($url); ?>"><?php echo esc_html($list['title']); ?></a><?php if ($list['details']) : ?><p class="mt-1 whitespace-pre-wrap text-sm text-gray-600"><?php echo esc_html($list['details']); ?></p><?php endif; ?></div><form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>"><input type="hidden" name="action" value="aa_canonical_free_delete_list"><input type="hidden" name="_wpnonce" value="<?php echo esc_attr($nonce); ?>"><input type="hidden" name="id" value="<?php echo (int)$list['id']; ?>"><button class="text-sm text-red-700">Eliminar</button></form></div><details class="mt-3"><summary class="cursor-pointer text-sm text-indigo-700">Editar</summary><form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" class="mt-2"><input type="hidden" name="action" value="aa_canonical_free_save_list"><input type="hidden" name="_wpnonce" value="<?php echo esc_attr($nonce); ?>"><input type="hidden" name="id" value="<?php echo (int)$list['id']; ?>"><input required name="title" value="<?php echo esc_attr($list['title']); ?>" class="w-full rounded border p-2"><textarea name="details" class="mt-2 w-full rounded border p-2"><?php echo esc_textarea($list['details']); ?></textarea><button class="mt-2 text-sm text-indigo-700">Guardar</button></form></details></article><?php endforeach; ?></div>
+    <?php $aa_clean_page_data = $aa_clean_core->lists_page($aa_clean_route['page']); ?>
+    <header class="mb-5"><h1 class="text-2xl font-semibold tracking-tight text-gray-950">Todas las listas</h1></header>
+    <?php if ($aa_clean_page_data['items'] === []) : ?>
+        <div class="rounded-xl border border-dashed border-gray-300 bg-white p-8 text-center">
+            <h2 class="text-base font-semibold text-gray-900">No hay listas todavía</h2>
+            <p class="mt-2 text-sm text-gray-600">La creación de listas volverá en el siguiente ciclo del shell.</p>
+        </div>
+    <?php else : ?>
+        <div class="space-y-3">
+            <?php foreach ($aa_clean_page_data['items'] as $aa_clean_list) require __DIR__ . '/canonical_clean_shell/partials/list-card.php'; ?>
+        </div>
+        <?php $aa_clean_route_kind = AA_Canonical_Clean_Shell_Read_Route::ROOT; $aa_clean_container_id = 0; require __DIR__ . '/canonical_clean_shell/partials/pagination.php'; ?>
+    <?php endif; ?>
 <?php endif; ?>
 </section>

@@ -8,6 +8,19 @@ body {
 }
 
 @layer components {
+    /* Canonical clean shell — this surface owns only neutral read presentation. */
+    .aa-canonical-clean-preview {
+        overflow: hidden;
+        display: -webkit-box;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
+        line-clamp: 2;
+    }
+
+    details.aa-canonical-clean-record[open] > summary .aa-canonical-clean-record-chevron {
+        transform: rotate(90deg);
+    }
+
     /* Notifications badge - centered text */
     #aa-notifications-badge {
         display: flex;

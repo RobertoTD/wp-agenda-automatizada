@@ -52,6 +52,8 @@ No rediseña pantalla ni reutiliza el flujo Family/capability legacy.
 
 ### FH-2 — Shell administrativo limpio
 
+**Estado:** FH-2A implementado; FH-2B y FH-2C pendientes.
+
 Construir sobre FH-1 la interfaz universal:
 
 - raíz de todas las listas, estado vacío, cards/listado, paginación y navegación lista→registros;
@@ -62,6 +64,14 @@ Construir sobre FH-1 la interfaz universal:
 Se pueden extraer patrones visuales o de interacción del código legacy sólo si se desacoplan por completo de Family, capability y solution. No se reutiliza un formulario, card o ruta cuya semántica dependa de ellas.
 
 **Aceptación:** un administrador completa el CRUD de una lista vacía y de sus registros desde un shell coherente, accesible y visualmente neutral, sin configuración vertical oculta.
+
+#### FH-2A — Lectura y estructura
+
+**Estado:** implementado.
+
+La raíz muestra únicamente listas universales paginadas; cada card usa título, vista previa limitada a dos líneas y `updated_at`. La ruta de registros es `view=records&container_id={id}` sin parámetros verticales; los registros se paginan y sus detalles completos se revelan mediante `<details>` nativo. La fase es deliberadamente de sólo lectura: no contiene FAB, formularios, menús de opciones ni transportes de mutación. Esos controles regresan, sobre la misma superficie, en FH-2B.
+
+**Validación técnica:** parser de rutas puro, pruebas del contrato de lectura, compilación CSS y recorrido local con más de quince listas y registros.
 
 ### FH-2R — Revisión y cierre de diseño del shell
 
