@@ -40,11 +40,15 @@ Documentar el cierre de Canon libre C1, sustituir su ruta de capabilities, decla
 
 ### FH-1 — Núcleo canónico e integridad
 
+**Estado:** implementado en `DB_VERSION=40`.
+
 Definir y probar el contrato de Application/persistencia que sirve al shell: lectura, paginación, creación, edición y eliminación de listas y registros, autorización `manage_options`, resultados de mutación y pertenencia obligatoria de cada registro a su lista. Resolver las invariantes de integridad que el CRUD mínimo C1 aún no expresa de forma durable.
 
 No rediseña pantalla ni reutiliza el flujo Family/capability legacy.
 
 **Aceptación:** el shell puede consumir un único contrato horizontal y las operaciones preservan las invariantes de lista–registro con pruebas proporcionales.
+
+**Resultado:** `CanonicalCoreUseCase` consume un puerto neutral y `CanonicalCoreRepository` concentra SQL de listas/registros. El handler C1 y su vista ya no usan `CanonicalFreeRepository`. La FK `record.container_id → container.id ON DELETE CASCADE` se instala y verifica en el schema libre; borrar una lista elimina irreversiblemente sus registros. La instalación local `policyytest` fue migrada y acreditó el recorrido crear lista → crear registro → borrar lista → cero registros hijos.
 
 ### FH-2 — Shell administrativo limpio
 

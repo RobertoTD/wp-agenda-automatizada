@@ -643,6 +643,20 @@ final class AA_Canonical_Schema {
             updated_at datetime NOT NULL,
             PRIMARY KEY (id), UNIQUE KEY uq_record_public_id (public_id), KEY idx_container_updated (container_id,updated_at,id)
         ) ENGINE=InnoDB {$charset};");
+        self::ensure_foreign_key(
+            $records,
+            self::records_foreign_key_name(),
+            'container_id',
+            $containers,
+            'CASCADE'
+        );
+        self::verify_foreign_key(
+            $records,
+            $containers,
+            self::records_foreign_key_name(),
+            'container_id',
+            'CASCADE'
+        );
     }
 
     /**

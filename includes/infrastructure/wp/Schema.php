@@ -66,8 +66,8 @@ final class AA_Schema {
      * Independiente de la versión del plugin. Solo refleja el estado
      * de las tablas/columnas/índices.
      */
-    /** DB 39: Canon libre v2, sin Family en el camino activo. */
-    public const DB_VERSION = '39';
+    /** DB 40: núcleo canónico libre con FK record → list. */
+    public const DB_VERSION = '40';
 
     public const OPTION_INSTALLATION_INITIALIZED_AT = 'aa_installation_initialized_at';
 
