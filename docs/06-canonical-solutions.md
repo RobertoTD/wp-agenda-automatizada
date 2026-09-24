@@ -12,4 +12,4 @@ Una futura solution deberá declarar compatibilidad, requisitos, lifecycle, recu
 
 ## Fuera de alcance actual
 
-No se construyen registry, tabla común, applications, relaciones, UI, presets, importación/exportación, runtime público ni motor universal de workflows/relations. El texto e implementación históricos de `contact_dossier` se conservan solo como antecedente; no son autoridad operativa.
+No se construyen registry, tabla común, applications, relaciones, UI, presets, importación/exportación, runtime público, capabilities ni motor universal de workflows/relations. El texto e implementación históricos de `contact_dossier` se conservan solo como antecedente; no son autoridad operativa.

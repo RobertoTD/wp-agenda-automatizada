@@ -4,7 +4,7 @@
 
 **Autoridad:** norma vinculante para definición, compatibilidad, configuración, activación, datos y proyección de capabilities. Complementa `docs/04-canonical-constitution.md`.
 
-**Estado de transición:** el repositorio aún implementa repertorio/defaults de familia y selección restringida por familia. Es comportamiento v1 a retirar, no una excepción a esta norma.
+**Estado de transición:** Family ya no participa en el camino canónico activo. Las capabilities existentes están desregistradas y este documento conserva principios de diseño para una etapa futura; no habilita implementación, catálogo, editor ni proyecciones durante Fundación horizontal v2.
 
 ## 1. Propósito
 
@@ -23,9 +23,9 @@ No hay repertorio, default, herencia dinámica ni enablement por familia. Una li
 
 ## 3. Elegibilidad y combinación
 
-En crear o editar una lista, el servidor admite una selección solo si todas las claves son `known + ready` y el conjunto final satisface las dependencias e incompatibilidades declaradas. La validación se hace sobre el conjunto resultante, no sobre el formulario parcial ni sobre lo que el cliente afirma.
+Cuando una etapa futura habilite configuración de capabilities, el servidor sólo podrá admitir una selección si todas las claves son `known + ready` y el conjunto final satisface las dependencias e incompatibilidades declaradas. La validación se hará sobre el conjunto resultante, no sobre el formulario parcial ni sobre lo que el cliente afirme.
 
-La interfaz debe mostrar las capabilities elegibles, sus dependencias y los bloqueos comprensibles. Una capability no lista o no lista para producción no se ofrece. Una restricción de cuota, permisos o integridad también se explica como bloqueo de operación, no como una pertenencia de la lista a una familia.
+La futura interfaz deberá mostrar las capabilities elegibles, sus dependencias y los bloqueos comprensibles. Una capability no lista para producción no se ofrecerá. Una restricción de cuota, permisos o integridad también se explicará como bloqueo de operación, no como pertenencia de la lista a una familia.
 
 El contrato de transporte podrá conservar `scope + selection` si sigue siendo útil, pero su semántica v2 será:
 
@@ -34,7 +34,7 @@ El contrato de transporte podrá conservar `scope + selection` si sigue siendo �
 - cada clave de `scope` debe ser `known + ready` o ya estar asignada solo para permitir su desactivación/lectura durante una retirada controlada;
 - la validación de compatibilidad se hace antes de persistir; el servidor nunca completa defaults ocultos.
 
-La forma exacta de snapshots, errores y DTOs se decide en C2, sin alterar estas reglas.
+La forma exacta de snapshots, errores y DTOs se decidirá en una etapa de conceptualización propia, sin alterar estos principios.
 
 ## 4. Activación, datos y lifecycle
 
@@ -44,21 +44,21 @@ La forma exacta de snapshots, errores y DTOs se decide en C2, sin alterar estas 
 - Editar `title` o `details` nunca elimina valores de una capability desactivada.
 - Una URL que seleccione una vista de capability conocida pero inactiva vuelve de forma segura a la vista base; una clave desconocida sigue siendo inválida.
 
-Todo ciclo de capability prueba `activa → inactiva → reactivada` sobre la misma lista.
+Todo ciclo futuro de capability deberá probar `activa → inactiva → reactivada` sobre la misma lista.
 
 ## 5. Datos y presentación
 
 Los datos son tipados y explícitos. Una capability puede usar una o varias tablas propias, recursos externos o agregados, pero declara su identidad, permisos, operaciones, borrado, recuperación e interacción con el borrado de lista/registro.
 
-El Shell administrativo recibe contribuciones tipadas para slots comunes. No recibe HTML, callbacks, SQL ni rutas ejecutables desde la base. El puente de presentación legacy queda limitado a correcciones; toda evolución nueva usa el contrato de presentación.
+El Shell administrativo sólo podrá recibir contribuciones tipadas para slots comunes. No recibirá HTML, callbacks, SQL ni rutas ejecutables desde la base. El puente de presentación legacy queda limitado a correcciones; no se crea un contrato nuevo de presentación hasta completar el shell limpio.
 
 Las vistas, filtros y criterios de records se componen antes de contar/paginar y solo por providers activos. El buscador y la clasificación facetada son una etapa de producto futura, fuera de esta norma operativa.
 
 ## 6. Capabilities existentes
 
-Las claves existentes son candidatas del catálogo global, no propietarias de una familia: `amount`, `images`, `phone`, `whatsapp`, `email` y `completed`.
+Las claves existentes son candidatas históricas, no propietarias de una familia: `amount`, `images`, `phone`, `whatsapp`, `email` y `completed`. No forman un catálogo activo ni una promesa de que se conservará su estructura actual.
 
-Su disponibilidad efectiva depende exclusivamente de que cada implementación esté `ready` y de su contrato técnico. Las referencias históricas que limitaban `amount` a Finanzas, `completed` a Acciones o `images` a una matriz de familias quedan supersedidas. C2 inventariará sus contratos reales y declarará únicamente incompatibilidades demostrables antes de abrir la selección libre en UI.
+Las referencias históricas que limitaban `amount` a Finanzas, `completed` a Acciones o `images` a una matriz de familias quedan supersedidas. Una exploración futura inventariará sus contratos reales y decidirá si alguna se rediseña, se retira o se conserva antes de abrir selección alguna en UI.
 
 ### `amount`
 
@@ -72,8 +72,8 @@ Su disponibilidad efectiva depende exclusivamente de que cada implementación es
 
 `completed`, `phone`, `whatsapp` y `email` se someten al mismo contrato global. Antes de declararlos seleccionables en la interfaz v2 se verifican sus dependencias, acciones, vistas y cierres de proyección. No se les atribuye una semántica de tipo de lista.
 
-## 7. Estado implementado y mecanismo pendiente
+## 7. Estado implementado y trabajo diferido
 
-Hoy `DB_VERSION=39` deja en el camino activo solo listas y registros sin Family; capabilities y `contact_dossier` están desregistrados de la superficie C1. El reset local de `policyytest` eliminó sus tablas v1 sin backfill. La adaptación global de capabilities sigue pendiente y no debe inferirse como implementada.
+Hoy `DB_VERSION=39` deja en el camino activo sólo listas y registros sin Family; capabilities y `contact_dossier` están desregistrados de la superficie C1. El reset local de `policyytest` eliminó sus tablas v1 sin backfill.
 
-Pendiente de C1–C4: retirar la identidad y enablement de familia; convertir la configuración a lista global; inventariar y validar combinaciones; exponer el editor de capabilities; retirar dossier y sus tablas/flujo; y ejecutar pruebas de proyección, compatibilidad y seguridad.
+La adaptación de capabilities está deliberadamente diferida: primero se termina el núcleo y shell limpio conforme a `docs/plans/canonical-horizontal-foundation-v2.md`. Después se abrirá una exploración independiente; este documento no adelanta su alcance ni su implementación.
