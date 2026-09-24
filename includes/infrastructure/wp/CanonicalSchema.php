@@ -360,6 +360,10 @@ final class AA_Canonical_Schema {
      * @throws \RuntimeException Si la creación, constraint o verificación falla.
      */
     public static function install(): void {
+        if (defined('AA_CANONICAL_FREE_V2') && AA_CANONICAL_FREE_V2) {
+            self::install_free_v2();
+            return;
+        }
         global $wpdb;
 
         $families_table = self::families_table_name();
@@ -611,6 +615,34 @@ final class AA_Canonical_Schema {
         self::ensure_named_indexes();
         self::ensure_foreign_keys();
         self::verify();
+    }
+
+    /** Schema mínimo de C1. No elimina columnas/tablas v1: el reset local es explícito. */
+    private static function install_free_v2(): void {
+        global $wpdb;
+        if (!function_exists('dbDelta')) { require_once ABSPATH . 'wp-admin/includes/upgrade.php'; }
+        $charset = $wpdb->get_charset_collate();
+        $containers = self::containers_table_name();
+        $records = self::records_table_name();
+        dbDelta("CREATE TABLE {$containers} (
+            id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+            public_id char(36) NOT NULL,
+            title varchar(200) NOT NULL,
+            details text DEFAULT NULL,
+            created_at datetime NOT NULL,
+            updated_at datetime NOT NULL,
+            PRIMARY KEY (id), UNIQUE KEY uq_container_public_id (public_id), KEY idx_updated (updated_at,id)
+        ) ENGINE=InnoDB {$charset};");
+        dbDelta("CREATE TABLE {$records} (
+            id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+            public_id char(36) NOT NULL,
+            container_id bigint(20) unsigned NOT NULL,
+            title varchar(200) NOT NULL,
+            details text DEFAULT NULL,
+            created_at datetime NOT NULL,
+            updated_at datetime NOT NULL,
+            PRIMARY KEY (id), UNIQUE KEY uq_record_public_id (public_id), KEY idx_container_updated (container_id,updated_at,id)
+        ) ENGINE=InnoDB {$charset};");
     }
 
     /**

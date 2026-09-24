@@ -66,8 +66,8 @@ final class AA_Schema {
      * Independiente de la versión del plugin. Solo refleja el estado
      * de las tablas/columnas/índices.
      */
-    /** DB 38: capability `completed` para Acciones. */
-    public const DB_VERSION = '38';
+    /** DB 39: Canon libre v2, sin Family en el camino activo. */
+    public const DB_VERSION = '39';
 
     public const OPTION_INSTALLATION_INITIALIZED_AT = 'aa_installation_initialized_at';
 

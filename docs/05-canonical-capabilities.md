@@ -74,6 +74,6 @@ Su disponibilidad efectiva depende exclusivamente de que cada implementación es
 
 ## 7. Estado implementado y mecanismo pendiente
 
-Hoy `DB_VERSION=38` conserva schema, tablas, catálogo, rutas, autorización y UI v1 dependientes de familias; además existe `contact_dossier`. Ese estado debe poder eliminarse en el entorno local sin backfill. No debe leerse como cumplimiento parcial de las capas v2.
+Hoy `DB_VERSION=39` deja en el camino activo solo listas y registros sin Family; capabilities y `contact_dossier` están desregistrados de la superficie C1. El reset local de `policyytest` eliminó sus tablas v1 sin backfill. La adaptación global de capabilities sigue pendiente y no debe inferirse como implementada.
 
 Pendiente de C1–C4: retirar la identidad y enablement de familia; convertir la configuración a lista global; inventariar y validar combinaciones; exponer el editor de capabilities; retirar dossier y sus tablas/flujo; y ejecutar pruebas de proyección, compatibilidad y seguridad.

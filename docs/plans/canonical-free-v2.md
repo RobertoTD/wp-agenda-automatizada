@@ -31,6 +31,8 @@ Reemplazar autoridad documental v1 por v2, actualizar guías de agentes y marcar
 
 ### C1 — Raíz y persistencia canónica libres
 
+**Estado:** implementado localmente en `policyytest` (`blog_id=61`, `DB_VERSION=39`).
+
 Eliminar de schema, dominio, repository, router, AJAX y shell la identidad/enablement/selector de familias. Rehacer la base local de forma controlada; crear y operar una lista y registros sin capability.
 
 **Aceptación:** el FAB existe aunque no haya configuraciones adicionales; la URL de lista/registro no contiene family; CRUD base funciona con `manage_options`.

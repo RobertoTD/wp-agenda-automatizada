@@ -29,8 +29,8 @@ defined('ABSPATH') or die('¡Sin acceso directo!');
 
                 <!-- Dynamic page title (synced from contextual view or active sidebar label) -->
                 <?php
-                $aa_family_title_mode = null;
-                $aa_family_title_label = '';
+                $aa_family_title_mode = !empty($aa_canonical_free_mode) ? 'family-static' : null;
+                $aa_family_title_label = !empty($aa_canonical_free_mode) ? 'Todas las listas' : '';
                 $aa_family_switcher_items = [];
                 $aa_family_current_key = '';
                 $aa_switcher_all_key = '__all__';
@@ -42,14 +42,14 @@ defined('ABSPATH') or die('¡Sin acceso directo!');
                     && (string) $aa_shell_view['lists_scope'] === 'all'
                 );
 
-                if (
+                if (empty($aa_canonical_free_mode) && (
                     isset($active_module)
                     && $active_module === 'canonical_shell'
                     && isset($aa_shell_route_state)
                     && $aa_shell_route_state === 'resolved'
                     && isset($aa_canonical_record_types_nav)
                     && is_array($aa_canonical_record_types_nav)
-                ) {
+                )) {
                     $aa_family_nav_items = [];
                     foreach ($aa_canonical_record_types_nav as $aa_nav_item) {
                         $aa_nav_key = (string) ($aa_nav_item['family_key'] ?? '');

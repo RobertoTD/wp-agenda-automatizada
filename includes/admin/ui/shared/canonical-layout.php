@@ -37,10 +37,10 @@ if (!function_exists('aa_asset_url')) {
     }
 }
 
-// Nav de familias disponibles (enabled + autorizadas; una sola lectura; header + sidebar).
+// Canon libre v2 no construye navegación por familias.
 $aa_canonical_record_types_nav = [];
 $can_manage_options = current_user_can('manage_options');
-if ($can_manage_options
+if (empty($aa_canonical_free_mode) && $can_manage_options
     && class_exists('AA_Canonical_Core_Bootstrap')
     && class_exists('AA_Canonical_Family_Enablement_Store')
     && class_exists('ReadCanonicalFamilyEnablementUseCase')
@@ -134,7 +134,7 @@ header('Content-Type: text/html; charset=utf-8');
 <script src="<?php echo aa_asset_url('includes/admin/ui/assets/js/main.js'); ?>" defer></script>
 <script src="<?php echo aa_asset_url('includes/admin/ui/assets/js/sidebar.js'); ?>" defer></script>
 <script src="<?php echo aa_asset_url('assets/js/services/shellAccessProjection.js'); ?>" defer></script>
-<?php if ($active_module === 'canonical_shell') : ?>
+<?php if ($active_module === 'canonical_shell' && empty($aa_canonical_free_mode)) : ?>
 <script src="<?php echo aa_asset_url('includes/admin/ui/assets/js/canonical-family-switcher.js'); ?>" defer></script>
 <?php endif; ?>
 

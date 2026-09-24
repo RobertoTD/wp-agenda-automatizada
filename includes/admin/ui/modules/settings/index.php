@@ -582,6 +582,7 @@ $aa_show_legacy_fixed_schedule_ui = (bool) apply_filters(
 
     </form>
 
+    <?php if (empty(AA_CANONICAL_FREE_V2)) : ?>
     <?php
     $aa_record_types_families = [];
     $aa_record_types_schema_ready = true;
@@ -684,6 +685,7 @@ $aa_show_legacy_fixed_schedule_ui = (bool) apply_filters(
             <?php endforeach; ?>
         </div>
     </details>
+    <?php endif; ?>
 </div>
 
 <!-- Time picker logic handled in module.js -->

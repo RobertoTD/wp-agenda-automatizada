@@ -47,6 +47,14 @@ $aa_shell_route_state = null;
 $aa_shell_route_message = null;
 $aa_shell_view = null;
 
+// Canon libre v2: el shell activo no resuelve familia, presets ni capabilities.
+if ($active_module === 'canonical_shell') {
+    $aa_canonical_free_mode = true;
+    $aa_canonical_url = admin_url('admin-post.php?action=aa_iframe_content&module=canonical_shell');
+    $module_path = __DIR__ . '/modules/canonical_free_shell.php';
+    require __DIR__ . '/shared/canonical-layout.php';
+}
+
 if ($active_module === 'canonical_shell') {
     if (!class_exists('AA_Canonical_Shell_Base_Url_Policy')) {
         require_once dirname(__DIR__, 2) . '/infrastructure/wp/class-aa-canonical-shell-base-url-policy.php';

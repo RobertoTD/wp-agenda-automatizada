@@ -15,6 +15,7 @@ define('AA_PLUGIN_PATH', plugin_dir_path(__FILE__));
 define('AA_PLUGIN_URL', plugin_dir_url(__FILE__));
 $plugin_data = get_file_data(__FILE__, ['Version' => 'Version']);
 define('AA_PLUGIN_VERSION', $plugin_data['Version']);
+define('AA_CANONICAL_FREE_V2', true);
 
 // Detectar entorno automáticamente
 $site_url = get_site_url();
@@ -81,9 +82,8 @@ require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/canonical/clas
 require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/canonical/class-aa-canonical-capability-package-registry-bootstrap.php';
 require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/canonical/class-aa-canonical-capability-registry-bootstrap.php';
 require_once plugin_dir_path(__FILE__) . 'includes/infrastructure/canonical/class-aa-canonical-solution-registry-bootstrap.php';
-AA_Canonical_Core_Bootstrap::bootstrap();
-AA_Canonical_Capability_Registry_Bootstrap::bootstrap();
-AA_Canonical_Solution_Registry_Bootstrap::bootstrap();
+// C1 registra únicamente el CRUD base. Family, capabilities y solutions no
+// se bootstrappean hasta que C2 reconstruya sus contratos globales.
 require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/ResolveCanonicalRouteUseCase.php';
 require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/CanonicalReadIdentity.php';
 require_once plugin_dir_path(__FILE__) . 'includes/application/canonical/CanonicalPagination.php';
@@ -442,51 +442,19 @@ StaffAjax::register();
 require_once __DIR__ . '/includes/http/ajax/ServiceAjax.php';
 ServiceAjax::register();
 
-require_once __DIR__ . '/includes/http/ajax/CanonicalFamilyEnabledAjax.php';
-CanonicalFamilyEnabledAjax::register();
+require_once __DIR__ . '/includes/http/admin/CanonicalFreeShellPost.php';
+CanonicalFreeShellPost::register();
 
 // Soporte común del transporte de mutaciones canónicas (SB1-5C1): antes de los seis endpoints.
 require_once __DIR__ . '/includes/http/ajax/CanonicalShellWriteAjaxRejection.php';
 require_once __DIR__ . '/includes/http/ajax/CanonicalShellWriteAjaxSupport.php';
 
-require_once __DIR__ . '/includes/http/ajax/CanonicalCreateContainerAjax.php';
-CanonicalCreateContainerAjax::register();
-
-require_once __DIR__ . '/includes/http/ajax/CanonicalUpdateContainerAjax.php';
-CanonicalUpdateContainerAjax::register();
-
-require_once __DIR__ . '/includes/http/ajax/CanonicalDeleteContainerAjax.php';
-CanonicalDeleteContainerAjax::register();
-
-require_once __DIR__ . '/includes/http/ajax/CanonicalCreateRecordAjax.php';
-CanonicalCreateRecordAjax::register();
-
-require_once __DIR__ . '/includes/http/ajax/CanonicalOpenContactDossierAjax.php';
-CanonicalOpenContactDossierAjax::register();
-
-require_once __DIR__ . '/includes/http/ajax/CanonicalUpdateRecordAjax.php';
-CanonicalUpdateRecordAjax::register();
-require_once __DIR__ . '/includes/http/ajax/CanonicalSetRecordCompletionAjax.php';
-CanonicalSetRecordCompletionAjax::register();
-
-require_once __DIR__ . '/includes/http/ajax/CanonicalDeleteRecordAjax.php';
-CanonicalDeleteRecordAjax::register();
-
-require_once __DIR__ . '/includes/http/ajax/CanonicalDeleteRecordImageAjax.php';
-CanonicalDeleteRecordImageAjax::register();
-
-require_once __DIR__ . '/includes/http/ajax/CanonicalAttachRecordImageAjax.php';
-CanonicalAttachRecordImageAjax::register();
-
-require_once __DIR__ . '/includes/http/ajax/CanonicalSignRecordImageReadAjax.php';
-CanonicalSignRecordImageReadAjax::register();
 
 // ===============================
 // 🔹 Schema lifecycle: registra el activation hook con AA_Schema::install
 // ===============================
 AA_Schema::register(__FILE__);
-AA_Canonical_Family_Catalog_Lifecycle::register(__FILE__);
-AA_Canonical_Capability_Defaults_Lifecycle::register(__FILE__);
+// C1: no catalog lifecycle ni defaults de Family/Capability hasta C2.
 AA_Learning_Catalog_Seed_Lifecycle::register(__FILE__);
 AA_Appointment_Actions_List_Seed_Lifecycle::register(__FILE__);
 AA_Learning_State_Migration_Lifecycle::register(__FILE__);
